@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1059796102944",
+    "project_id": "trashpotting-app",
+    "storage_bucket": "trashpotting-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059796102944:android:56f262dbd56f926b2d3145",
+        "android_client_info": {
+          "package_name": "com.trashpotting.trashpotting_v3"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGxhxOB8kExRrUdCIrLY_6AGFg6IYRHNw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
