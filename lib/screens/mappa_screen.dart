@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../data/mock_trashpots.dart';
+import '../maps_android_init.dart';
 import '../models/trashpot_report.dart';
 
 /// Mappa Google con marker per ogni trashpot (segnalazione).
@@ -151,7 +152,9 @@ class _MappaScreenState extends State<MappaScreen> {
     _mapMountReady = !deferMapMount;
     if (deferMapMount) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await ensureAndroidMapsSdkReady();
+          await Future<void>.delayed(const Duration(milliseconds: 120));
           if (mounted) setState(() => _mapMountReady = true);
         });
       });
@@ -222,6 +225,7 @@ class _MappaScreenState extends State<MappaScreen> {
                   markers: _markers,
                   mapType: MapType.normal,
                   zoomControlsEnabled: false,
+                  myLocationEnabled: true,
                   myLocationButtonEnabled: false,
                   compassEnabled: true,
                   onMapCreated: (c) {

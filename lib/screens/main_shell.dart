@@ -34,6 +34,27 @@ class _MainShellState extends State<MainShell> {
 
   static const _titles = ['Mappa', 'Segnala', 'Classifica', 'Profilo'];
 
+  /// Una sola tab alla volta nel tree: [IndexedStack] teneva tutte le schermate
+  /// (inclusa [GoogleMap]) montate insieme e su Android creava più platform view
+  /// e layout fragili. Qui la mappa esiste solo quando la tab Mappa è selezionata.
+  Widget _bodyForTab(int i) {
+    switch (i) {
+      case 0:
+        return const MappaScreen();
+      case 1:
+        return const SegnalaScreen();
+      case 2:
+        return const ClassificaScreen();
+      case 3:
+        return ProfiloScreen(
+          firebaseReady: widget.firebaseReady,
+          firebaseError: widget.firebaseError,
+        );
+      default:
+        return const MappaScreen();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,21 +70,7 @@ class _MainShellState extends State<MainShell> {
           ),
         ],
       ),
-      body: SizedBox.expand(
-        child: IndexedStack(
-          index: _index,
-          sizing: StackFit.expand,
-          children: [
-            const MappaScreen(),
-            const SegnalaScreen(),
-            const ClassificaScreen(),
-            ProfiloScreen(
-              firebaseReady: widget.firebaseReady,
-              firebaseError: widget.firebaseError,
-            ),
-          ],
-        ),
-      ),
+      body: SizedBox.expand(child: _bodyForTab(_index)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
