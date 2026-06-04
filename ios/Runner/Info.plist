@@ -26,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Serve l accesso alla fotocamera per allegare immagini alla segnalazione.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Serve la posizione GPS per indicare con precisione il punto segnalato.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Serve l accesso alla galleria per allegare foto esistenti alla segnalazione.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -8,4 +8,8 @@ class AuthService {
   Future<UserCredential> signInAnonymously() {
     return _auth.signInAnonymously();
   }
+
+  Future<void> signOut() {
+    return _auth.signOut();
+  }
 }

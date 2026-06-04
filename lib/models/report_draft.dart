@@ -1,6 +1,13 @@
 class ReportDraft {
-  const ReportDraft({required this.note, this.photoUrl});
+  const ReportDraft({
+    required this.note,
+    this.photoPath,
+    this.latitude,
+    this.longitude,
+  });
 
   final String note;
-  final String? photoUrl;
+  final String? photoPath;
+  final double? latitude;
+  final double? longitude;
 }

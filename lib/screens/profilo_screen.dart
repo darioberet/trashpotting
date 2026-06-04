@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
+import '../services/auth_service.dart';
 import '../state/app_session.dart';
 
 class ProfiloScreen extends StatelessWidget {
@@ -74,6 +75,25 @@ class ProfiloScreen extends StatelessWidget {
             context.push(AppRoutes.debugFirebase);
           },
         ),
+        if (firebaseReady && userId != null)
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              try {
+                await AuthService().signOut();
+                if (!context.mounted) return;
+                AppSessionScope.of(context).publishInfo('Logout effettuato.');
+              } catch (e) {
+                if (!context.mounted) return;
+                AppSessionScope.of(context).publishError(
+                  e,
+                  fallback: 'Logout non riuscito.',
+                );
+              }
+            },
+          ),
       ],
     );
   }
