@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../data/mock_trashpots.dart';
 import '../maps_android_init.dart';
 import '../models/trashpot_report.dart';
+import '../services/location_service.dart';
 
 /// Mappa Google con marker per ogni trashpot (segnalazione).
 ///
@@ -20,6 +21,8 @@ class MappaScreen extends StatefulWidget {
 class _MappaScreenState extends State<MappaScreen> {
   GoogleMapController? _mapController;
   late final Set<Marker> _markers;
+  final _locationService = LocationService();
+  bool _resolvingGps = false;
 
   /// Android [GoogleMap] uses a platform view that can call [RenderBox.localToGlobal]
   /// during a warm-up frame before the surrounding tree has finished layout,
@@ -40,9 +43,8 @@ class _MappaScreenState extends State<MappaScreen> {
     }
   }
 
-  LatLngBounds _boundsIncludingUser(Iterable<TrashpotReport> reports) {
-    final pts = reports.map((r) => LatLng(r.lat, r.lng)).toList()
-      ..add(const LatLng(kDemoUserLat, kDemoUserLng));
+  LatLngBounds _boundsForReports(Iterable<TrashpotReport> reports) {
+    final pts = reports.map((r) => LatLng(r.lat, r.lng)).toList();
     var south = pts.first.latitude;
     var north = pts.first.latitude;
     var west = pts.first.longitude;
@@ -74,7 +76,7 @@ class _MappaScreenState extends State<MappaScreen> {
     try {
       await c.animateCamera(
         CameraUpdate.newLatLngBounds(
-          _boundsIncludingUser(mockTrashpots),
+          _boundsForReports(mockTrashpots),
           80,
         ),
       );
@@ -83,6 +85,31 @@ class _MappaScreenState extends State<MappaScreen> {
         debugPrint('Unable to fit map camera bounds: $e');
         debugPrintStack(stackTrace: st);
       }
+    }
+  }
+
+  Future<void> _goToCurrentGpsPosition() async {
+    if (_resolvingGps) return;
+    final c = _mapController;
+    if (c == null) return;
+
+    setState(() => _resolvingGps = true);
+    try {
+      final p = await _locationService.getCurrentPosition();
+      if (!mounted) return;
+      await c.animateCamera(
+        CameraUpdate.newLatLngZoom(
+          LatLng(p.latitude, p.longitude),
+          16,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('GPS non disponibile: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _resolvingGps = false);
     }
   }
 
@@ -168,12 +195,6 @@ class _MappaScreenState extends State<MappaScreen> {
     }
     final trashpots = mockTrashpots;
     _markers = {
-      Marker(
-        markerId: const MarkerId('user_demo'),
-        position: const LatLng(kDemoUserLat, kDemoUserLng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        infoWindow: const InfoWindow(title: 'La tua posizione (demo)'),
-      ),
       for (final r in trashpots)
         Marker(
           markerId: MarkerId('tp_${r.id}'),
@@ -222,7 +243,7 @@ class _MappaScreenState extends State<MappaScreen> {
       );
     }
 
-    final initialBounds = _boundsIncludingUser(mockTrashpots);
+    final initialBounds = _boundsForReports(mockTrashpots);
     final initialTarget = LatLng(
       (initialBounds.northeast.latitude + initialBounds.southwest.latitude) / 2,
       (initialBounds.northeast.longitude + initialBounds.southwest.longitude) / 2,
@@ -261,11 +282,20 @@ class _MappaScreenState extends State<MappaScreen> {
           bottom: 12,
           child: FloatingActionButton.small(
             heroTag: 'recenter_map',
-            onPressed: _fitAll,
-            tooltip: 'Mostra tutti i punti',
+            onPressed: _resolvingGps ? null : _goToCurrentGpsPosition,
+            tooltip: 'Vai alla tua posizione GPS',
             backgroundColor: _greenBrand,
             foregroundColor: Colors.white,
-            child: const Icon(Icons.fit_screen),
+            child: _resolvingGps
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.my_location),
           ),
         ),
       ],

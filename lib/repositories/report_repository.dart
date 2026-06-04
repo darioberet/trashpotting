@@ -16,7 +16,7 @@ class FirestoreReportRepository implements ReportRepository {
   Future<void> submitReport({required ReportDraft draft, String? uid}) {
     return _firestore.collection('reports').add({
       'note': draft.note,
-      'photoPath': draft.photoPath,
+      'photoUrl': draft.photoUrl,
       'latitude': draft.latitude,
       'longitude': draft.longitude,
       'uid': uid,

@@ -35,6 +35,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
   int _seenInfoToken = 0;
   int _seenErrorToken = 0;
   bool _resolvingPosition = false;
+  bool _blockingDialogOpen = false;
 
   @override
   void initState() {
@@ -45,26 +46,67 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
   Future<void> _send() async {
     if (_viewModel.sending) return;
     final session = AppSessionScope.of(context);
-    await _viewModel.submit(
-      firebaseReady: session.firebaseReady,
-      note: _note.text,
-      uid: session.currentUserId,
-    );
 
-    if (_viewModel.infoToken > _seenInfoToken && _viewModel.lastInfo != null) {
-      _seenInfoToken = _viewModel.infoToken;
-      session.publishInfo(_viewModel.lastInfo!);
-      if (_viewModel.lastInfo == 'Segnalazione inviata correttamente.' && mounted) {
-        _note.clear();
-        _viewModel.clearDraftExtras();
-      }
-    }
-    if (_viewModel.errorToken > _seenErrorToken && _viewModel.lastError != null) {
-      _seenErrorToken = _viewModel.errorToken;
-      session.publishError(
-        _viewModel.lastError!,
-        fallback: _viewModel.lastErrorFallback,
+    if (mounted && !_blockingDialogOpen) {
+      _blockingDialogOpen = true;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (ctx) {
+          return const PopScope(
+            canPop: false,
+            child: Center(
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
+                      ),
+                      SizedBox(width: 12),
+                      Text('Invio segnalazione...'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       );
+    }
+
+    try {
+      await _viewModel.submit(
+        firebaseReady: session.firebaseReady,
+        note: _note.text,
+        uid: session.currentUserId,
+      );
+
+      if (_viewModel.infoToken > _seenInfoToken && _viewModel.lastInfo != null) {
+        _seenInfoToken = _viewModel.infoToken;
+        session.publishInfo(_viewModel.lastInfo!);
+        if (_viewModel.lastInfo == 'Segnalazione inviata correttamente.' && mounted) {
+          _note.clear();
+          _viewModel.clearDraftExtras();
+        }
+      }
+      if (_viewModel.errorToken > _seenErrorToken && _viewModel.lastError != null) {
+        _seenErrorToken = _viewModel.errorToken;
+        session.publishError(
+          _viewModel.lastError!,
+          fallback: _viewModel.lastErrorFallback,
+        );
+      }
+    } finally {
+      if (mounted && _blockingDialogOpen) {
+        Navigator.of(context, rootNavigator: true).pop();
+        _blockingDialogOpen = false;
+      }
     }
   }
 
@@ -141,115 +183,155 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, _) {
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        return Stack(
           children: [
-            Text(
-              'Nuova segnalazione',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Descrivi il punto, allega una foto e acquisisci la posizione GPS.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: _choosePhotoSource,
-              icon: const Icon(Icons.add_a_photo_outlined),
-              label: Text(
-                _viewModel.photoPath == null ? 'Aggiungi foto' : 'Cambia foto',
-              ),
-            ),
-            if (_viewModel.photoPath != null) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: kIsWeb
-                    ? Container(
-                        padding: const EdgeInsets.all(12),
-                        color: cs.surfaceContainerHighest,
-                        child: Text(
-                          'Foto selezionata: ${_viewModel.photoPath!.split(RegExp(r'[\\/]')).last}',
-                        ),
-                      )
-                    : Image.file(
-                        File(_viewModel.photoPath!),
-                        height: 180,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: _viewModel.clearPhoto,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Rimuovi foto'),
-                ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _resolvingPosition ? null : _resolvePosition,
-              icon: const Icon(Icons.my_location_outlined),
-              label: Text(
-                _resolvingPosition
-                    ? 'Recupero posizione...'
-                    : (_viewModel.latitude == null
-                        ? 'Ottieni posizione GPS'
-                        : 'Aggiorna posizione GPS'),
-              ),
-            ),
-            if (_viewModel.latitude != null && _viewModel.longitude != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.place_outlined,
-                      size: 18,
+            AbsorbPointer(
+              absorbing: _viewModel.sending,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                children: [
+                  Text(
+                    'Nuova segnalazione',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Descrivi il punto, allega una foto e acquisisci la posizione GPS.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Lat ${_viewModel.latitude!.toStringAsFixed(6)}, Lng ${_viewModel.longitude!.toStringAsFixed(6)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 24),
+                  OutlinedButton.icon(
+                    onPressed: _choosePhotoSource,
+                    icon: const Icon(Icons.add_a_photo_outlined),
+                    label: Text(
+                      _viewModel.photoPath == null
+                          ? 'Aggiungi foto'
+                          : 'Cambia foto',
+                    ),
+                  ),
+                  if (_viewModel.photoPath != null) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: kIsWeb
+                          ? Container(
+                              padding: const EdgeInsets.all(12),
+                              color: cs.surfaceContainerHighest,
+                              child: Text(
+                                'Foto selezionata: ${_viewModel.photoPath!.split(RegExp(r'[\\/]')).last}',
+                              ),
+                            )
+                          : Image.file(
+                              File(_viewModel.photoPath!),
+                              height: 180,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _viewModel.clearPhoto,
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Rimuovi foto'),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _resolvingPosition ? null : _resolvePosition,
+                    icon: const Icon(Icons.my_location_outlined),
+                    label: Text(
+                      _resolvingPosition
+                          ? 'Recupero posizione...'
+                          : (_viewModel.latitude == null
+                              ? 'Ottieni posizione GPS'
+                              : 'Aggiorna posizione GPS'),
+                    ),
+                  ),
+                  if (_viewModel.latitude != null && _viewModel.longitude != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.place_outlined,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Lat ${_viewModel.latitude!.toStringAsFixed(6)}, Lng ${_viewModel.longitude!.toStringAsFixed(6)}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _viewModel.clearLocation,
+                            child: const Text('Rimuovi'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _note,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                      labelText: 'Note',
+                      hintText: 'Indirizzo, tipo di rifiuto, orario…',
+                      alignLabelWithHint: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    onPressed: _viewModel.sending ? null : _send,
+                    icon: const Icon(Icons.send_outlined),
+                    label: Text(
+                      _viewModel.sending
+                          ? 'Invio in corso...'
+                          : 'Invia segnalazione',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_viewModel.sending)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black26,
+                  child: Center(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2.4),
+                            ),
+                            SizedBox(width: 12),
+                            Text('Invio segnalazione...'),
+                          ],
                         ),
                       ),
                     ),
-                    TextButton(
-                      onPressed: _viewModel.clearLocation,
-                      child: const Text('Rimuovi'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _note,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'Note',
-                hintText: 'Indirizzo, tipo di rifiuto, orario…',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _viewModel.sending ? null : _send,
-              icon: const Icon(Icons.send_outlined),
-              label: Text(
-                _viewModel.sending ? 'Invio in corso...' : 'Invia segnalazione',
-              ),
-            ),
           ],
         );
       },
