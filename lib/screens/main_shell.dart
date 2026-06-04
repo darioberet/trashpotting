@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
 import 'classifica_screen.dart';
@@ -10,13 +11,9 @@ import 'segnala_screen.dart';
 class MainShell extends StatefulWidget {
   const MainShell({
     super.key,
-    required this.firebaseReady,
-    this.firebaseError,
     this.initialIndex = 0,
   });
 
-  final bool firebaseReady;
-  final Object? firebaseError;
   final int initialIndex;
 
   @override
@@ -26,10 +23,20 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _index;
 
+  int _normalizedIndex(int value) => value.clamp(0, 3);
+
   @override
   void initState() {
     super.initState();
-    _index = widget.initialIndex.clamp(0, 3);
+    _index = _normalizedIndex(widget.initialIndex);
+  }
+
+  @override
+  void didUpdateWidget(covariant MainShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialIndex != widget.initialIndex) {
+      _index = _normalizedIndex(widget.initialIndex);
+    }
   }
 
   static const _titles = ['Mappa', 'Segnala', 'Classifica', 'Profilo'];
@@ -42,14 +49,11 @@ class _MainShellState extends State<MainShell> {
       case 0:
         return const MappaScreen();
       case 1:
-        return const SegnalaScreen();
+        return SegnalaScreen();
       case 2:
-        return const ClassificaScreen();
+        return ClassificaScreen();
       case 3:
-        return ProfiloScreen(
-          firebaseReady: widget.firebaseReady,
-          firebaseError: widget.firebaseError,
-        );
+        return const ProfiloScreen();
       default:
         return const MappaScreen();
     }
@@ -65,7 +69,7 @@ class _MainShellState extends State<MainShell> {
             tooltip: 'Notifiche',
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () {
-              Navigator.of(context).pushNamed<void>(AppRoutes.notifiche);
+              context.push(AppRoutes.notifiche);
             },
           ),
         ],

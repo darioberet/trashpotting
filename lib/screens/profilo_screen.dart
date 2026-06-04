@@ -1,23 +1,19 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
+import '../state/app_session.dart';
 
 class ProfiloScreen extends StatelessWidget {
-  const ProfiloScreen({
-    super.key,
-    required this.firebaseReady,
-    this.firebaseError,
-  });
-
-  final bool firebaseReady;
-  final Object? firebaseError;
+  const ProfiloScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final user = firebaseReady ? FirebaseAuth.instance.currentUser : null;
+    final session = AppSessionScope.watch(context);
+    final firebaseReady = session.firebaseReady;
+    final userId = session.currentUserId;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -28,22 +24,22 @@ class ProfiloScreen extends StatelessWidget {
           backgroundColor: cs.primaryContainer,
           foregroundColor: cs.onPrimaryContainer,
           child: Icon(
-            user != null ? Icons.person : Icons.person_outline,
+            userId != null ? Icons.person : Icons.person_outline,
             size: 40,
           ),
         ),
         const SizedBox(height: 16),
         Text(
-          user != null ? 'Utente' : 'Ospite',
+          userId != null ? 'Utente' : 'Ospite',
           textAlign: TextAlign.center,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
-        if (user != null) ...[
+        if (userId != null) ...[
           const SizedBox(height: 4),
           SelectableText(
-            user.uid,
+            userId,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
@@ -67,7 +63,7 @@ class ProfiloScreen extends StatelessWidget {
           title: const Text('Notifiche'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).pushNamed<void>(AppRoutes.notifiche);
+            context.push(AppRoutes.notifiche);
           },
         ),
         ListTile(
@@ -75,7 +71,7 @@ class ProfiloScreen extends StatelessWidget {
           title: const Text('Debug Firebase'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).pushNamed<void>(AppRoutes.debugFirebase);
+            context.push(AppRoutes.debugFirebase);
           },
         ),
       ],

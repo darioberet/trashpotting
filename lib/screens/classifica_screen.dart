@@ -1,69 +1,124 @@
 import 'package:flutter/material.dart';
 
-class _Row {
-  const _Row(this.rank, this.name, this.points);
-  final int rank;
-  final String name;
-  final int points;
-}
+import '../models/leaderboard_entry.dart';
+import '../repositories/leaderboard_repository.dart';
+import '../state/app_session.dart';
 
 /// Classifica community (dati mock fino a query Firestore).
-class ClassificaScreen extends StatelessWidget {
-  const ClassificaScreen({super.key});
+class ClassificaScreen extends StatefulWidget {
+  ClassificaScreen({super.key, LeaderboardRepository? repository})
+      : _repository = repository ?? FirestoreLeaderboardRepository();
 
-  static const _mock = <_Row>[
-    _Row(1, 'Tu (placeholder)', 120),
-    _Row(2, 'EcoTeam Nord', 98),
-    _Row(3, 'Raccolta_2026', 76),
-    _Row(4, 'VerdeStrada', 54),
-    _Row(5, 'PuliamoIlParco', 41),
+  final LeaderboardRepository _repository;
+
+  @override
+  State<ClassificaScreen> createState() => _ClassificaScreenState();
+}
+
+class _ClassificaScreenState extends State<ClassificaScreen> {
+  late Future<List<LeaderboardEntry>> _future;
+  Object? _lastPublishedError;
+
+  static const _mock = <LeaderboardEntry>[
+    LeaderboardEntry(rank: 1, name: 'Tu (placeholder)', points: 120),
+    LeaderboardEntry(rank: 2, name: 'EcoTeam Nord', points: 98),
+    LeaderboardEntry(rank: 3, name: 'Raccolta_2026', points: 76),
+    LeaderboardEntry(rank: 4, name: 'VerdeStrada', points: 54),
+    LeaderboardEntry(rank: 5, name: 'PuliamoIlParco', points: 41),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget._repository.fetchTop();
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _future = widget._repository.fetchTop();
+    });
+    await _future;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: _mock.length + 1,
-      separatorBuilder: (_, i) => i == 0 ? const SizedBox.shrink() : const Divider(height: 1),
-      itemBuilder: (context, i) {
-        if (i == 0) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12, top: 4),
-            child: Text(
-              'Classifica',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+    final session = AppSessionScope.of(context);
+
+    return FutureBuilder<List<LeaderboardEntry>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final entries = (snapshot.data?.isNotEmpty ?? false) ? snapshot.data! : _mock;
+        if (snapshot.hasError && snapshot.error != _lastPublishedError) {
+          _lastPublishedError = snapshot.error;
+          session.publishError(
+            snapshot.error!,
+            fallback: 'Classifica non disponibile: mostro dati di esempio.',
           );
         }
-        final r = _mock[i - 1];
-        final medal = r.rank == 1
-            ? '🥇'
-            : r.rank == 2
-                ? '🥈'
-                : r.rank == 3
-                    ? '🥉'
-                    : '${r.rank}.';
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          leading: CircleAvatar(
-            backgroundColor: cs.primaryContainer,
-            foregroundColor: cs.onPrimaryContainer,
-            child: Text(
-              medal.length > 2 ? '${r.rank}' : medal,
-              style: theme.textTheme.titleSmall,
-            ),
-          ),
-          title: Text(r.name),
-          trailing: Text(
-            '${r.points} pt',
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: cs.primary,
-              fontWeight: FontWeight.w600,
-            ),
+
+        return RefreshIndicator(
+          onRefresh: _reload,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            itemCount: entries.length + 1,
+            separatorBuilder: (_, i) => i == 0 ? const SizedBox.shrink() : const Divider(height: 1),
+            itemBuilder: (context, i) {
+              if (i == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12, top: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Classifica',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (snapshot.connectionState == ConnectionState.waiting)
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: cs.primary,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }
+              final r = entries[i - 1];
+              final medal = r.rank == 1
+                  ? '🥇'
+                  : r.rank == 2
+                      ? '🥈'
+                      : r.rank == 3
+                          ? '🥉'
+                          : '${r.rank}.';
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                leading: CircleAvatar(
+                  backgroundColor: cs.primaryContainer,
+                  foregroundColor: cs.onPrimaryContainer,
+                  child: Text(
+                    medal.length > 2 ? '${r.rank}' : medal,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                title: Text(r.name),
+                trailing: Text(
+                  '${r.points} pt',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            },
           ),
         );
       },

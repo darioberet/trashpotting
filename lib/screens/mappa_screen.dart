@@ -71,12 +71,19 @@ class _MappaScreenState extends State<MappaScreen> {
   Future<void> _fitAll() async {
     final c = _mapController;
     if (c == null) return;
-    await c.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        _boundsIncludingUser(mockTrashpots),
-        80,
-      ),
-    );
+    try {
+      await c.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          _boundsIncludingUser(mockTrashpots),
+          80,
+        ),
+      );
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('Unable to fit map camera bounds: $e');
+        debugPrintStack(stackTrace: st);
+      }
+    }
   }
 
   void _openTrashpotSheet(TrashpotReport r) {
@@ -176,6 +183,13 @@ class _MappaScreenState extends State<MappaScreen> {
           infoWindow: InfoWindow(title: r.title, snippet: trashpotStatusLabel(r.status)),
         ),
     };
+  }
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    _mapController = null;
+    super.dispose();
   }
 
   @override

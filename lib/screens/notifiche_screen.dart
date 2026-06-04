@@ -1,20 +1,16 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_notification.dart';
+import '../repositories/notification_repository.dart';
+import '../state/app_session.dart';
 
 /// Schermata Notifiche — allineata al percorso `/app/notifiche` del prototipo Figma Make.
 /// Dati: sottocollezione `users/{uid}/notifications` (documenti con title, body, read, createdAt).
 class NotificheScreen extends StatelessWidget {
-  const NotificheScreen({
-    super.key,
-    required this.firebaseReady,
-    this.firebaseError,
-  });
+  NotificheScreen({super.key, NotificationRepository? repository})
+  : _repository = repository ?? FirestoreNotificationRepository();
 
-  final bool firebaseReady;
-  final Object? firebaseError;
+  final NotificationRepository _repository;
 
   static const mockItems = <_MockNotification>[
     _MockNotification(
@@ -42,9 +38,12 @@ class NotificheScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final session = AppSessionScope.watch(context);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final user = firebaseReady ? FirebaseAuth.instance.currentUser : null;
+    final firebaseReady = session.firebaseReady;
+    final firebaseError = session.firebaseError;
+    final currentUserId = session.currentUserId;
 
     final appBar = SliverAppBar.large(
       title: const Text('Notifiche'),
@@ -53,26 +52,21 @@ class NotificheScreen extends StatelessWidget {
 
     // StreamBuilder must not appear as a direct child of a sliver slot (e.g.
     // SliverPadding.sliver): only widgets that mount RenderSliver are valid there.
-    if (firebaseReady && user != null) {
+    if (firebaseReady && currentUserId != null) {
       return Scaffold(
         backgroundColor: cs.surface,
-        body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .collection('notifications')
-              .orderBy('createdAt', descending: true)
-              .limit(50)
-              .snapshots(),
+        body: StreamBuilder<List<AppNotification>>(
+          stream: _repository.watchUserNotifications(currentUserId),
           builder: (context, snap) {
             return CustomScrollView(
               slivers: [
                 appBar,
                 ..._cloudNotificationSlivers(
                   context,
+                  _repository,
                   theme,
                   cs,
-                  user.uid,
+                  currentUserId,
                   snap,
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -94,7 +88,7 @@ class NotificheScreen extends StatelessWidget {
               child: _InfoBanner(
                 firebaseReady: firebaseReady,
                 firebaseError: firebaseError,
-                signedIn: user != null,
+                signedIn: currentUserId != null,
               ),
             ),
           ),
@@ -126,10 +120,11 @@ class NotificheScreen extends StatelessWidget {
   /// Returns only sliver widgets (each subtree mounts a [RenderSliver]).
   static List<Widget> _cloudNotificationSlivers(
     BuildContext context,
+    NotificationRepository repository,
     ThemeData theme,
     ColorScheme cs,
     String uid,
-    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snap,
+    AsyncSnapshot<List<AppNotification>> snap,
   ) {
     if (snap.hasError) {
       return [
@@ -159,8 +154,8 @@ class NotificheScreen extends StatelessWidget {
         ),
       ];
     }
-    final docs = snap.data!.docs;
-    if (docs.isEmpty) {
+    final notifications = snap.data!;
+    if (notifications.isEmpty) {
       return [SliverToBoxAdapter(child: _EmptyState(theme: theme, cs: cs))];
     }
     return [
@@ -169,17 +164,17 @@ class NotificheScreen extends StatelessWidget {
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, i) {
-              final n = AppNotification.fromDoc(docs[i]);
+              final n = notifications[i];
               return _NotificationCard(
                 title: n.title,
                 body: n.body,
                 timeLabel: _formatRelative(n.createdAt),
                 read: n.read,
                 icon: _iconForType(n.type),
-                onTap: () => _markRead(context, uid, n),
+                onTap: () => _markRead(context, repository, uid, n),
               );
             },
-            childCount: docs.length,
+            childCount: notifications.length,
           ),
         ),
       ),
@@ -210,23 +205,20 @@ class NotificheScreen extends StatelessWidget {
 
   static Future<void> _markRead(
     BuildContext context,
+    NotificationRepository repository,
     String uid,
     AppNotification n,
   ) async {
     if (n.read) return;
+    final session = AppSessionScope.of(context);
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('notifications')
-          .doc(n.id)
-          .update({'read': true});
+      await repository.markRead(uid: uid, notificationId: n.id);
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Errore: $e')),
-        );
-      }
+      if (!context.mounted) return;
+      session.publishError(
+        e,
+        fallback: 'Impossibile aggiornare la notifica.',
+      );
     }
   }
 }

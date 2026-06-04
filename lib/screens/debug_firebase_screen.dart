@@ -1,17 +1,20 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../services/auth_service.dart';
+import '../services/firebase_health_service.dart';
+import '../state/app_session.dart';
 
 /// Diagnostica Firebase (ex home di sviluppo).
 class DebugFirebaseScreen extends StatefulWidget {
-  const DebugFirebaseScreen({
+  DebugFirebaseScreen({
     super.key,
-    required this.firebaseReady,
-    this.firebaseError,
-  });
+    AuthService? authService,
+    FirebaseHealthService? healthService,
+  })  : _authService = authService ?? AuthService(),
+        _healthService = healthService ?? FirebaseHealthService();
 
-  final bool firebaseReady;
-  final Object? firebaseError;
+  final AuthService _authService;
+  final FirebaseHealthService _healthService;
 
   @override
   State<DebugFirebaseScreen> createState() => _DebugFirebaseScreenState();
@@ -22,35 +25,36 @@ class _DebugFirebaseScreenState extends State<DebugFirebaseScreen> {
   bool _busy = false;
 
   Future<void> _signInAnonymously() async {
-    if (!widget.firebaseReady) return;
+    final session = AppSessionScope.of(context);
+    if (!session.firebaseReady) return;
     setState(() {
       _busy = true;
       _status = null;
     });
     try {
-      await FirebaseAuth.instance.signInAnonymously();
-      setState(() => _status = 'Utente: ${FirebaseAuth.instance.currentUser?.uid}');
+      final cred = await widget._authService.signInAnonymously();
+      setState(() => _status = 'Utente: ${cred.user?.uid}');
     } catch (e) {
-      setState(() => _status = 'Auth: $e');
+      session.publishError(e, fallback: 'Accesso anonimo non riuscito.');
+      setState(() => _status = 'Auth: errore');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _probeFirestore() async {
-    if (!widget.firebaseReady) return;
+    final session = AppSessionScope.of(context);
+    if (!session.firebaseReady) return;
     setState(() {
       _busy = true;
       _status = null;
     });
     try {
-      await FirebaseFirestore.instance
-          .collection('_health')
-          .doc('ping')
-          .set({'at': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+      await widget._healthService.probeWrite();
       setState(() => _status = 'Firestore: scrittura _health/ping ok');
     } catch (e) {
-      setState(() => _status = 'Firestore: $e');
+      session.publishError(e, fallback: 'Test Firestore non riuscito.');
+      setState(() => _status = 'Firestore: errore');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -58,6 +62,7 @@ class _DebugFirebaseScreenState extends State<DebugFirebaseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final session = AppSessionScope.watch(context);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
@@ -78,14 +83,14 @@ class _DebugFirebaseScreenState extends State<DebugFirebaseScreen> {
             ),
             const SizedBox(height: 8),
             _StatusCard(
-              ok: widget.firebaseReady,
-              child: widget.firebaseReady
+              ok: session.firebaseReady,
+              child: session.firebaseReady
                   ? Text(
                       'Firebase Core attivo.',
                       style: theme.textTheme.bodyMedium,
                     )
                   : Text(
-                      'Non connesso.\nUltimo errore: ${widget.firebaseError}',
+                      'Non connesso.\nUltimo errore: ${session.firebaseError}',
                       style: theme.textTheme.bodyMedium,
                     ),
             ),
@@ -98,13 +103,13 @@ class _DebugFirebaseScreenState extends State<DebugFirebaseScreen> {
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: (!widget.firebaseReady || _busy) ? null : _signInAnonymously,
+              onPressed: (!session.firebaseReady || _busy) ? null : _signInAnonymously,
               icon: const Icon(Icons.person_outline),
               label: const Text('Accesso anonimo'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: (!widget.firebaseReady || _busy) ? null : _probeFirestore,
+              onPressed: (!session.firebaseReady || _busy) ? null : _probeFirestore,
               icon: const Icon(Icons.cloud_upload_outlined),
               label: const Text('Test scrittura Firestore'),
             ),
