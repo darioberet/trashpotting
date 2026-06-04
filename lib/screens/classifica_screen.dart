@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/leaderboard_entry.dart';
 import '../repositories/leaderboard_repository.dart';
 import '../state/app_session.dart';
+import '../state/classifica_view_model.dart';
 
 /// Classifica community (dati mock fino a query Firestore).
 class ClassificaScreen extends StatefulWidget {
@@ -16,28 +17,24 @@ class ClassificaScreen extends StatefulWidget {
 }
 
 class _ClassificaScreenState extends State<ClassificaScreen> {
-  late Future<List<LeaderboardEntry>> _future;
-  Object? _lastPublishedError;
-
-  static const _mock = <LeaderboardEntry>[
-    LeaderboardEntry(rank: 1, name: 'Tu (placeholder)', points: 120),
-    LeaderboardEntry(rank: 2, name: 'EcoTeam Nord', points: 98),
-    LeaderboardEntry(rank: 3, name: 'Raccolta_2026', points: 76),
-    LeaderboardEntry(rank: 4, name: 'VerdeStrada', points: 54),
-    LeaderboardEntry(rank: 5, name: 'PuliamoIlParco', points: 41),
-  ];
+  late final ClassificaViewModel _viewModel;
+  int _seenErrorToken = 0;
 
   @override
   void initState() {
     super.initState();
-    _future = widget._repository.fetchTop();
+    _viewModel = ClassificaViewModel(repository: widget._repository);
+    _viewModel.load();
   }
 
   Future<void> _reload() async {
-    setState(() {
-      _future = widget._repository.fetchTop();
-    });
-    await _future;
+    await _viewModel.load();
+  }
+
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
   }
 
   @override
@@ -46,18 +43,18 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
     final cs = theme.colorScheme;
     final session = AppSessionScope.of(context);
 
-    return FutureBuilder<List<LeaderboardEntry>>(
-      future: _future,
-      builder: (context, snapshot) {
-        final entries = (snapshot.data?.isNotEmpty ?? false) ? snapshot.data! : _mock;
-        if (snapshot.hasError && snapshot.error != _lastPublishedError) {
-          _lastPublishedError = snapshot.error;
+    return AnimatedBuilder(
+      animation: _viewModel,
+      builder: (context, _) {
+        if (_viewModel.errorToken > _seenErrorToken && _viewModel.lastError != null) {
+          _seenErrorToken = _viewModel.errorToken;
           session.publishError(
-            snapshot.error!,
-            fallback: 'Classifica non disponibile: mostro dati di esempio.',
+            _viewModel.lastError!,
+            fallback: _viewModel.lastErrorFallback,
           );
         }
 
+        final entries = _viewModel.entries;
         return RefreshIndicator(
           onRefresh: _reload,
           child: ListView.separated(
@@ -78,7 +75,7 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
                           ),
                         ),
                       ),
-                      if (snapshot.connectionState == ConnectionState.waiting)
+                      if (_viewModel.loading)
                         SizedBox(
                           width: 18,
                           height: 18,
@@ -91,7 +88,7 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
                   ),
                 );
               }
-              final r = entries[i - 1];
+              final LeaderboardEntry r = entries[i - 1];
               final medal = r.rank == 1
                   ? '🥇'
                   : r.rank == 2
