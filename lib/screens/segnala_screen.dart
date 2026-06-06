@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/location_service.dart';
 import '../services/media_picker_service.dart';
 import '../services/report_service.dart';
+import '../services/image_processing_service.dart';
 import '../state/app_session.dart';
 import '../state/segnala_view_model.dart';
 
@@ -17,13 +19,17 @@ class SegnalaScreen extends StatefulWidget {
     ReportService? reportService,
     MediaPickerService? mediaPickerService,
     LocationService? locationService,
-  })  : _reportService = reportService ?? ReportService(),
-        _mediaPickerService = mediaPickerService ?? MediaPickerService(),
-        _locationService = locationService ?? LocationService();
+    ImageProcessingService? imageProcessingService,
+  }) : _reportService = reportService ?? ReportService(),
+       _mediaPickerService = mediaPickerService ?? MediaPickerService(),
+       _locationService = locationService ?? LocationService(),
+       _imageProcessingService =
+           imageProcessingService ?? const ImageProcessingService();
 
   final ReportService _reportService;
   final MediaPickerService _mediaPickerService;
   final LocationService _locationService;
+  final ImageProcessingService _imageProcessingService;
 
   @override
   State<SegnalaScreen> createState() => _SegnalaScreenState();
@@ -41,11 +47,19 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
   void initState() {
     super.initState();
     _viewModel = SegnalaViewModel(reportService: widget._reportService);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_resolvePosition(silent: true));
+    });
   }
 
   Future<void> _send() async {
     if (_viewModel.sending) return;
     final session = AppSessionScope.of(context);
+
+    final hasLocation = await _resolvePosition(forceRefresh: true);
+    if (!hasLocation || !mounted) {
+      return;
+    }
 
     if (mounted && !_blockingDialogOpen) {
       _blockingDialogOpen = true;
@@ -87,15 +101,18 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
         uid: session.currentUserId,
       );
 
-      if (_viewModel.infoToken > _seenInfoToken && _viewModel.lastInfo != null) {
+      if (_viewModel.infoToken > _seenInfoToken &&
+          _viewModel.lastInfo != null) {
         _seenInfoToken = _viewModel.infoToken;
         session.publishInfo(_viewModel.lastInfo!);
-        if (_viewModel.lastInfo == 'Segnalazione inviata correttamente.' && mounted) {
+        if (_viewModel.lastInfo == 'Segnalazione inviata correttamente.' &&
+            mounted) {
           _note.clear();
           _viewModel.clearDraftExtras();
         }
       }
-      if (_viewModel.errorToken > _seenErrorToken && _viewModel.lastError != null) {
+      if (_viewModel.errorToken > _seenErrorToken &&
+          _viewModel.lastError != null) {
         _seenErrorToken = _viewModel.errorToken;
         session.publishError(
           _viewModel.lastError!,
@@ -117,6 +134,18 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
       if (!mounted || path == null) return;
       _viewModel.setPhotoPath(path);
       session.publishInfo('Foto allegata alla segnalazione.');
+
+      if (kDebugMode) {
+        final estimatedBytes = await widget._imageProcessingService
+            .estimateCompressedSizeBytes(path);
+        if (!mounted || estimatedBytes == null) return;
+        final estimatedKb = estimatedBytes / 1024;
+        final text =
+            'DEBUG - dimensione finale stimata: ${estimatedKb.toStringAsFixed(1)} KB';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(text), duration: const Duration(seconds: 3)),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       session.publishError(e, fallback: 'Impossibile selezionare la foto.');
@@ -153,18 +182,35 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
     }
   }
 
-  Future<void> _resolvePosition() async {
-    if (_resolvingPosition) return;
+/// Metodo per risolvere la posizione attuale del dispositivo,
+///  con gestione dello stato di caricamento e degli errori.
+  Future<bool> _resolvePosition({
+    bool silent = false,
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh &&
+        _viewModel.latitude != null &&
+        _viewModel.longitude != null) {
+      return true;
+    }
+    if (_resolvingPosition) return true;
     final session = AppSessionScope.of(context);
     setState(() => _resolvingPosition = true);
     try {
       final p = await widget._locationService.getCurrentPosition();
-      if (!mounted) return;
+      if (!mounted) return false;
       _viewModel.setLocation(latitude: p.latitude, longitude: p.longitude);
-      session.publishInfo('Posizione GPS acquisita.');
+      if (!silent) {
+        session.publishInfo('Posizione GPS acquisita.');
+      }
+      return true;
     } catch (e) {
-      if (!mounted) return;
-      session.publishError(e, fallback: 'Impossibile ottenere la posizione GPS.');
+      if (!mounted) return false;
+      session.publishError(
+        e,
+        fallback: 'Impossibile ottenere la posizione attuale del dispositivo.',
+      );
+      return false;
     } finally {
       if (mounted) setState(() => _resolvingPosition = false);
     }
@@ -198,7 +244,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Descrivi il punto, allega una foto e acquisisci la posizione GPS.',
+                    'Descrivi il punto, allega una foto e useremo la posizione attuale del dispositivo.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -242,18 +288,30 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: _resolvingPosition ? null : _resolvePosition,
-                    icon: const Icon(Icons.my_location_outlined),
-                    label: Text(
-                      _resolvingPosition
-                          ? 'Recupero posizione...'
-                          : (_viewModel.latitude == null
-                              ? 'Ottieni posizione GPS'
-                              : 'Aggiorna posizione GPS'),
-                    ),
-                  ),
-                  if (_viewModel.latitude != null && _viewModel.longitude != null)
+                  if (_resolvingPosition)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: cs.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Recupero posizione attuale...',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (_viewModel.latitude != null &&
+                      _viewModel.longitude != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Row(
@@ -267,14 +325,9 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
                           Expanded(
                             child: Text(
                               'Lat ${_viewModel.latitude!.toStringAsFixed(6)}, Lng ${_viewModel.longitude!.toStringAsFixed(6)}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: cs.onSurfaceVariant),
                             ),
-                          ),
-                          TextButton(
-                            onPressed: _viewModel.clearLocation,
-                            child: const Text('Rimuovi'),
                           ),
                         ],
                       ),
@@ -314,14 +367,19 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2.4),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
                             ),
                             SizedBox(width: 12),
                             Text('Invio segnalazione...'),

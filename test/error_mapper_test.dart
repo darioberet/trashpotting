@@ -15,4 +15,16 @@ void main() {
 
     expect(message, contains('Fallback'));
   });
+
+  test('mapAppError explains storage destination errors', () {
+    final error = FirebaseException(
+      plugin: 'firebase_storage',
+      code: 'object-not-found',
+      message: 'Object does not exist at location.',
+    );
+
+    final message = mapAppError(error);
+
+    expect(message, contains('bucket'));
+  });
 }

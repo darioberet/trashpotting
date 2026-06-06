@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:trashpotting_v3/app.dart';
 
 void main() {
-  testWidgets('Main shell opens on Mappa tab', (WidgetTester tester) async {
+  testWidgets('Login is the first screen on app startup', (
+    WidgetTester tester,
+  ) async {
     final previous = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.linux;
     try {
@@ -13,11 +15,8 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Mappa'), findsWidgets);
-      expect(
-        find.textContaining('Google Maps è disponibile'),
-        findsOneWidget,
-      );
+      expect(find.text('Login'), findsOneWidget);
+      expect(find.text('Non hai un account? Registrati'), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = previous;
     }

@@ -2,25 +2,32 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trashpotting_v3/models/report_draft.dart';
+import 'package:trashpotting_v3/models/trashpot_report.dart';
 import 'package:trashpotting_v3/repositories/report_repository.dart';
 import 'package:trashpotting_v3/services/report_service.dart';
 import 'package:trashpotting_v3/state/segnala_view_model.dart';
 
 class _NoopReportRepository implements ReportRepository {
   @override
+  Stream<List<TrashpotReport>> watchReports() =>
+      const Stream<List<TrashpotReport>>.empty();
+
+  @override
   Future<void> submitReport({required ReportDraft draft, String? uid}) async {}
 }
 
-typedef _SubmitHandler = Future<void> Function({
-  required String note,
-  String? uid,
-  String? photoPath,
-  double? latitude,
-  double? longitude,
-});
+typedef _SubmitHandler =
+    Future<void> Function({
+      required String note,
+      String? uid,
+      String? photoPath,
+      double? latitude,
+      double? longitude,
+    });
 
 class _FakeReportService extends ReportService {
-  _FakeReportService(this._handler) : super(repository: _NoopReportRepository());
+  _FakeReportService(this._handler)
+    : super(repository: _NoopReportRepository());
 
   final _SubmitHandler _handler;
   int calls = 0;
@@ -56,13 +63,9 @@ class _FakeReportService extends ReportService {
 
 void main() {
   test('submit publishes info when firebase is not ready', () async {
-    final service = _FakeReportService(({
-      required note,
-      uid,
-      photoPath,
-      latitude,
-      longitude,
-    }) async {});
+    final service = _FakeReportService(
+      ({required note, uid, photoPath, latitude, longitude}) async {},
+    );
     final vm = SegnalaViewModel(reportService: service);
 
     await vm.submit(firebaseReady: false, note: 'qualsiasi testo', uid: 'u1');
@@ -75,19 +78,19 @@ void main() {
   });
 
   test('submit success toggles sending and stores success info', () async {
-    final service = _FakeReportService(({
-      required note,
-      uid,
-      photoPath,
-      latitude,
-      longitude,
-    }) async {});
+    final service = _FakeReportService(
+      ({required note, uid, photoPath, latitude, longitude}) async {},
+    );
     final vm = SegnalaViewModel(reportService: service);
 
     vm.setPhotoPath('/tmp/photo.jpg');
     vm.setLocation(latitude: 43.6158, longitude: 13.5189);
 
-    await vm.submit(firebaseReady: true, note: 'segnalazione valida', uid: 'u1');
+    await vm.submit(
+      firebaseReady: true,
+      note: 'segnalazione valida',
+      uid: 'u1',
+    );
 
     expect(service.calls, 1);
     expect(service.lastNote, 'segnalazione valida');
@@ -114,7 +117,11 @@ void main() {
     });
     final vm = SegnalaViewModel(reportService: service);
 
-    await vm.submit(firebaseReady: true, note: 'segnalazione valida', uid: 'u1');
+    await vm.submit(
+      firebaseReady: true,
+      note: 'segnalazione valida',
+      uid: 'u1',
+    );
 
     expect(service.calls, 1);
     expect(vm.sending, isFalse);
@@ -136,8 +143,16 @@ void main() {
     });
     final vm = SegnalaViewModel(reportService: service);
 
-    final first = vm.submit(firebaseReady: true, note: 'segnalazione valida', uid: 'u1');
-    final second = vm.submit(firebaseReady: true, note: 'seconda chiamata', uid: 'u2');
+    final first = vm.submit(
+      firebaseReady: true,
+      note: 'segnalazione valida',
+      uid: 'u1',
+    );
+    final second = vm.submit(
+      firebaseReady: true,
+      note: 'seconda chiamata',
+      uid: 'u2',
+    );
 
     await Future<void>.delayed(Duration.zero);
     expect(service.calls, 1);

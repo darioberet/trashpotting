@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -54,6 +55,7 @@ class _FirebaseBootstrapState extends State<_FirebaseBootstrap> {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       ).timeout(_initTimeout);
+      await _activateAppCheck();
       _firebaseReady = true;
     } on TimeoutException catch (e, st) {
       _firebaseError = e;
@@ -72,6 +74,26 @@ class _FirebaseBootstrapState extends State<_FirebaseBootstrap> {
     }
   }
 
+  Future<void> _activateAppCheck() async {
+    if (kIsWeb) return;
+
+    try {
+      await FirebaseAppCheck.instance.activate(
+        androidProvider: kDebugMode
+            ? AndroidProvider.debug
+            : AndroidProvider.playIntegrity,
+        appleProvider: kDebugMode
+            ? AppleProvider.debug
+            : AppleProvider.appAttestWithDeviceCheckFallback,
+      );
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('FirebaseAppCheck.activate failed: $e');
+        debugPrintStack(stackTrace: st);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_resolved) {
@@ -84,9 +106,7 @@ class _FirebaseBootstrapState extends State<_FirebaseBootstrap> {
           ),
           useMaterial3: true,
         ),
-        home: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
 

@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 
 import 'routes.dart';
 import 'screens/debug_firebase_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/notifiche_screen.dart';
+import 'screens/register_screen.dart';
 import 'state/app_session.dart';
 
 class TrashpottingApp extends StatefulWidget {
@@ -36,8 +38,33 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
     );
     _session.addListener(_onSessionChanged);
     _router = GoRouter(
-      initialLocation: AppRoutes.mappa,
+      initialLocation: AppRoutes.login,
+      refreshListenable: _session,
+      redirect: (context, state) {
+        final location = state.matchedLocation;
+        final isAuthRoute =
+            location == AppRoutes.login || location == AppRoutes.register;
+        final isPublicRoute =
+            isAuthRoute || location == AppRoutes.debugFirebase;
+        final isSignedIn = _session.currentUserId != null;
+
+        if (!isSignedIn && !isPublicRoute) {
+          return AppRoutes.login;
+        }
+        if (isSignedIn && isAuthRoute) {
+          return AppRoutes.mappa;
+        }
+        return null;
+      },
       routes: [
+        GoRoute(
+          path: AppRoutes.login,
+          builder: (context, state) => LoginScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.register,
+          builder: (context, state) => RegisterScreen(),
+        ),
         GoRoute(
           path: AppRoutes.mappa,
           builder: (context, state) => const MainShell(initialIndex: 0),

@@ -1,26 +1,57 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
 
+import 'image_processing_service.dart';
+
 class PhotoUploadService {
-  PhotoUploadService({FirebaseStorage? storage})
-      : _storage = storage ?? FirebaseStorage.instance;
+  PhotoUploadService({
+    FirebaseStorage? storage,
+    ImageProcessingService? imageProcessingService,
+  }) : _storage = storage ?? FirebaseStorage.instance,
+       _imageProcessingService = imageProcessingService;
 
   final FirebaseStorage _storage;
+  final ImageProcessingService? _imageProcessingService;
 
   Future<String> uploadReportPhoto({
     required String localPath,
     required String ownerId,
   }) async {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final path = 'report_photos/$ownerId/$now.jpg';
-    final file = File(localPath);
+    var uploadPath = localPath;
+    var isTempFile = false;
 
-    final task = await _storage.ref(path).putFile(
-          file,
-          SettableMetadata(contentType: 'image/jpeg'),
-        );
+    try {
+      final optimizedPath =
+          await (_imageProcessingService ?? const ImageProcessingService())
+              .resizeAndCompress(localPath);
+      if (optimizedPath != localPath) {
+        uploadPath = optimizedPath;
+        isTempFile = true;
+      }
 
-    return task.ref.getDownloadURL();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final path = 'report_photos/$ownerId/$now.jpg';
+      final file = File(uploadPath);
+
+      final task = await _storage
+          .ref(path)
+          .putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+
+      return task.ref.getDownloadURL();
+    } finally {
+      if (isTempFile) {
+        unawaited(_deleteTempFile(uploadPath));
+      }
+    }
+  }
+
+  Future<void> _deleteTempFile(String path) async {
+    try {
+      await File(path).delete();
+    } catch (_) {
+      // Best-effort cleanup: ignore temp file delete failures.
+    }
   }
 }

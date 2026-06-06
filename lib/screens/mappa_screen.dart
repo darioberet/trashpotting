@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import '../data/mock_trashpots.dart';
 import '../maps_android_init.dart';
 import '../models/trashpot_report.dart';
+import '../repositories/report_repository.dart';
 import '../services/location_service.dart';
 
 /// Mappa Google con marker per ogni trashpot (segnalazione).
@@ -20,9 +20,10 @@ class MappaScreen extends StatefulWidget {
 
 class _MappaScreenState extends State<MappaScreen> {
   GoogleMapController? _mapController;
-  late final Set<Marker> _markers;
   final _locationService = LocationService();
+  final _reportRepository = FirestoreReportRepository();
   bool _resolvingGps = false;
+  LatLng? _initialTarget;
 
   /// Android [GoogleMap] uses a platform view that can call [RenderBox.localToGlobal]
   /// during a warm-up frame before the surrounding tree has finished layout,
@@ -43,7 +44,10 @@ class _MappaScreenState extends State<MappaScreen> {
     }
   }
 
-  LatLngBounds _boundsForReports(Iterable<TrashpotReport> reports) {
+  LatLngBounds? _boundsForReports(Iterable<TrashpotReport> reports) {
+    if (reports.isEmpty) {
+      return null;
+    }
     final pts = reports.map((r) => LatLng(r.lat, r.lng)).toList();
     var south = pts.first.latitude;
     var north = pts.first.latitude;
@@ -64,27 +68,40 @@ class _MappaScreenState extends State<MappaScreen> {
 
   double _markerHue(TrashpotStatus s) {
     return switch (s) {
-      TrashpotStatus.aperta || TrashpotStatus.segnalata => BitmapDescriptor.hueRed,
+      TrashpotStatus.aperta ||
+      TrashpotStatus.segnalata => BitmapDescriptor.hueRed,
       TrashpotStatus.inLavorazione => BitmapDescriptor.hueOrange,
       TrashpotStatus.pulita => BitmapDescriptor.hueGreen,
     };
   }
 
-  Future<void> _fitAll() async {
+  Future<void> _fitReports(Iterable<TrashpotReport> reports) async {
     final c = _mapController;
     if (c == null) return;
+    final bounds = _boundsForReports(reports);
+    if (bounds == null) return;
     try {
-      await c.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          _boundsForReports(mockTrashpots),
-          80,
-        ),
-      );
+      await c.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('Unable to fit map camera bounds: $e');
         debugPrintStack(stackTrace: st);
       }
+    }
+  }
+
+  Future<void> _resolveInitialPosition() async {
+    try {
+      final p = await _locationService.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _initialTarget = LatLng(p.latitude, p.longitude);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _initialTarget ??= const LatLng(0, 0);
+      });
     }
   }
 
@@ -98,16 +115,13 @@ class _MappaScreenState extends State<MappaScreen> {
       final p = await _locationService.getCurrentPosition();
       if (!mounted) return;
       await c.animateCamera(
-        CameraUpdate.newLatLngZoom(
-          LatLng(p.latitude, p.longitude),
-          16,
-        ),
+        CameraUpdate.newLatLngZoom(LatLng(p.latitude, p.longitude), 16),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('GPS non disponibile: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('GPS non disponibile: $e')));
     } finally {
       if (mounted) setState(() => _resolvingGps = false);
     }
@@ -127,32 +141,43 @@ class _MappaScreenState extends State<MappaScreen> {
             children: [
               Row(
                 children: [
-                  _StatusChip(status: r.status, label: trashpotStatusLabel(r.status)),
+                  _StatusChip(
+                    status: r.status,
+                    label: trashpotStatusLabel(r.status),
+                  ),
                   const Spacer(),
                   if (r.distanceLabel != null)
                     Text(
                       r.distanceLabel!,
                       style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                 ],
               ),
               const SizedBox(height: 12),
               Text(
                 r.title,
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: Theme.of(
+                  ctx,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.place_outlined, size: 18, color: cs.onSurfaceVariant),
+                  Icon(
+                    Icons.place_outlined,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       r.address,
-                      style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                      style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -161,14 +186,18 @@ class _MappaScreenState extends State<MappaScreen> {
                 const SizedBox(height: 8),
                 Text(
                   r.typeLabel!,
-                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ],
               if (r.dateLabel != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   r.dateLabel!,
-                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ],
             ],
@@ -193,17 +222,7 @@ class _MappaScreenState extends State<MappaScreen> {
         });
       });
     }
-    final trashpots = mockTrashpots;
-    _markers = {
-      for (final r in trashpots)
-        Marker(
-          markerId: MarkerId('tp_${r.id}'),
-          position: LatLng(r.lat, r.lng),
-          icon: BitmapDescriptor.defaultMarkerWithHue(_markerHue(r.status)),
-          onTap: () => _openTrashpotSheet(r),
-          infoWindow: InfoWindow(title: r.title, snippet: trashpotStatusLabel(r.status)),
-        ),
-    };
+    _resolveInitialPosition();
   }
 
   @override
@@ -222,7 +241,11 @@ class _MappaScreenState extends State<MappaScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.map_outlined, size: 64, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                Icons.map_outlined,
+                size: 64,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(height: 16),
               Text(
                 'Google Maps è disponibile su Android, iOS e web.',
@@ -234,8 +257,8 @@ class _MappaScreenState extends State<MappaScreen> {
                 'Esegui l’app su emulatore/dispositivo o Chrome per vedere la mappa.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -243,62 +266,88 @@ class _MappaScreenState extends State<MappaScreen> {
       );
     }
 
-    final initialBounds = _boundsForReports(mockTrashpots);
-    final initialTarget = LatLng(
-      (initialBounds.northeast.latitude + initialBounds.southwest.latitude) / 2,
-      (initialBounds.northeast.longitude + initialBounds.southwest.longitude) / 2,
-    );
+    final initialTarget = _initialTarget;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fill(
-          child: _mapMountReady
-              ? GoogleMap(
-                  initialCameraPosition:
-                      CameraPosition(target: initialTarget, zoom: 13),
-                  markers: _markers,
-                  mapType: MapType.normal,
-                  zoomControlsEnabled: false,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: false,
-                  compassEnabled: true,
-                  onMapCreated: (c) {
-                    _mapController = c;
-                    WidgetsBinding.instance.addPostFrameCallback((_) async {
-                      await Future<void>.delayed(
-                        const Duration(milliseconds: 50),
-                      );
-                      if (mounted) await _fitAll();
-                    });
-                  },
-                )
-              : ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                ),
-        ),
-        Positioned(
-          right: 12,
-          bottom: 12,
-          child: FloatingActionButton.small(
-            heroTag: 'recenter_map',
-            onPressed: _resolvingGps ? null : _goToCurrentGpsPosition,
-            tooltip: 'Vai alla tua posizione GPS',
-            backgroundColor: _greenBrand,
-            foregroundColor: Colors.white,
-            child: _resolvingGps
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: Colors.white,
+    if (initialTarget == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return StreamBuilder<List<TrashpotReport>>(
+      stream: _reportRepository.watchReports(),
+      builder: (context, snapshot) {
+        final reports = snapshot.data ?? const <TrashpotReport>[];
+        final markers = {
+          for (final r in reports)
+            Marker(
+              markerId: MarkerId('tp_${r.id}'),
+              position: LatLng(r.lat, r.lng),
+              icon: BitmapDescriptor.defaultMarkerWithHue(_markerHue(r.status)),
+              onTap: () => _openTrashpotSheet(r),
+              infoWindow: InfoWindow(
+                title: r.title,
+                snippet: trashpotStatusLabel(r.status),
+              ),
+            ),
+        };
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: _mapMountReady
+                  ? GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: initialTarget,
+                        zoom: 13,
+                      ),
+                      markers: markers,
+                      mapType: MapType.normal,
+                      zoomControlsEnabled: false,
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: false,
+                      compassEnabled: true,
+                      onMapCreated: (c) {
+                        _mapController = c;
+                        WidgetsBinding.instance.addPostFrameCallback((_) async {
+                          await Future<void>.delayed(
+                            const Duration(milliseconds: 50),
+                          );
+                          if (mounted && reports.isNotEmpty) {
+                            await _fitReports(reports);
+                          }
+                        });
+                      },
+                    )
+                  : ColoredBox(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                     ),
-                  )
-                : const Icon(Icons.my_location),
-          ),
-        ),
-      ],
+            ),
+            Positioned(
+              right: 12,
+              bottom: 12,
+              child: FloatingActionButton.small(
+                heroTag: 'recenter_map',
+                onPressed: _resolvingGps ? null : _goToCurrentGpsPosition,
+                tooltip: 'Vai alla tua posizione GPS',
+                backgroundColor: _greenBrand,
+                foregroundColor: Colors.white,
+                child: _resolvingGps
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.my_location),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -327,14 +376,17 @@ class _StatusChip extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Text(
         label.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-            ),
+          color: fg,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
