@@ -19,6 +19,30 @@ class PhotoUploadService {
     required String localPath,
     required String ownerId,
   }) async {
+    return _uploadPhoto(
+      localPath: localPath,
+      ownerId: ownerId,
+      folder: 'report_photos',
+    );
+  }
+
+  Future<String> uploadCleanupPhoto({
+    required String localPath,
+    required String ownerId,
+    required String reportId,
+  }) async {
+    return _uploadPhoto(
+      localPath: localPath,
+      ownerId: ownerId,
+      folder: 'cleanup_photos/$reportId',
+    );
+  }
+
+  Future<String> _uploadPhoto({
+    required String localPath,
+    required String ownerId,
+    required String folder,
+  }) async {
     var uploadPath = localPath;
     var isTempFile = false;
 
@@ -32,7 +56,7 @@ class PhotoUploadService {
       }
 
       final now = DateTime.now().millisecondsSinceEpoch;
-      final path = 'report_photos/$ownerId/$now.jpg';
+      final path = '$folder/$ownerId/$now.jpg';
       final file = File(uploadPath);
 
       final task = await _storage

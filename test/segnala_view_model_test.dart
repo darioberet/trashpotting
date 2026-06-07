@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trashpotting_v3/models/app_user_profile.dart';
 import 'package:trashpotting_v3/models/report_draft.dart';
 import 'package:trashpotting_v3/models/trashpot_report.dart';
 import 'package:trashpotting_v3/repositories/report_repository.dart';
@@ -9,8 +10,38 @@ import 'package:trashpotting_v3/state/segnala_view_model.dart';
 
 class _NoopReportRepository implements ReportRepository {
   @override
+  Future<void> completeCleaning({
+    required String reportId,
+    required AppUserProfile actor,
+    required String cleanupPhotoUrl,
+  }) async {}
+
+  @override
+  Future<void> joinCleanupEvent({
+    required String reportId,
+    required AppUserProfile participant,
+  }) async {}
+
+  @override
+  Future<void> scheduleCleanupEvent({
+    required String reportId,
+    required AppUserProfile creator,
+    required DateTime scheduledAt,
+  }) async {}
+
+  @override
+  Future<void> startCleaning({
+    required String reportId,
+    required AppUserProfile actor,
+  }) async {}
+
+  @override
   Stream<List<TrashpotReport>> watchReports() =>
       const Stream<List<TrashpotReport>>.empty();
+
+  @override
+  Stream<TrashpotReport?> watchReport(String reportId) =>
+      const Stream<TrashpotReport?>.empty();
 
   @override
   Future<void> submitReport({required ReportDraft draft, String? uid}) async {}

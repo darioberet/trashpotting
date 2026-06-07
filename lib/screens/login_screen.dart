@@ -2,14 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
+import '../models/app_user_profile.dart';
+import '../repositories/user_profile_repository.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
 
 class LoginScreen extends StatefulWidget {
-  LoginScreen({super.key, AuthService? authService})
-    : _authService = authService ?? AuthService();
+  LoginScreen({
+    super.key,
+    AuthService? authService,
+    UserProfileRepository? userProfileRepository,
+  }) : _authService = authService ?? AuthService(),
+       _userProfileRepository =
+           userProfileRepository ?? UserProfileRepository();
 
   final AuthService _authService;
+  final UserProfileRepository _userProfileRepository;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -52,10 +60,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _busy = true);
     try {
-      await widget._authService.signInWithEmail(
+      final credential = await widget._authService.signInWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+      final user = credential.user;
+      if (user != null) {
+        await widget._userProfileRepository.ensureProfile(
+          AppUserProfile.fromAuthUser(user),
+        );
+      }
       if (!mounted) return;
       session.publishInfo('Login effettuato.');
       context.go(AppRoutes.mappa);

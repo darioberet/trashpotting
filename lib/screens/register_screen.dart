@@ -2,14 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
+import '../models/app_user_profile.dart';
+import '../repositories/user_profile_repository.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
 
 class RegisterScreen extends StatefulWidget {
-  RegisterScreen({super.key, AuthService? authService})
-    : _authService = authService ?? AuthService();
+  RegisterScreen({
+    super.key,
+    AuthService? authService,
+    UserProfileRepository? userProfileRepository,
+  }) : _authService = authService ?? AuthService(),
+       _userProfileRepository =
+           userProfileRepository ?? UserProfileRepository();
 
   final AuthService _authService;
+  final UserProfileRepository _userProfileRepository;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -17,6 +25,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _displayNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
@@ -59,10 +68,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _busy = true);
     try {
-      await widget._authService.registerWithEmail(
+      final credential = await widget._authService.registerWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+      final user = credential.user;
+      if (user != null) {
+        await widget._userProfileRepository.ensureProfile(
+          AppUserProfile.fromAuthUser(
+            user,
+            displayName: _displayNameController.text.trim().isEmpty
+                ? null
+                : _displayNameController.text.trim(),
+          ),
+        );
+      }
       if (!mounted) return;
       session.publishInfo('Registrazione completata.');
       context.go(AppRoutes.mappa);
@@ -76,6 +96,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _displayNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -117,6 +138,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   key: _formKey,
                   child: Column(
                     children: [
+                      TextFormField(
+                        controller: _displayNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nome visualizzato (opzionale)',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,

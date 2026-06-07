@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../maps_android_init.dart';
 import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
+import 'report_detail_screen.dart';
 import '../services/location_service.dart';
 
 /// Mappa Google con marker per ogni trashpot (segnalazione).
@@ -70,9 +71,20 @@ class _MappaScreenState extends State<MappaScreen> {
     return switch (s) {
       TrashpotStatus.aperta ||
       TrashpotStatus.segnalata => BitmapDescriptor.hueRed,
-      TrashpotStatus.inLavorazione => BitmapDescriptor.hueOrange,
-      TrashpotStatus.pulita => BitmapDescriptor.hueGreen,
+      TrashpotStatus.inLavorazione ||
+      TrashpotStatus.puliziaInCorso => BitmapDescriptor.hueOrange,
+      TrashpotStatus.eventoCreato => BitmapDescriptor.hueAzure,
+      TrashpotStatus.pulita ||
+      TrashpotStatus.ripulita => BitmapDescriptor.hueGreen,
     };
+  }
+
+  Future<void> _openReportDetails(String reportId) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportDetailScreen(reportId: reportId),
+      ),
+    );
   }
 
   Future<void> _fitReports(Iterable<TrashpotReport> reports) async {
@@ -162,6 +174,58 @@ class _MappaScreenState extends State<MappaScreen> {
                   ctx,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
+              if (r.photoUrl != null) ...[
+                const SizedBox(height: 12),
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _openReportDetails(r.id);
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Image.network(
+                        r.photoUrl!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) {
+                            return child;
+                          }
+                          return ColoredBox(
+                            color: cs.surfaceContainerHighest,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return ColoredBox(
+                            color: cs.surfaceContainerHighest,
+                            child: Center(
+                              child: Text(
+                                'Anteprima foto non disponibile',
+                                style: Theme.of(ctx).textTheme.bodyMedium
+                                    ?.copyWith(color: cs.onSurfaceVariant),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tocca la foto per aprire il dettaglio completo',
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ],
               const SizedBox(height: 8),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,6 +264,18 @@ class _MappaScreenState extends State<MappaScreen> {
                   ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ],
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    _openReportDetails(r.id);
+                  },
+                  icon: const Icon(Icons.open_in_new_outlined),
+                  label: const Text('Apri dettaglio report'),
+                ),
+              ),
             ],
           ),
         );
@@ -368,9 +444,14 @@ class _StatusChip extends StatelessWidget {
         bg = const Color(0xFFFCEBEB);
         fg = const Color(0xFF791F1F);
       case TrashpotStatus.inLavorazione:
+      case TrashpotStatus.puliziaInCorso:
         bg = const Color(0xFFFAEEDA);
         fg = const Color(0xFF633806);
+      case TrashpotStatus.eventoCreato:
+        bg = const Color(0xFFE6F0FF);
+        fg = const Color(0xFF174EA6);
       case TrashpotStatus.pulita:
+      case TrashpotStatus.ripulita:
         bg = const Color(0xFFE1F5EE);
         fg = const Color(0xFF085041);
     }
