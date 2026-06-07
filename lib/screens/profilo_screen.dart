@@ -15,6 +15,7 @@ class ProfiloScreen extends StatelessWidget {
     final session = AppSessionScope.watch(context);
     final firebaseReady = session.firebaseReady;
     final userId = session.currentUserId;
+    final user = session.currentUser;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -37,10 +38,10 @@ class ProfiloScreen extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        if (userId != null) ...[
+        if (user != null) ...[
           const SizedBox(height: 4),
           SelectableText(
-            userId,
+            user.displayName ?? user.email ?? user.uid,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,

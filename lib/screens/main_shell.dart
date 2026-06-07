@@ -39,7 +39,8 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  static const _titles = ['Mappa', 'Segnala', 'Classifica', 'Profilo'];
+  static const _titles = ['Mappa', 'Segnala',  'Profilo'];
+  // static const _titles = ['Mappa', 'Segnala', 'Classifica', 'Profilo'];
 
   /// Una sola tab alla volta nel tree: [IndexedStack] teneva tutte le schermate
   /// (inclusa [GoogleMap]) montate insieme e su Android creava più platform view
@@ -50,9 +51,9 @@ class _MainShellState extends State<MainShell> {
         return const MappaScreen();
       case 1:
         return SegnalaScreen();
+      // case 2:
+      //   return ClassificaScreen();
       case 2:
-        return ClassificaScreen();
-      case 3:
         return const ProfiloScreen();
       default:
         return const MappaScreen();
@@ -89,11 +90,11 @@ class _MainShellState extends State<MainShell> {
             selectedIcon: Icon(Icons.add_location_alt),
             label: 'Segnala',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            selectedIcon: Icon(Icons.emoji_events),
-            label: 'Classifica',
-          ),
+          // NavigationDestination(
+          //   icon: Icon(Icons.emoji_events_outlined),
+          //   selectedIcon: Icon(Icons.emoji_events),
+          //   label: 'Classifica',
+          // ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
