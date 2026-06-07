@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/app_user_profile.dart';
 import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
+import '../routes.dart';
 import '../services/media_picker_service.dart';
 import '../services/photo_upload_service.dart';
 import '../state/app_session.dart';
@@ -170,6 +172,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return '$dd/$mm/$yyyy alle $hh:$min';
   }
 
+  void _openOnMap() {
+    context.go(AppRoutes.mappa);
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.watch(context);
@@ -229,6 +235,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ],
                   const SizedBox(height: 16),
                   _InfoCard(report: report),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _openOnMap,
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('Apri su mappa'),
+                  ),
                   if (event != null) ...[
                     const SizedBox(height: 16),
                     _EventCard(

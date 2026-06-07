@@ -379,6 +379,7 @@ class _MappaScreenState extends State<MappaScreen> {
                       markers: markers,
                       mapType: MapType.normal,
                       zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
                       myLocationEnabled: true,
                       myLocationButtonEnabled: false,
                       compassEnabled: true,
