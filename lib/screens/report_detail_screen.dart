@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../models/app_user_profile.dart';
+import '../widgets/image_source_bottom_sheet.dart';
 import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
 import '../routes.dart';
@@ -117,28 +117,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Future<void> _completeCleaning() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt_outlined),
-                title: const Text('Scatta foto finale'),
-                onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Scegli dalla galleria'),
-                onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
-              ),
-            ],
-          ),
-        );
-      },
+    final source = await showImageSourceBottomSheet(
+      context,
+      cameraLabel: 'Scatta foto finale',
     );
     if (source == null || !mounted) return;
 

@@ -11,6 +11,7 @@ import '../services/report_service.dart';
 import '../services/image_processing_service.dart';
 import '../state/app_session.dart';
 import '../state/segnala_view_model.dart';
+import '../widgets/image_source_bottom_sheet.dart';
 
 /// Flusso “Segnala”: form e invio segnalazione (da collegare a Storage + Firestore).
 class SegnalaScreen extends StatefulWidget {
@@ -41,7 +42,6 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
   int _seenInfoToken = 0;
   int _seenErrorToken = 0;
   bool _resolvingPosition = false;
-  bool _blockingDialogOpen = false;
 
   @override
   void initState() {
@@ -61,69 +61,29 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
       return;
     }
 
-    if (mounted && !_blockingDialogOpen) {
-      _blockingDialogOpen = true;
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        useRootNavigator: true,
-        builder: (ctx) {
-          return const PopScope(
-            canPop: false,
-            child: Center(
-              child: Card(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
-                      ),
-                      SizedBox(width: 12),
-                      Text('Invio segnalazione...'),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      );
+    await _viewModel.submit(
+      firebaseReady: session.firebaseReady,
+      note: _note.text,
+      uid: session.currentUserId,
+    );
+
+    if (!mounted) return;
+
+    if (_viewModel.infoToken > _seenInfoToken && _viewModel.lastInfo != null) {
+      _seenInfoToken = _viewModel.infoToken;
+      session.publishInfo(_viewModel.lastInfo!);
+      if (_viewModel.lastInfo == 'Segnalazione inviata correttamente.') {
+        _note.clear();
+        _viewModel.clearDraftExtras();
+      }
     }
-
-    try {
-      await _viewModel.submit(
-        firebaseReady: session.firebaseReady,
-        note: _note.text,
-        uid: session.currentUserId,
+    if (_viewModel.errorToken > _seenErrorToken &&
+        _viewModel.lastError != null) {
+      _seenErrorToken = _viewModel.errorToken;
+      session.publishError(
+        _viewModel.lastError!,
+        fallback: _viewModel.lastErrorFallback,
       );
-
-      if (_viewModel.infoToken > _seenInfoToken &&
-          _viewModel.lastInfo != null) {
-        _seenInfoToken = _viewModel.infoToken;
-        session.publishInfo(_viewModel.lastInfo!);
-        if (_viewModel.lastInfo == 'Segnalazione inviata correttamente.' &&
-            mounted) {
-          _note.clear();
-          _viewModel.clearDraftExtras();
-        }
-      }
-      if (_viewModel.errorToken > _seenErrorToken &&
-          _viewModel.lastError != null) {
-        _seenErrorToken = _viewModel.errorToken;
-        session.publishError(
-          _viewModel.lastError!,
-          fallback: _viewModel.lastErrorFallback,
-        );
-      }
-    } finally {
-      if (mounted && _blockingDialogOpen) {
-        Navigator.of(context, rootNavigator: true).pop();
-        _blockingDialogOpen = false;
-      }
     }
   }
 
@@ -153,30 +113,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
   }
 
   Future<void> _choosePhotoSource() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt_outlined),
-                title: const Text('Scatta foto'),
-                onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Scegli dalla galleria'),
-                onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
+    final source = await showImageSourceBottomSheet(context);
     if (source != null) {
       await _pickPhoto(source);
     }

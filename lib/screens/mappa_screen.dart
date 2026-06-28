@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../maps_android_init.dart';
 import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
+import '../theme/app_colors.dart';
 import 'report_detail_screen.dart';
 import '../services/location_service.dart';
 
@@ -31,8 +32,6 @@ class _MappaScreenState extends State<MappaScreen> {
   /// triggering `hasSize` assertions under [RenderFractionalTranslation].
   /// Mount the map only after at least one laid-out frame.
   bool _mapMountReady = false;
-
-  static const _greenBrand = Color(0xFF1D9E75);
 
   static bool get _googleMapsAvailable {
     if (kIsWeb) return true;
@@ -408,7 +407,7 @@ class _MappaScreenState extends State<MappaScreen> {
                 heroTag: 'recenter_map',
                 onPressed: _resolvingGps ? null : _goToCurrentGpsPosition,
                 tooltip: 'Vai alla tua posizione GPS',
-                backgroundColor: _greenBrand,
+                backgroundColor: AppColors.greenBrand,
                 foregroundColor: Colors.white,
                 child: _resolvingGps
                     ? const SizedBox(
@@ -437,25 +436,7 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color bg;
-    final Color fg;
-    switch (status) {
-      case TrashpotStatus.aperta:
-      case TrashpotStatus.segnalata:
-        bg = const Color(0xFFFCEBEB);
-        fg = const Color(0xFF791F1F);
-      case TrashpotStatus.inLavorazione:
-      case TrashpotStatus.puliziaInCorso:
-        bg = const Color(0xFFFAEEDA);
-        fg = const Color(0xFF633806);
-      case TrashpotStatus.eventoCreato:
-        bg = const Color(0xFFE6F0FF);
-        fg = const Color(0xFF174EA6);
-      case TrashpotStatus.pulita:
-      case TrashpotStatus.ripulita:
-        bg = const Color(0xFFE1F5EE);
-        fg = const Color(0xFF085041);
-    }
+    final (:bg, :fg) = AppColors.statusChip(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(

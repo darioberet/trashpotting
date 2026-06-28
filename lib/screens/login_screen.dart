@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
+import '../core/form_validators.dart';
 import '../models/app_user_profile.dart';
 import '../repositories/user_profile_repository.dart';
 import '../services/auth_service.dart';
@@ -28,21 +29,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _busy = false;
-
-  String? _validateEmail(String? value) {
-    final email = value?.trim() ?? '';
-    if (email.isEmpty) return 'Inserisci email';
-    final looksValid = email.contains('@') && email.contains('.');
-    if (!looksValid) return 'Email non valida';
-    return null;
-  }
-
-  String? _validatePassword(String? value) {
-    final password = value ?? '';
-    if (password.isEmpty) return 'Inserisci password';
-    if (password.length < 6) return 'Minimo 6 caratteri';
-    return null;
-  }
 
   Future<void> _submit() async {
     if (_busy) return;
@@ -136,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           labelText: 'Email',
                           border: OutlineInputBorder(),
                         ),
-                        validator: _validateEmail,
+                        validator: FormValidators.email,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -147,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           labelText: 'Password',
                           border: OutlineInputBorder(),
                         ),
-                        validator: _validatePassword,
+                        validator: FormValidators.password,
                       ),
                     ],
                   ),

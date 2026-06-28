@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
+import '../core/form_validators.dart';
 import '../models/app_user_profile.dart';
 import '../repositories/user_profile_repository.dart';
 import '../services/auth_service.dart';
@@ -30,21 +31,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _busy = false;
-
-  String? _validateEmail(String? value) {
-    final email = value?.trim() ?? '';
-    if (email.isEmpty) return 'Inserisci email';
-    final looksValid = email.contains('@') && email.contains('.');
-    if (!looksValid) return 'Email non valida';
-    return null;
-  }
-
-  String? _validatePassword(String? value) {
-    final password = value ?? '';
-    if (password.isEmpty) return 'Inserisci password';
-    if (password.length < 6) return 'Minimo 6 caratteri';
-    return null;
-  }
 
   String? _validateConfirm(String? value) {
     if ((value ?? '').isEmpty) return 'Conferma password';
@@ -153,7 +139,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           labelText: 'Email',
                           border: OutlineInputBorder(),
                         ),
-                        validator: _validateEmail,
+                        validator: FormValidators.email,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -163,7 +149,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           labelText: 'Password',
                           border: OutlineInputBorder(),
                         ),
-                        validator: _validatePassword,
+                        validator: FormValidators.password,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(

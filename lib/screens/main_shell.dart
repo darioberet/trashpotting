@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
-import 'classifica_screen.dart';
 import 'mappa_screen.dart';
 import 'profilo_screen.dart';
 import 'segnala_screen.dart';
 
-/// Contenitore principale: tab Mappa, Segnala, Classifica, Profilo.
+/// Contenitore principale: tab Mappa, Segnala, Profilo.
 class MainShell extends StatefulWidget {
   const MainShell({
     super.key,
@@ -23,7 +22,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _index;
 
-  int _normalizedIndex(int value) => value.clamp(0, 3);
+  int _normalizedIndex(int value) => value.clamp(0, 2);
 
   @override
   void initState() {
@@ -39,25 +38,17 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  static const _titles = ['Mappa', 'Segnala',  'Profilo'];
-  // static const _titles = ['Mappa', 'Segnala', 'Classifica', 'Profilo'];
+  static const _titles = ['Mappa', 'Segnala', 'Profilo'];
 
   /// Una sola tab alla volta nel tree: [IndexedStack] teneva tutte le schermate
   /// (inclusa [GoogleMap]) montate insieme e su Android creava più platform view
   /// e layout fragili. Qui la mappa esiste solo quando la tab Mappa è selezionata.
   Widget _bodyForTab(int i) {
-    switch (i) {
-      case 0:
-        return const MappaScreen();
-      case 1:
-        return SegnalaScreen();
-      // case 2:
-      //   return ClassificaScreen();
-      case 2:
-        return const ProfiloScreen();
-      default:
-        return const MappaScreen();
-    }
+    return switch (i) {
+      0 => const MappaScreen(),
+      1 => SegnalaScreen(),
+      _ => const ProfiloScreen(),
+    };
   }
 
   @override
@@ -90,11 +81,6 @@ class _MainShellState extends State<MainShell> {
             selectedIcon: Icon(Icons.add_location_alt),
             label: 'Segnala',
           ),
-          // NavigationDestination(
-          //   icon: Icon(Icons.emoji_events_outlined),
-          //   selectedIcon: Icon(Icons.emoji_events),
-          //   label: 'Classifica',
-          // ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),

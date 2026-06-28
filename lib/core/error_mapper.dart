@@ -7,6 +7,19 @@ String mapAppError(
 }) {
   if (error is FirebaseAuthException) {
     switch (error.code) {
+      case 'user-not-found':
+      case 'invalid-credential':
+        return 'Email o password non corretti.';
+      case 'wrong-password':
+        return 'Password errata.';
+      case 'email-already-in-use':
+        return 'Email già in uso. Prova ad accedere.';
+      case 'invalid-email':
+        return 'Formato email non valido.';
+      case 'weak-password':
+        return 'Password troppo debole. Usa almeno 6 caratteri.';
+      case 'user-disabled':
+        return 'Account disabilitato. Contatta il supporto.';
       case 'operation-not-allowed':
         return 'Accesso non consentito. Verifica la configurazione Firebase Auth.';
       case 'network-request-failed':
