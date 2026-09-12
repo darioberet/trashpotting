@@ -30,7 +30,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+
+  final _nameFocus = FocusNode();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _confirmFocus = FocusNode();
+
   bool _busy = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
 
   String? _validateConfirm(String? value) {
     if ((value ?? '').isEmpty) return 'Conferma password';
@@ -89,6 +97,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _nameFocus.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _confirmFocus.dispose();
     super.dispose();
   }
 
@@ -125,42 +137,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 24),
                 Form(
                   key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   child: Column(
                     children: [
                       TextFormField(
                         controller: _displayNameController,
+                        focusNode: _nameFocus,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) => _emailFocus.requestFocus(),
                         decoration: const InputDecoration(
                           labelText: 'Nome visualizzato (opzionale)',
-                          border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _emailController,
+                        focusNode: _emailFocus,
                         keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
+                        autofillHints: const [AutofillHints.email],
                         decoration: const InputDecoration(
                           labelText: 'Email',
-                          border: OutlineInputBorder(),
                         ),
                         validator: FormValidators.email,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
+                        focusNode: _passwordFocus,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) => _confirmFocus.requestFocus(),
+                        autofillHints: const [AutofillHints.newPassword],
+                        decoration: InputDecoration(
                           labelText: 'Password',
-                          border: OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 18,
+                            ),
+                            onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword),
+                          ),
                         ),
                         validator: FormValidators.password,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _confirmController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
+                        focusNode: _confirmFocus,
+                        obscureText: _obscureConfirm,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _submit(),
+                        decoration: InputDecoration(
                           labelText: 'Conferma password',
-                          border: OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirm
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 18,
+                            ),
+                            onPressed: () => setState(
+                                () => _obscureConfirm = !_obscureConfirm),
+                          ),
                         ),
                         validator: _validateConfirm,
                       ),
@@ -185,12 +228,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 10),
                 TextButton(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          context.pop();
-                        },
-                  child: const Text('Hai gia un account? Torna al login'),
+                  onPressed: _busy ? null : () => context.pop(),
+                  child: const Text('Hai già un account? Torna al login'),
                 ),
               ],
             ),

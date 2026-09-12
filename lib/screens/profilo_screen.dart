@@ -66,7 +66,10 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
             child: const Text('Annulla'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              minimumSize: const Size(88, 40),
+            ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Elimina'),
           ),
@@ -112,10 +115,15 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
           radius: 40,
           backgroundColor: cs.primaryContainer,
           foregroundColor: cs.onPrimaryContainer,
-          child: Icon(
-            userId != null ? Icons.person : Icons.person_outline,
-            size: 40,
-          ),
+          backgroundImage: user?.photoURL != null
+              ? NetworkImage(user!.photoURL!)
+              : null,
+          child: user?.photoURL == null
+              ? Icon(
+                  userId != null ? Icons.person : Icons.person_outline,
+                  size: 40,
+                )
+              : null,
         ),
         const SizedBox(height: 16),
         Text(
@@ -135,6 +143,37 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
             FutureBuilder<({int reports, int points})>(
               future: _statsFuture,
               builder: (context, snap) {
+                if (snap.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.warning_amber_outlined, size: 14, color: cs.error),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Statistiche non disponibili',
+                          style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            _loadedStatsForUid = null;
+                            _maybeLoadStats(userId!);
+                          }),
+                          child: Text(
+                            'Riprova',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.greenBrand,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final done = snap.connectionState == ConnectionState.done;
                 final reports = snap.data?.reports ?? 0;
                 final points = snap.data?.points ?? 0;
                 return Container(
@@ -148,9 +187,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                     children: [
                       Expanded(
                         child: _StatTile(
-                          value: snap.connectionState == ConnectionState.done
-                              ? '$reports'
-                              : '—',
+                          value: done ? '$reports' : '—',
                           label: 'Segnalazioni',
                           icon: Icons.add_location_alt_outlined,
                         ),
@@ -158,9 +195,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                       Container(width: 1, height: 40, color: AppColors.divider),
                       Expanded(
                         child: _StatTile(
-                          value: snap.connectionState == ConnectionState.done
-                              ? '$points'
-                              : '—',
+                          value: done ? '$points' : '—',
                           label: 'Punti',
                           icon: Icons.emoji_events_outlined,
                         ),

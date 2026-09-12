@@ -11,7 +11,6 @@ import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../services/location_service.dart';
 import '../theme/app_colors.dart';
-import 'report_detail_screen.dart';
 
 double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
   const r = 6371.0;
@@ -88,13 +87,8 @@ class _MappaScreenState extends State<MappaScreen> {
     };
   }
 
-  Future<void> _openReportDetails(String reportId) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ReportDetailScreen(reportId: reportId),
-      ),
-    );
-  }
+  void _openReportDetails(String reportId) =>
+      context.push('${AppRoutes.reportDetail}/$reportId');
 
   Future<void> _fitReports(Iterable<TrashpotReport> reports) async {
     final c = _mapController;
@@ -205,6 +199,28 @@ class _MappaScreenState extends State<MappaScreen> {
     return StreamBuilder<List<TrashpotReport>>(
       stream: _reportRepository.watchReports(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off_outlined, size: 48),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Errore di rete. Riavvia l\'app o verifica la connessione.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        final isStreamLoading =
+            snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData;
         final rawReports = snapshot.data ?? const <TrashpotReport>[];
         final userPos = _userPosition;
         final reports = userPos == null
@@ -291,6 +307,7 @@ class _MappaScreenState extends State<MappaScreen> {
                         onReportTap: _openReportDetails,
                         mapHeight: mapHeight,
                         userPosition: userPos,
+                        isLoading: isStreamLoading,
                       ),
                     ),
                   ],
@@ -352,6 +369,7 @@ class _ReportListPanel extends StatelessWidget {
     required this.onReportTap,
     required this.mapHeight,
     this.userPosition,
+    this.isLoading = false,
   });
 
   final List<TrashpotReport> reports;
@@ -359,6 +377,7 @@ class _ReportListPanel extends StatelessWidget {
   final void Function(String reportId) onReportTap;
   final double mapHeight;
   final LatLng? userPosition;
+  final bool isLoading;
 
   void _showAllReports(BuildContext context) {
     showModalBottomSheet<void>(
@@ -506,8 +525,8 @@ class _ReportListPanel extends StatelessWidget {
                   TextButton(
                     onPressed: () => _showAllReports(context),
                     style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      minimumSize: const Size(48, 48),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: Row(
@@ -528,7 +547,9 @@ class _ReportListPanel extends StatelessWidget {
 
             // Report list
             Expanded(
-              child: reports.isEmpty
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : reports.isEmpty
                   ? Center(
                       child: Text(
                         'Nessuna segnalazione vicino a te.',
@@ -584,17 +605,20 @@ class _ReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (:bg, :fg) = AppColors.statusChip(report.status);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceWarm,
+    return Semantics(
+      label: '${report.title}, ${trashpotStatusLabel(report.status)}',
+      button: true,
+      child: Material(
+        color: AppColors.surfaceWarm,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            // Thumbnail
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: report.photoUrl != null
@@ -641,7 +665,7 @@ class _ReportCard extends StatelessWidget {
                         child: Text(
                           trashpotStatusLabel(report.status).toUpperCase(),
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: fg,
                             letterSpacing: 0.4,
@@ -686,6 +710,8 @@ class _ReportCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
         ),
       ),
     );

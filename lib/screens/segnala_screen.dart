@@ -179,7 +179,10 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, _) {
-        return Stack(
+        return GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: Stack(
           children: [
             Column(
               children: [
@@ -241,6 +244,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
                 ),
               ),
           ],
+        ),
         );
       },
     );
@@ -267,26 +271,30 @@ class _PhotoUploadArea extends StatelessWidget {
     if (hasPhoto) {
       return Column(
         children: [
-          GestureDetector(
-            onTap: onTap,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: kIsWeb
-                  ? Container(
-                      height: 120,
-                      color: AppColors.surfaceWarm,
-                      alignment: Alignment.center,
-                      child: Text(
-                        photoPath!.split(RegExp(r'[\\/]')).last,
-                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          Semantics(
+            label: 'Foto allegata. Tocca per cambiare.',
+            button: true,
+            child: GestureDetector(
+              onTap: onTap,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: kIsWeb
+                    ? Container(
+                        height: 120,
+                        color: AppColors.surfaceWarm,
+                        alignment: Alignment.center,
+                        child: Text(
+                          photoPath!.split(RegExp(r'[\\/]')).last,
+                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                        ),
+                      )
+                    : Image.file(
+                        File(photoPath!),
+                        height: 120,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
                       ),
-                    )
-                  : Image.file(
-                      File(photoPath!),
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
+              ),
             ),
           ),
           Align(
@@ -297,9 +305,8 @@ class _PhotoUploadArea extends StatelessWidget {
               label: const Text('Rimuovi foto', style: TextStyle(fontSize: 12)),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.textSecondary,
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                minimumSize: const Size(48, 48),
               ),
             ),
           ),
@@ -307,25 +314,29 @@ class _PhotoUploadArea extends StatelessWidget {
       );
     }
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 120,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceWarm,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.divider, width: 1.5, style: BorderStyle.solid),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.camera_alt_outlined, size: 28, color: AppColors.textDisabled),
-            SizedBox(height: 8),
-            Text(
-              'Tocca per aggiungere foto',
-              style: TextStyle(fontSize: 13, color: AppColors.textDisabled),
-            ),
-          ],
+    return Semantics(
+      label: 'Tocca per aggiungere una foto',
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 120,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceWarm,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.divider, width: 1.5, style: BorderStyle.solid),
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.camera_alt_outlined, size: 28, color: AppColors.textDisabled),
+              SizedBox(height: 8),
+              Text(
+                'Tocca per aggiungere foto',
+                style: TextStyle(fontSize: 13, color: AppColors.textDisabled),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -452,8 +463,9 @@ class _StickyBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(

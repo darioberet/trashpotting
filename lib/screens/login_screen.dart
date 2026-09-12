@@ -29,6 +29,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   bool _busy = false;
   bool _obscurePassword = true;
 
@@ -63,6 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: const Text('Annulla'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(88, 40)),
             onPressed: () async {
               final email = controller.text.trim();
               if (email.isEmpty) return;
@@ -125,6 +128,8 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -173,6 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 Form(
                   key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -180,7 +186,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _emailController,
+                        focusNode: _emailFocus,
                         keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) =>
+                            _passwordFocus.requestFocus(),
                         autofillHints: const [
                           AutofillHints.username,
                           AutofillHints.email,
@@ -195,7 +205,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _passwordController,
+                        focusNode: _passwordFocus,
                         obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _submit(),
                         autofillHints: const [AutofillHints.password],
                         decoration: InputDecoration(
                           hintText: '••••••••',
@@ -218,9 +231,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: TextButton(
                           onPressed: _busy ? null : () => _showPasswordReset(context),
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            minimumSize: const Size(48, 48),
                           ),
                           child: const Text('Password dimenticata?', style: TextStyle(fontSize: 12)),
                         ),
@@ -269,9 +281,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextButton(
                       onPressed: _busy ? null : () => context.push(AppRoutes.register),
                       style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        minimumSize: const Size(48, 48),
                       ),
                       child: const Text('Registrati', style: TextStyle(fontSize: 13)),
                     ),

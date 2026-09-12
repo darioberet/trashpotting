@@ -8,5 +8,6 @@ abstract final class AppRoutes {
   static const classifica = '/app/classifica';
   static const profilo = '/app/profilo';
   static const notifiche = '/app/notifiche';
+  static const reportDetail = '/app/report';
   static const debugFirebase = '/debug/firebase';
 }

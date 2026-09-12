@@ -54,6 +54,12 @@ class _MainShellState extends State<MainShell> {
     };
   }
 
+  Widget _notificationsButton(BuildContext context) => IconButton(
+        tooltip: 'Notifiche',
+        icon: const Icon(Icons.notifications_outlined),
+        onPressed: () => context.push(AppRoutes.notifiche),
+      );
+
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     if (_index == 0) {
       return AppBar(
@@ -74,24 +80,12 @@ class _MainShellState extends State<MainShell> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Notifiche',
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => context.push(AppRoutes.notifiche),
-          ),
-        ],
+        actions: [_notificationsButton(context)],
       );
     }
     return AppBar(
       title: Text(_titles[_index]),
-      actions: [
-        IconButton(
-          tooltip: 'Notifiche',
-          icon: const Icon(Icons.notifications_outlined),
-          onPressed: () => context.push(AppRoutes.notifiche),
-        ),
-      ],
+      actions: [_notificationsButton(context)],
     );
   }
 

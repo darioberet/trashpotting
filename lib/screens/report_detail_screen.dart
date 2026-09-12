@@ -164,12 +164,45 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cloud_off_outlined, size: 48),
+                    const SizedBox(height: 16),
+                    const Text('Errore di rete. Controlla la connessione.'),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Torna indietro'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
           final report = snapshot.data;
           if (report == null) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('Report non disponibile o privo di coordinate valide.'),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.delete_outline, size: 48),
+                    const SizedBox(height: 16),
+                    const Text('Report non disponibile o eliminato.'),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Torna indietro'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -604,8 +637,9 @@ class _BottomActions extends StatelessWidget {
     final s = report.status;
     final event = report.event;
 
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),

@@ -54,10 +54,13 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
         }
 
         final entries = _viewModel.entries;
+        final isLoading = _viewModel.loading && !_viewModel.loaded;
         final isEmpty = _viewModel.loaded && entries.isEmpty;
 
         Widget body;
-        if (isEmpty) {
+        if (isLoading) {
+          body = const Center(child: CircularProgressIndicator());
+        } else if (isEmpty) {
           body = LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),

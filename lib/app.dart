@@ -8,6 +8,7 @@ import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/notifiche_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/report_detail_screen.dart';
 import 'state/app_session.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
@@ -96,11 +97,44 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
           builder: (context, state) => NotificheScreen(),
         ),
         GoRoute(
+          path: '${AppRoutes.reportDetail}/:id',
+          builder: (context, state) => ReportDetailScreen(
+            reportId: state.pathParameters['id']!,
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.debugFirebase,
           builder: (context, state) => DebugFirebaseScreen(),
         ),
       ],
-      errorBuilder: (context, state) => const MainShell(),
+      errorBuilder: (context, state) => Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.link_off_outlined, size: 56),
+                const SizedBox(height: 16),
+                Text(
+                  'Pagina non trovata',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  state.matchedLocation,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => context.go(AppRoutes.mappa),
+                  child: const Text('Vai alla mappa'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
