@@ -8,6 +8,10 @@ class UserProfileRepository {
 
   final FirebaseFirestore _firestore;
 
+  Future<void> deleteProfile(String uid) {
+    return _firestore.collection('users').doc(uid).delete();
+  }
+
   Future<void> ensureProfile(AppUserProfile profile) {
     return _firestore.collection('users').doc(profile.uid).set({
       'email': profile.email,

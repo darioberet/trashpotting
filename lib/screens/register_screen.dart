@@ -69,9 +69,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         );
       }
+      if (credential.user != null) {
+        await widget._authService.sendEmailVerification();
+      }
       if (!mounted) return;
-      session.publishInfo('Registrazione completata.');
-      context.go(AppRoutes.mappa);
+      session.publishInfo('Registrazione completata. Controlla la tua email.');
+      context.go(AppRoutes.emailVerification);
     } catch (e) {
       if (!mounted) return;
       session.publishError(e, fallback: 'Registrazione non riuscita.');
@@ -113,7 +116,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Dopo la registrazione entrerai direttamente nell\'app.',
+                  'Dopo la registrazione dovrai verificare la tua email.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: cs.onSurfaceVariant,

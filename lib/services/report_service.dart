@@ -1,4 +1,5 @@
 import '../models/report_draft.dart';
+import '../repositories/leaderboard_repository.dart';
 import '../repositories/report_repository.dart';
 import 'photo_upload_service.dart';
 
@@ -6,18 +7,24 @@ class ReportService {
   ReportService({
     ReportRepository? repository,
     PhotoUploadService? photoUploadService,
+    LeaderboardRepository? leaderboardRepository,
   })  : _repository = repository ?? FirestoreReportRepository(),
-        _photoUploadService = photoUploadService;
+        _photoUploadService = photoUploadService,
+        _leaderboardRepository =
+            leaderboardRepository ?? FirestoreLeaderboardRepository();
 
   final ReportRepository _repository;
   final PhotoUploadService? _photoUploadService;
+  final LeaderboardRepository _leaderboardRepository;
 
   Future<void> submit({
     required String note,
     String? uid,
+    String? displayName,
     String? photoPath,
     double? latitude,
     double? longitude,
+    String? type,
   }) async {
     final cleaned = note.trim();
     if (cleaned.length < 10) {
@@ -38,7 +45,15 @@ class ReportService {
       photoUrl: photoUrl,
       latitude: latitude,
       longitude: longitude,
+      type: type,
     );
     await _repository.submitReport(draft: draft, uid: uid);
+
+    if (uid != null) {
+      final name = (displayName?.trim().isNotEmpty == true)
+          ? displayName!.trim()
+          : 'Utente';
+      await _leaderboardRepository.incrementPoints(uid: uid, displayName: name);
+    }
   }
 }

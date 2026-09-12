@@ -43,6 +43,7 @@ class AppSession extends ChangeNotifier {
   Object? get firebaseError => _firebaseError;
   User? get currentUser => _currentUser;
   String? get currentUserId => _currentUser?.uid ?? _currentUserId;
+  bool get emailVerified => _currentUser?.emailVerified ?? false;
   AppUiMessage? get message => _message;
 
   void updateFirebaseState({required bool ready, Object? error}) {

@@ -13,6 +13,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
   String? _photoPath;
   double? _latitude;
   double? _longitude;
+  String? _reportType;
 
   @override
   String get lastErrorFallback => 'Invio segnalazione non riuscito.';
@@ -21,6 +22,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
   String? get photoPath => _photoPath;
   double? get latitude => _latitude;
   double? get longitude => _longitude;
+  String? get reportType => _reportType;
 
   void setPhotoPath(String? path) {
     _photoPath = path;
@@ -44,10 +46,16 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
     notifyListeners();
   }
 
+  void setReportType(String? type) {
+    _reportType = type;
+    notifyListeners();
+  }
+
   void clearDraftExtras() {
     _photoPath = null;
     _latitude = null;
     _longitude = null;
+    _reportType = null;
     notifyListeners();
   }
 
@@ -55,6 +63,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
     required bool firebaseReady,
     required String note,
     String? uid,
+    String? displayName,
   }) async {
     if (_sending) return;
 
@@ -71,9 +80,11 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
       await _reportService.submit(
         note: note,
         uid: uid,
+        displayName: displayName,
         photoPath: _photoPath,
         latitude: _latitude,
         longitude: _longitude,
+        type: _reportType,
       );
       setInfo('Segnalazione inviata correttamente.');
     } catch (e) {

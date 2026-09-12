@@ -3,11 +3,14 @@ import 'package:go_router/go_router.dart';
 
 import 'routes.dart';
 import 'screens/debug_firebase_screen.dart';
+import 'screens/email_verification_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/notifiche_screen.dart';
 import 'screens/register_screen.dart';
 import 'state/app_session.dart';
+import 'theme/app_colors.dart';
+import 'theme/app_theme.dart';
 
 class TrashpottingApp extends StatefulWidget {
   const TrashpottingApp({
@@ -44,15 +47,18 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
         final location = state.matchedLocation;
         final isAuthRoute =
             location == AppRoutes.login || location == AppRoutes.register;
+        final isVerifyRoute = location == AppRoutes.emailVerification;
         final isPublicRoute =
-            isAuthRoute || location == AppRoutes.debugFirebase;
+            isAuthRoute || isVerifyRoute || location == AppRoutes.debugFirebase;
         final isSignedIn = _session.currentUserId != null;
+        final emailVerified = _session.emailVerified;
 
-        if (!isSignedIn && !isPublicRoute) {
-          return AppRoutes.login;
-        }
+        if (!isSignedIn && !isPublicRoute) return AppRoutes.login;
         if (isSignedIn && isAuthRoute) {
-          return AppRoutes.mappa;
+          return emailVerified ? AppRoutes.mappa : AppRoutes.emailVerification;
+        }
+        if (isSignedIn && !emailVerified && !isVerifyRoute) {
+          return AppRoutes.emailVerification;
         }
         return null;
       },
@@ -64,6 +70,10 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
         GoRoute(
           path: AppRoutes.register,
           builder: (context, state) => RegisterScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.emailVerification,
+          builder: (context, state) => EmailVerificationScreen(),
         ),
         GoRoute(
           path: AppRoutes.mappa,
@@ -115,7 +125,9 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
       ..showSnackBar(
         SnackBar(
           content: Text(message.text),
-          backgroundColor: message.isError ? null : Colors.green.shade700,
+          backgroundColor: message.isError
+              ? AppColors.redPin
+              : AppColors.greenDark,
         ),
       );
   }
@@ -136,14 +148,9 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
         debugShowCheckedModeBanner: false,
         scaffoldMessengerKey: _messengerKey,
         routerConfig: _router,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2E7D32),
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-          appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
-        ),
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: ThemeMode.system,
       ),
     );
   }

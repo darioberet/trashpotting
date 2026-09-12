@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/app_user_profile.dart';
-import '../widgets/image_source_bottom_sheet.dart';
 import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../services/media_picker_service.dart';
 import '../services/photo_upload_service.dart';
 import '../state/app_session.dart';
+import '../theme/app_colors.dart';
+import '../widgets/image_source_bottom_sheet.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   ReportDetailScreen({
@@ -34,8 +35,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   bool _busy = false;
 
   Future<void> _runAction(
-    Future<void> Function(AppUserProfile currentUser, AppSession session)
-    action,
+    Future<void> Function(AppUserProfile currentUser, AppSession session) action,
   ) async {
     if (_busy) return;
     final session = AppSessionScope.of(context);
@@ -98,11 +98,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (pickedTime == null || !mounted) return;
 
     final scheduledAt = DateTime(
-      pickedDate.year,
-      pickedDate.month,
-      pickedDate.day,
-      pickedTime.hour,
-      pickedTime.minute,
+      pickedDate.year, pickedDate.month, pickedDate.day,
+      pickedTime.hour, pickedTime.minute,
     );
 
     await _runAction((currentUser, session) async {
@@ -147,14 +144,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   String _formatDateTime(DateTime value) {
     final dd = value.day.toString().padLeft(2, '0');
     final mm = value.month.toString().padLeft(2, '0');
-    final yyyy = value.year.toString();
     final hh = value.hour.toString().padLeft(2, '0');
     final min = value.minute.toString().padLeft(2, '0');
-    return '$dd/$mm/$yyyy alle $hh:$min';
-  }
-
-  void _openOnMap() {
-    context.go(AppRoutes.mappa);
+    return '$dd/$mm/${value.year} alle $hh:$min';
   }
 
   @override
@@ -175,113 +167,165 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           final report = snapshot.data;
           if (report == null) {
             return const Center(
-              child: Text(
-                'Report non disponibile o privo di coordinate valide.',
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Report non disponibile o privo di coordinate valide.'),
               ),
             );
           }
 
           final event = report.event;
           final currentUid = currentUser?.uid;
-          final isEventCreator =
-              event != null &&
-              currentUid != null &&
-              event.creator.uid == currentUid;
-          final isCleaningOwner =
-              report.cleaningOwner != null &&
-              currentUid != null &&
-              report.cleaningOwner!.uid == currentUid;
-          final joinedEvent = event?.participants.any(
-            (participant) => participant.uid == currentUid,
-          );
+          final isEventCreator = event != null && currentUid != null && event.creator.uid == currentUid;
+          final isCleaningOwner = report.cleaningOwner != null && currentUid != null && report.cleaningOwner!.uid == currentUid;
+          final joinedEvent = event?.participants.any((p) => p.uid == currentUid);
 
           return Stack(
             children: [
-              ListView(
-                padding: const EdgeInsets.all(20),
+              Column(
                 children: [
-                  _StatusHeader(report: report),
-                  const SizedBox(height: 16),
-                  if (report.photoUrl != null)
-                    _PhotoSection(
-                      title: 'Foto segnalazione',
-                      imageUrl: report.photoUrl!,
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        // Photo header
+                        if (report.photoUrl != null)
+                          _PhotoHeader(imageUrl: report.photoUrl!, status: report.status),
+
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (report.photoUrl == null)
+                                _StatusChipInline(status: report.status),
+
+                              Text(
+                                report.title,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Info rows
+                              _InfoRow(
+                                icon: Icons.place_outlined,
+                                text: report.address,
+                              ),
+                              if (report.dateLabel != null) ...[
+                                const SizedBox(height: 6),
+                                _InfoRow(
+                                  icon: Icons.calendar_today_outlined,
+                                  text: report.dateLabel!,
+                                ),
+                              ],
+                              if (report.typeLabel != null) ...[
+                                const SizedBox(height: 6),
+                                _InfoRow(
+                                  icon: Icons.delete_outline,
+                                  text: report.typeLabel!,
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              Divider(color: AppColors.divider, thickness: 0.5, height: 1),
+                              const SizedBox(height: 12),
+
+                              if (report.note != null) ...[
+                                Text(
+                                  'Descrizione',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  report.note!,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                    height: 1.6,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Divider(color: AppColors.divider, thickness: 0.5, height: 1),
+                                const SizedBox(height: 12),
+                              ],
+
+                              // Cleanup photo
+                              Text(
+                                'Foto dopo la pulizia',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              if (report.cleanupPhotoUrl != null)
+                                _PhotoSection(imageUrl: report.cleanupPhotoUrl!)
+                              else
+                                Container(
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceWarm,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppColors.divider, width: 0.5, style: BorderStyle.solid),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    'Nessuna foto ancora caricata',
+                                    style: TextStyle(fontSize: 13, color: AppColors.textDisabled),
+                                  ),
+                                ),
+
+                              if (event != null) ...[
+                                const SizedBox(height: 16),
+                                _EventCard(
+                                  event: event,
+                                  dateText: _formatDateTime(event.scheduledAt),
+                                ),
+                              ],
+
+                              if (report.cleaningOwner != null &&
+                                  report.status == TrashpotStatus.puliziaInCorso &&
+                                  !isCleaningOwner) ...[
+                                const SizedBox(height: 12),
+                                _InfoRow(
+                                  icon: Icons.person_outline,
+                                  text: 'Pulizia in corso da parte di ${report.cleaningOwner!.label}.',
+                                ),
+                              ],
+
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  if (report.cleanupPhotoUrl != null) ...[
-                    const SizedBox(height: 16),
-                    _PhotoSection(
-                      title: 'Foto dopo la pulizia',
-                      imageUrl: report.cleanupPhotoUrl!,
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  _InfoCard(report: report),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _openOnMap,
-                    icon: const Icon(Icons.map_outlined),
-                    label: const Text('Apri su mappa'),
                   ),
-                  if (event != null) ...[
-                    const SizedBox(height: 16),
-                    _EventCard(
-                      event: event,
-                      dateText: _formatDateTime(event.scheduledAt),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  if (report.status == TrashpotStatus.segnalata &&
-                      event == null)
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _startCleaning,
-                      icon: const Icon(Icons.cleaning_services_outlined),
-                      label: const Text('Iniziare a pulire'),
-                    ),
-                  if (report.status == TrashpotStatus.segnalata &&
-                      event == null)
-                    const SizedBox(height: 12),
-                  if (report.status == TrashpotStatus.segnalata &&
-                      event == null)
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : _scheduleEvent,
-                      icon: const Icon(Icons.event_outlined),
-                      label: const Text('Schedulare un evento per pulire'),
-                    ),
-                  if (report.status == TrashpotStatus.eventoCreato &&
-                      event != null &&
-                      currentUid != null &&
-                      joinedEvent != true)
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _joinEvent,
-                      icon: const Icon(Icons.group_add_outlined),
-                      label: const Text('Partecipa'),
-                    ),
-                  if (report.status == TrashpotStatus.eventoCreato &&
-                      isEventCreator) ...[
-                    if (joinedEvent == true) const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _startCleaning,
-                      icon: const Icon(Icons.play_arrow_outlined),
-                      label: const Text('Passa a pulizia in corso'),
-                    ),
-                  ],
-                  if (report.status == TrashpotStatus.puliziaInCorso &&
-                      isCleaningOwner) ...[
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _completeCleaning,
-                      icon: const Icon(Icons.camera_alt_outlined),
-                      label: const Text('Segna come ripulito e carica foto'),
-                    ),
-                  ],
-                  if (report.status == TrashpotStatus.puliziaInCorso &&
-                      !isCleaningOwner &&
-                      report.cleaningOwner != null)
-                    Text(
-                      'Pulizia in corso da parte di ${report.cleaningOwner!.label}.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
+
+                  // Sticky bottom actions
+                  _BottomActions(
+                    report: report,
+                    busy: _busy,
+                    isEventCreator: isEventCreator,
+                    isCleaningOwner: isCleaningOwner,
+                    joinedEvent: joinedEvent,
+                    currentUid: currentUid,
+                    onStartCleaning: _startCleaning,
+                    onScheduleEvent: _scheduleEvent,
+                    onJoinEvent: _joinEvent,
+                    onCompleteCleaning: _completeCleaning,
+                    onOpenMap: () => context.go(AppRoutes.mappa),
+                  ),
                 ],
               ),
+
               if (_busy)
                 const Positioned.fill(
                   child: ColoredBox(
@@ -297,85 +341,96 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 }
 
-class _StatusHeader extends StatelessWidget {
-  const _StatusHeader({required this.report});
+// ─── Sub-widgets ─────────────────────────────────────────────────────────────
 
-  final TrashpotReport report;
+class _PhotoHeader extends StatelessWidget {
+  const _PhotoHeader({required this.imageUrl, required this.status});
+
+  final String imageUrl;
+  final TrashpotStatus status;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      height: 220,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Chip(label: Text(trashpotStatusLabel(report.status))),
-          const SizedBox(height: 8),
-          Text(
-            report.title,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          if (report.createdAt != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Creato il ${report.dateLabel}',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            loadingBuilder: (_, child, progress) {
+              if (progress == null) return child;
+              return ColoredBox(
+                color: cs.surfaceContainerHighest,
+                child: const Center(child: CircularProgressIndicator()),
+              );
+            },
+            errorBuilder: (_, _, _) => ColoredBox(
+              color: cs.surfaceContainerHighest,
+              child: const Center(
+                child: Icon(Icons.image_not_supported_outlined, size: 40, color: AppColors.textDisabled),
+              ),
             ),
-          ],
+          ),
+          Positioned(
+            bottom: 12,
+            right: 12,
+            child: _StatusChipInline(status: status),
+          ),
         ],
       ),
     );
   }
 }
 
-class _PhotoSection extends StatelessWidget {
-  const _PhotoSection({required this.title, required this.imageUrl});
+class _StatusChipInline extends StatelessWidget {
+  const _StatusChipInline({required this.status});
 
-  final String title;
-  final String imageUrl;
+  final TrashpotStatus status;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
+    final (:bg, :fg) = AppColors.statusChip(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        trashpotStatusLabel(status).toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: fg,
+          fontWeight: FontWeight.w500,
+          fontSize: 10,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return ColoredBox(
-                  color: cs.surfaceContainerHighest,
-                  child: const Center(child: CircularProgressIndicator()),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return ColoredBox(
-                  color: cs.surfaceContainerHighest,
-                  child: Center(
-                    child: Text(
-                      'Immagine non disponibile',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                );
-              },
+        Icon(icon, size: 14, color: AppColors.textSecondary),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontSize: 13,
+              color: AppColors.textSecondary,
             ),
           ),
         ),
@@ -384,45 +439,35 @@ class _PhotoSection extends StatelessWidget {
   }
 }
 
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.report});
+class _PhotoSection extends StatelessWidget {
+  const _PhotoSection({required this.imageUrl});
 
-  final TrashpotReport report;
+  final String imageUrl;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Dettagli', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
-          Text(report.note ?? report.title),
-          const SizedBox(height: 12),
-          Text(report.address),
-          const SizedBox(height: 8),
-          Text(
-            'Coordinate: ${report.lat.toStringAsFixed(6)}, ${report.lng.toStringAsFixed(6)}',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-          ),
-          if (report.cleaningOwner != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Pulizia assegnata a: ${report.cleaningOwner!.label}',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return ColoredBox(
+              color: cs.surfaceContainerHighest,
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) => ColoredBox(
+            color: cs.surfaceContainerHighest,
+            child: const Center(
+              child: Text('Immagine non disponibile', style: TextStyle(fontSize: 13)),
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -436,48 +481,130 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.greenLight,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Evento di pulizia',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 10),
-          Text('Creato da ${event.creator.label}'),
-          const SizedBox(height: 4),
-          Text(dateText),
-          const SizedBox(height: 12),
-          Text(
-            'Partecipanti (${event.participants.length})',
-            style: Theme.of(context).textTheme.titleSmall,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.greenDark,
+            ),
           ),
           const SizedBox(height: 8),
-          for (final participant in event.participants)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  const Icon(Icons.person_outline, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(participant.label)),
-                  if (participant.email.isNotEmpty)
-                    Text(
-                      participant.email,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                ],
+          _InfoRow(icon: Icons.person_outline, text: 'Creato da ${event.creator.label}'),
+          const SizedBox(height: 4),
+          _InfoRow(icon: Icons.calendar_today_outlined, text: dateText),
+          if (event.participants.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Partecipanti (${event.participants.length})',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.greenDark,
               ),
             ),
+            const SizedBox(height: 4),
+            for (final p in event.participants)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: _InfoRow(icon: Icons.person_outline, text: p.label),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomActions extends StatelessWidget {
+  const _BottomActions({
+    required this.report,
+    required this.busy,
+    required this.isEventCreator,
+    required this.isCleaningOwner,
+    required this.joinedEvent,
+    required this.currentUid,
+    required this.onStartCleaning,
+    required this.onScheduleEvent,
+    required this.onJoinEvent,
+    required this.onCompleteCleaning,
+    required this.onOpenMap,
+  });
+
+  final TrashpotReport report;
+  final bool busy;
+  final bool isEventCreator;
+  final bool isCleaningOwner;
+  final bool? joinedEvent;
+  final String? currentUid;
+  final VoidCallback onStartCleaning;
+  final VoidCallback onScheduleEvent;
+  final VoidCallback onJoinEvent;
+  final VoidCallback onCompleteCleaning;
+  final VoidCallback onOpenMap;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = report.status;
+    final event = report.event;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (s == TrashpotStatus.segnalata && event == null) ...[
+            FilledButton.icon(
+              onPressed: busy ? null : onStartCleaning,
+              icon: const Icon(Icons.cleaning_services_outlined, size: 18),
+              label: const Text('Voglio pulire questa zona'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: busy ? null : onScheduleEvent,
+              icon: const Icon(Icons.event_outlined, size: 18),
+              label: const Text('Schedula un evento'),
+            ),
+          ],
+          if (s == TrashpotStatus.eventoCreato && event != null && currentUid != null && joinedEvent != true)
+            FilledButton.icon(
+              onPressed: busy ? null : onJoinEvent,
+              icon: const Icon(Icons.group_add_outlined, size: 18),
+              label: const Text('Partecipa all\'evento'),
+            ),
+          if (s == TrashpotStatus.eventoCreato && isEventCreator) ...[
+            if (joinedEvent == true) const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: busy ? null : onStartCleaning,
+              icon: const Icon(Icons.play_arrow_outlined, size: 18),
+              label: const Text('Passa a pulizia in corso'),
+            ),
+          ],
+          if (s == TrashpotStatus.puliziaInCorso && isCleaningOwner)
+            FilledButton.icon(
+              onPressed: busy ? null : onCompleteCleaning,
+              icon: const Icon(Icons.camera_alt_outlined, size: 18),
+              label: const Text('Segna come ripulito e carica foto'),
+            ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: onOpenMap,
+            icon: const Icon(Icons.map_outlined, size: 18),
+            label: const Text('Apri su mappa'),
+          ),
         ],
       ),
     );

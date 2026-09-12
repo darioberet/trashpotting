@@ -29,4 +29,23 @@ class AuthService {
   Future<void> signOut() {
     return _auth.signOut();
   }
+
+  Future<void> sendPasswordResetEmail(String email) {
+    return _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  Future<void> sendEmailVerification() async {
+    await _auth.currentUser?.sendEmailVerification();
+  }
+
+  Future<void> reloadCurrentUser() async {
+    await _auth.currentUser?.reload();
+  }
+
+  bool get currentUserEmailVerified =>
+      _auth.currentUser?.emailVerified ?? false;
+
+  Future<void> deleteAccount() async {
+    await _auth.currentUser?.delete();
+  }
 }

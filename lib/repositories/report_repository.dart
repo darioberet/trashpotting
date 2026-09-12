@@ -6,7 +6,8 @@ import '../models/trashpot_report.dart';
 
 abstract class ReportRepository {
   Future<void> submitReport({required ReportDraft draft, String? uid});
-  Stream<List<TrashpotReport>> watchReports();
+  Future<void> anonymizeUserReports(String uid);
+  Stream<List<TrashpotReport>> watchReports({int limit = 50});
   Stream<TrashpotReport?> watchReport(String reportId);
   Future<void> startCleaning({
     required String reportId,
@@ -35,10 +36,11 @@ class FirestoreReportRepository implements ReportRepository {
   final FirebaseFirestore _firestore;
 
   @override
-  Stream<List<TrashpotReport>> watchReports() {
+  Stream<List<TrashpotReport>> watchReports({int limit = 50}) {
     return _firestore
         .collection('reports')
         .orderBy('createdAt', descending: true)
+        .limit(limit)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -72,6 +74,20 @@ class FirestoreReportRepository implements ReportRepository {
   }
 
   @override
+  Future<void> anonymizeUserReports(String uid) async {
+    final snap = await _firestore
+        .collection('reports')
+        .where('uid', isEqualTo: uid)
+        .get();
+    if (snap.docs.isEmpty) return;
+    final batch = _firestore.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'uid': null});
+    }
+    await batch.commit();
+  }
+
+  @override
   Future<void> submitReport({required ReportDraft draft, String? uid}) {
     return _firestore.collection('reports').add({
       'note': draft.note,
@@ -80,6 +96,7 @@ class FirestoreReportRepository implements ReportRepository {
       'longitude': draft.longitude,
       'uid': uid,
       'status': 'segnalata',
+      'type': draft.type,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

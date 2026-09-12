@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../routes.dart';
 import '../core/form_validators.dart';
 import '../models/app_user_profile.dart';
 import '../repositories/user_profile_repository.dart';
+import '../routes.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
+import '../theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   LoginScreen({
@@ -29,6 +30,59 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _busy = false;
+  bool _obscurePassword = true;
+
+  Future<void> _showPasswordReset(BuildContext context) async {
+    final controller = TextEditingController(text: _emailController.text.trim());
+    final session = AppSessionScope.of(context);
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Recupero password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Inserisci la tua email. Riceverai un link per reimpostare la password.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'nome@esempio.it'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final email = controller.text.trim();
+              if (email.isEmpty) return;
+              Navigator.of(ctx).pop();
+              try {
+                await widget._authService.sendPasswordResetEmail(email);
+                if (!context.mounted) return;
+                session.publishInfo('Email di recupero inviata a $email.');
+              } catch (e) {
+                if (!context.mounted) return;
+                session.publishError(e, fallback: 'Invio email di recupero non riuscito.');
+              }
+            },
+            child: const Text('Invia'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+  }
 
   Future<void> _submit() async {
     if (_busy) return;
@@ -76,41 +130,54 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final session = AppSessionScope.watch(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: ListView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
-                Icon(Icons.delete_sweep_outlined, size: 56, color: cs.primary),
-                const SizedBox(height: 12),
+                const SizedBox(height: 48),
+
+                // Logo
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.delete_sweep_outlined, size: 22, color: AppColors.greenBrand),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Trashpotting',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.greenBrand,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
                 Text(
-                  'Bentornato su Trashpotting',
+                  'Accedi al tuo account',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Accedi per inviare segnalazioni e vedere i tuoi dati.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 24),
+
+                const SizedBox(height: 32),
+
                 Form(
                   key: _formKey,
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _FieldLabel('Email'),
+                      const SizedBox(height: 6),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
@@ -119,52 +186,120 @@ class _LoginScreenState extends State<LoginScreen> {
                           AutofillHints.email,
                         ],
                         decoration: const InputDecoration(
-                          labelText: 'Email',
-                          border: OutlineInputBorder(),
+                          hintText: 'nome@esempio.it',
                         ),
                         validator: FormValidators.email,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
+                      _FieldLabel('Password'),
+                      const SizedBox(height: 6),
                       TextFormField(
                         controller: _passwordController,
-                        obscureText: true,
+                        obscureText: _obscurePassword,
                         autofillHints: const [AutofillHints.password],
-                        decoration: const InputDecoration(
-                          labelText: 'Password',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          hintText: '••••••••',
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 18,
+                              color: AppColors.textDisabled,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscurePassword = !_obscurePassword),
+                          ),
                         ),
                         validator: FormValidators.password,
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _busy ? null : () => _showPasswordReset(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('Password dimenticata?', style: TextStyle(fontSize: 12)),
+                        ),
                       ),
                     ],
                   ),
                 ),
+
                 if (!session.firebaseReady) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     'Firebase non disponibile. Controlla la configurazione.',
-                    style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.error),
                     textAlign: TextAlign.center,
                   ),
                 ],
+
                 const SizedBox(height: 20),
-                FilledButton.icon(
+
+                FilledButton(
                   onPressed: _busy || !session.firebaseReady ? null : _submit,
-                  icon: const Icon(Icons.login),
-                  label: Text(_busy ? 'Accesso in corso...' : 'Accedi'),
+                  child: _busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Accedi'),
                 ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          context.push(AppRoutes.register);
-                        },
-                  child: const Text('Non hai un account? Registrati'),
+
+                const SizedBox(height: 32),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Non hai un account? ',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _busy ? null : () => context.push(AppRoutes.register),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Registrati', style: TextStyle(fontSize: 13)),
+                    ),
+                  ],
                 ),
+
+                const SizedBox(height: 24),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: AppColors.textPrimary,
       ),
     );
   }

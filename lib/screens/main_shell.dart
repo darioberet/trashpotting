@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
+import '../theme/app_colors.dart';
+import 'classifica_screen.dart';
 import 'mappa_screen.dart';
 import 'profilo_screen.dart';
 import 'segnala_screen.dart';
@@ -22,7 +24,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _index;
 
-  int _normalizedIndex(int value) => value.clamp(0, 2);
+  int _normalizedIndex(int value) => value.clamp(0, 3);
 
   @override
   void initState() {
@@ -38,7 +40,7 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  static const _titles = ['Mappa', 'Segnala', 'Profilo'];
+  static const _titles = ['Mappa', 'Segnala', 'Classifica', 'Profilo'];
 
   /// Una sola tab alla volta nel tree: [IndexedStack] teneva tutte le schermate
   /// (inclusa [GoogleMap]) montate insieme e su Android creava più platform view
@@ -47,25 +49,56 @@ class _MainShellState extends State<MainShell> {
     return switch (i) {
       0 => const MappaScreen(),
       1 => SegnalaScreen(),
+      2 => ClassificaScreen(),
       _ => const ProfiloScreen(),
     };
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    if (_index == 0) {
+      return AppBar(
+        automaticallyImplyLeading: false,
+        centerTitle: false,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_sweep_outlined, size: 20, color: AppColors.greenBrand),
+            const SizedBox(width: 6),
+            Text(
+              'Trashpotting',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: AppColors.greenBrand,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Notifiche',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => context.push(AppRoutes.notifiche),
+          ),
+        ],
+      );
+    }
+    return AppBar(
+      title: Text(_titles[_index]),
+      actions: [
+        IconButton(
+          tooltip: 'Notifiche',
+          icon: const Icon(Icons.notifications_outlined),
+          onPressed: () => context.push(AppRoutes.notifiche),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_titles[_index]),
-        actions: [
-          IconButton(
-            tooltip: 'Notifiche',
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              context.push(AppRoutes.notifiche);
-            },
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(context),
       body: SizedBox.expand(child: _bodyForTab(_index)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -80,6 +113,11 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.add_location_alt_outlined),
             selectedIcon: Icon(Icons.add_location_alt),
             label: 'Segnala',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events),
+            label: 'Classifica',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

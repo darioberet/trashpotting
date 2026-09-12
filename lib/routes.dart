@@ -2,6 +2,7 @@
 abstract final class AppRoutes {
   static const login = '/login';
   static const register = '/register';
+  static const emailVerification = '/verify-email';
   static const mappa = '/app/mappa';
   static const segnala = '/app/segnala';
   static const classifica = '/app/classifica';
