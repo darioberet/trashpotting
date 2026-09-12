@@ -5,6 +5,7 @@ import '../models/leaderboard_entry.dart';
 abstract class LeaderboardRepository {
   Future<List<LeaderboardEntry>> fetchTop({int limit = 20});
   Future<void> incrementPoints({required String uid, required String displayName});
+  Future<int> fetchUserPoints(String uid);
 }
 
 class FirestoreLeaderboardRepository implements LeaderboardRepository {
@@ -22,6 +23,12 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
       'name': displayName,
       'points': FieldValue.increment(1),
     }, SetOptions(merge: true));
+  }
+
+  @override
+  Future<int> fetchUserPoints(String uid) async {
+    final doc = await _firestore.collection('leaderboard').doc(uid).get();
+    return doc.data()?['points'] as int? ?? 0;
   }
 
   @override

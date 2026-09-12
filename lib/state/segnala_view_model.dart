@@ -14,6 +14,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
   double? _latitude;
   double? _longitude;
   String? _reportType;
+  String? _address;
 
   @override
   String get lastErrorFallback => 'Invio segnalazione non riuscito.';
@@ -23,15 +24,21 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
   double? get latitude => _latitude;
   double? get longitude => _longitude;
   String? get reportType => _reportType;
+  String? get address => _address;
 
   void setPhotoPath(String? path) {
     _photoPath = path;
     notifyListeners();
   }
 
-  void setLocation({required double latitude, required double longitude}) {
+  void setLocation({
+    required double latitude,
+    required double longitude,
+    String? address,
+  }) {
     _latitude = latitude;
     _longitude = longitude;
+    _address = address;
     notifyListeners();
   }
 
@@ -43,6 +50,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
   void clearLocation() {
     _latitude = null;
     _longitude = null;
+    _address = null;
     notifyListeners();
   }
 
@@ -56,6 +64,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
     _latitude = null;
     _longitude = null;
     _reportType = null;
+    _address = null;
     notifyListeners();
   }
 
@@ -85,6 +94,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
         latitude: _latitude,
         longitude: _longitude,
         type: _reportType,
+        address: _address,
       );
       setInfo('Segnalazione inviata correttamente.');
     } catch (e) {

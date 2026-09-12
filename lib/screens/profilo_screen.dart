@@ -2,11 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../repositories/leaderboard_repository.dart';
 import '../repositories/report_repository.dart';
 import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
+import '../theme/app_colors.dart';
 
 class ProfiloScreen extends StatefulWidget {
   const ProfiloScreen({super.key});
@@ -19,7 +21,22 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
   final _authService = AuthService();
   final _reportRepository = FirestoreReportRepository();
   final _userProfileRepository = UserProfileRepository();
+  final _leaderboardRepository = FirestoreLeaderboardRepository();
   bool _deletingAccount = false;
+  Future<({int reports, int points})>? _statsFuture;
+
+  String? _loadedStatsForUid;
+
+  void _maybeLoadStats(String uid) {
+    if (_loadedStatsForUid == uid) return;
+    _loadedStatsForUid = uid;
+    setState(() {
+      _statsFuture = Future.wait([
+        _reportRepository.countByUser(uid),
+        _leaderboardRepository.fetchUserPoints(uid),
+      ]).then((results) => (reports: results[0], points: results[1]));
+    });
+  }
 
   Future<void> _logout() async {
     try {
@@ -85,6 +102,8 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     final userId = session.currentUserId;
     final user = session.currentUser;
 
+    if (userId != null) _maybeLoadStats(userId);
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
@@ -111,6 +130,46 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
+          const SizedBox(height: 20),
+          if (_statsFuture != null)
+            FutureBuilder<({int reports, int points})>(
+              future: _statsFuture,
+              builder: (context, snap) {
+                final reports = snap.data?.reports ?? 0;
+                final points = snap.data?.points ?? 0;
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.greenLight,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _StatTile(
+                          value: snap.connectionState == ConnectionState.done
+                              ? '$reports'
+                              : '—',
+                          label: 'Segnalazioni',
+                          icon: Icons.add_location_alt_outlined,
+                        ),
+                      ),
+                      Container(width: 1, height: 40, color: AppColors.divider),
+                      Expanded(
+                        child: _StatTile(
+                          value: snap.connectionState == ConnectionState.done
+                              ? '$points'
+                              : '—',
+                          label: 'Punti',
+                          icon: Icons.emoji_events_outlined,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ] else ...[
           const SizedBox(height: 8),
           Text(
@@ -156,6 +215,43 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
             onTap: _deletingAccount ? null : _confirmDeleteAccount,
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 22, color: AppColors.greenBrand),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppColors.greenBrand,
+          ),
+        ),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: AppColors.greenDark,
+          ),
+        ),
       ],
     );
   }

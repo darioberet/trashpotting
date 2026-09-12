@@ -10,33 +10,25 @@ class ClassificaViewModel extends ChangeNotifier with NotifierMessageMixin {
 
   final LeaderboardRepository _repository;
 
-  static const fallbackEntries = <LeaderboardEntry>[
-    LeaderboardEntry(rank: 1, name: 'Tu (placeholder)', points: 120),
-    LeaderboardEntry(rank: 2, name: 'EcoTeam Nord', points: 98),
-    LeaderboardEntry(rank: 3, name: 'Raccolta_2026', points: 76),
-    LeaderboardEntry(rank: 4, name: 'VerdeStrada', points: 54),
-    LeaderboardEntry(rank: 5, name: 'PuliamoIlParco', points: 41),
-  ];
-
-  List<LeaderboardEntry> _entries = fallbackEntries;
+  List<LeaderboardEntry> _entries = const [];
   bool _loading = false;
+  bool _loaded = false;
 
   @override
-  String get lastErrorFallback =>
-      'Classifica non disponibile: mostro dati di esempio.';
+  String get lastErrorFallback => 'Classifica non disponibile. Riprova più tardi.';
 
   List<LeaderboardEntry> get entries => _entries;
   bool get loading => _loading;
+  bool get loaded => _loaded;
 
   Future<void> load() async {
     _loading = true;
     notifyListeners();
 
     try {
-      final result = await _repository.fetchTop();
-      _entries = result.isNotEmpty ? result : fallbackEntries;
+      _entries = await _repository.fetchTop();
+      _loaded = true;
     } catch (e) {
-      _entries = fallbackEntries;
       setError(e);
     } finally {
       _loading = false;

@@ -16,19 +16,21 @@ class _FakeLeaderboardRepository implements LeaderboardRepository {
   @override
   Future<List<LeaderboardEntry>> fetchTop({int limit = 20}) async {
     calls += 1;
-    if (error != null) {
-      throw error!;
-    }
+    if (error != null) throw error!;
     return result;
   }
+
+  @override
+  Future<void> incrementPoints({required String uid, required String displayName}) async {}
+
+  @override
+  Future<int> fetchUserPoints(String uid) async => 0;
 }
 
 void main() {
   test('load uses repository entries on success', () async {
     final repo = _FakeLeaderboardRepository(
-      result: const [
-        LeaderboardEntry(rank: 1, name: 'A', points: 99),
-      ],
+      result: const [LeaderboardEntry(rank: 1, name: 'A', points: 99)],
     );
     final vm = ClassificaViewModel(repository: repo);
 
@@ -42,19 +44,20 @@ void main() {
     expect(vm.lastError, isNull);
   });
 
-  test('load falls back when repository returns empty', () async {
+  test('load returns empty list when repository returns empty', () async {
     final repo = _FakeLeaderboardRepository(result: const []);
     final vm = ClassificaViewModel(repository: repo);
 
     await vm.load();
 
     expect(vm.loading, isFalse);
-    expect(vm.entries, ClassificaViewModel.fallbackEntries);
+    expect(vm.entries, isEmpty);
+    expect(vm.loaded, isTrue);
     expect(vm.errorToken, 0);
     expect(vm.lastError, isNull);
   });
 
-  test('load stores error and fallback entries on failure', () async {
+  test('load stores error on failure', () async {
     final error = StateError('boom');
     final repo = _FakeLeaderboardRepository(error: error);
     final vm = ClassificaViewModel(repository: repo);
@@ -62,7 +65,6 @@ void main() {
     await vm.load();
 
     expect(vm.loading, isFalse);
-    expect(vm.entries, ClassificaViewModel.fallbackEntries);
     expect(vm.errorToken, 1);
     expect(vm.lastError, error);
     expect(vm.lastErrorFallback, contains('Classifica non disponibile'));
@@ -74,9 +76,7 @@ void main() {
     );
     final vm = ClassificaViewModel(repository: repo);
     var notifications = 0;
-    vm.addListener(() {
-      notifications += 1;
-    });
+    vm.addListener(() => notifications += 1);
 
     await vm.load();
 

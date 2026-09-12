@@ -47,6 +47,7 @@ dependencies:
   google_maps_flutter_android: ^2.19.8
   google_maps_flutter_platform_interface: ^2.15.0
   google_fonts: ^6.2.1
+  geocoding: ^3.0.0
 
 dev_dependencies:
   flutter_test:

@@ -360,6 +360,85 @@ class _ReportListPanel extends StatelessWidget {
   final double mapHeight;
   final LatLng? userPosition;
 
+  void _showAllReports(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 1,
+        minChildSize: 0.5,
+        maxChildSize: 1,
+        expand: false,
+        builder: (ctx, scrollController) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  Text(
+                    'Tutte le segnalazioni',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.separated(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                itemCount: reports.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, i) {
+                  final r = reports[i];
+                  String? dist;
+                  if (userPosition != null) {
+                    dist = _distanceLabel(_haversineKm(
+                      userPosition!.latitude,
+                      userPosition!.longitude,
+                      r.lat,
+                      r.lng,
+                    ));
+                  }
+                  return _ReportCard(
+                    report: r,
+                    computedDistanceLabel: dist,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      onReportTap(r.id);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -425,7 +504,7 @@ class _ReportListPanel extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () => _showAllReports(context),
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,

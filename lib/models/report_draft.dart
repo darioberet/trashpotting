@@ -5,6 +5,7 @@ class ReportDraft {
     this.latitude,
     this.longitude,
     this.type,
+    this.address,
   });
 
   final String note;
@@ -12,4 +13,5 @@ class ReportDraft {
   final double? latitude;
   final double? longitude;
   final String? type;
+  final String? address;
 }

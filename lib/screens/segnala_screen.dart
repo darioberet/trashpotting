@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:geocoding/geocoding.dart' as geo;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -134,7 +136,23 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
     try {
       final p = await widget._locationService.getCurrentPosition();
       if (!mounted) return false;
-      _viewModel.setLocation(latitude: p.latitude, longitude: p.longitude);
+      String? resolvedAddress;
+      try {
+        final placemarks = await geo.placemarkFromCoordinates(p.latitude, p.longitude);
+        if (placemarks.isNotEmpty) {
+          final pm = placemarks.first;
+          final parts = [
+            if ((pm.street ?? '').isNotEmpty) pm.street,
+            if ((pm.locality ?? '').isNotEmpty) pm.locality,
+          ];
+          if (parts.isNotEmpty) resolvedAddress = parts.join(', ');
+        }
+      } catch (_) {}
+      _viewModel.setLocation(
+        latitude: p.latitude,
+        longitude: p.longitude,
+        address: resolvedAddress,
+      );
       if (!silent) session.publishInfo('Posizione GPS acquisita.');
       return true;
     } catch (e) {

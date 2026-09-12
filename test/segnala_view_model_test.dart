@@ -36,7 +36,7 @@ class _NoopReportRepository implements ReportRepository {
   }) async {}
 
   @override
-  Stream<List<TrashpotReport>> watchReports() =>
+  Stream<List<TrashpotReport>> watchReports({int limit = 50}) =>
       const Stream<List<TrashpotReport>>.empty();
 
   @override
@@ -45,20 +45,29 @@ class _NoopReportRepository implements ReportRepository {
 
   @override
   Future<void> submitReport({required ReportDraft draft, String? uid}) async {}
+
+  @override
+  Future<void> anonymizeUserReports(String uid) async {}
+
+  @override
+  Future<int> countByUser(String uid) async => 0;
 }
 
 typedef _SubmitHandler =
     Future<void> Function({
       required String note,
       String? uid,
+      String? displayName,
       String? photoPath,
       double? latitude,
       double? longitude,
+      String? type,
+      String? address,
     });
 
 class _FakeReportService extends ReportService {
   _FakeReportService(this._handler)
-    : super(repository: _NoopReportRepository());
+      : super(repository: _NoopReportRepository());
 
   final _SubmitHandler _handler;
   int calls = 0;
@@ -72,9 +81,12 @@ class _FakeReportService extends ReportService {
   Future<void> submit({
     required String note,
     String? uid,
+    String? displayName,
     String? photoPath,
     double? latitude,
     double? longitude,
+    String? type,
+    String? address,
   }) async {
     calls += 1;
     lastNote = note;
@@ -85,9 +97,12 @@ class _FakeReportService extends ReportService {
     await _handler(
       note: note,
       uid: uid,
+      displayName: displayName,
       photoPath: photoPath,
       latitude: latitude,
       longitude: longitude,
+      type: type,
+      address: address,
     );
   }
 }
@@ -95,7 +110,7 @@ class _FakeReportService extends ReportService {
 void main() {
   test('submit publishes info when firebase is not ready', () async {
     final service = _FakeReportService(
-      ({required note, uid, photoPath, latitude, longitude}) async {},
+      ({required note, uid, displayName, photoPath, latitude, longitude, type, address}) async {},
     );
     final vm = SegnalaViewModel(reportService: service);
 
@@ -110,7 +125,7 @@ void main() {
 
   test('submit success toggles sending and stores success info', () async {
     final service = _FakeReportService(
-      ({required note, uid, photoPath, latitude, longitude}) async {},
+      ({required note, uid, displayName, photoPath, latitude, longitude, type, address}) async {},
     );
     final vm = SegnalaViewModel(reportService: service);
 
@@ -140,9 +155,12 @@ void main() {
     final service = _FakeReportService(({
       required note,
       uid,
+      displayName,
       photoPath,
       latitude,
       longitude,
+      type,
+      address,
     }) async {
       throw error;
     });
@@ -166,9 +184,12 @@ void main() {
     final service = _FakeReportService(({
       required note,
       uid,
+      displayName,
       photoPath,
       latitude,
       longitude,
+      type,
+      address,
     }) async {
       await completer.future;
     });

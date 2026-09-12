@@ -5,7 +5,6 @@ import '../repositories/leaderboard_repository.dart';
 import '../state/app_session.dart';
 import '../state/classifica_view_model.dart';
 
-/// Classifica community (dati mock fino a query Firestore).
 class ClassificaScreen extends StatefulWidget {
   ClassificaScreen({super.key, LeaderboardRepository? repository})
       : _repository = repository ?? FirestoreLeaderboardRepository();
@@ -55,9 +54,39 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
         }
 
         final entries = _viewModel.entries;
-        return RefreshIndicator(
-          onRefresh: _reload,
-          child: ListView.separated(
+        final isEmpty = _viewModel.loaded && entries.isEmpty;
+
+        Widget body;
+        if (isEmpty) {
+          body = LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: constraints.maxHeight,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.emoji_events_outlined, size: 56, color: cs.outlineVariant),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Sii il primo a segnalare!',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'La classifica si aggiorna ad ogni segnalazione.',
+                        style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        } else {
+          body = ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             itemCount: entries.length + 1,
             separatorBuilder: (_, i) => i == 0 ? const SizedBox.shrink() : const Divider(height: 1),
@@ -116,8 +145,10 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
                 ),
               );
             },
-          ),
-        );
+          );
+        }
+
+        return RefreshIndicator(onRefresh: _reload, child: body);
       },
     );
   }

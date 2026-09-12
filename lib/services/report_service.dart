@@ -25,6 +25,7 @@ class ReportService {
     double? latitude,
     double? longitude,
     String? type,
+    String? address,
   }) async {
     final cleaned = note.trim();
     if (cleaned.length < 10) {
@@ -46,6 +47,7 @@ class ReportService {
       latitude: latitude,
       longitude: longitude,
       type: type,
+      address: address,
     );
     await _repository.submitReport(draft: draft, uid: uid);
 

@@ -352,34 +352,37 @@ class _PhotoHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 220,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            loadingBuilder: (_, child, progress) {
-              if (progress == null) return child;
-              return ColoredBox(
+    return GestureDetector(
+      onTap: () => _openPhotoFullscreen(context, imageUrl),
+      child: SizedBox(
+        height: 220,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return ColoredBox(
+                  color: cs.surfaceContainerHighest,
+                  child: const Center(child: CircularProgressIndicator()),
+                );
+              },
+              errorBuilder: (_, _, _) => ColoredBox(
                 color: cs.surfaceContainerHighest,
-                child: const Center(child: CircularProgressIndicator()),
-              );
-            },
-            errorBuilder: (_, _, _) => ColoredBox(
-              color: cs.surfaceContainerHighest,
-              child: const Center(
-                child: Icon(Icons.image_not_supported_outlined, size: 40, color: AppColors.textDisabled),
+                child: const Center(
+                  child: Icon(Icons.image_not_supported_outlined, size: 40, color: AppColors.textDisabled),
+                ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: 12,
-            right: 12,
-            child: _StatusChipInline(status: status),
-          ),
-        ],
+            Positioned(
+              bottom: 12,
+              right: 12,
+              child: _StatusChipInline(status: status),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -447,24 +450,27 @@ class _PhotoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          loadingBuilder: (_, child, progress) {
-            if (progress == null) return child;
-            return ColoredBox(
+    return GestureDetector(
+      onTap: () => _openPhotoFullscreen(context, imageUrl),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            loadingBuilder: (_, child, progress) {
+              if (progress == null) return child;
+              return ColoredBox(
+                color: cs.surfaceContainerHighest,
+                child: const Center(child: CircularProgressIndicator()),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) => ColoredBox(
               color: cs.surfaceContainerHighest,
-              child: const Center(child: CircularProgressIndicator()),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) => ColoredBox(
-            color: cs.surfaceContainerHighest,
-            child: const Center(
-              child: Text('Immagine non disponibile', style: TextStyle(fontSize: 13)),
+              child: const Center(
+                child: Text('Immagine non disponibile', style: TextStyle(fontSize: 13)),
+              ),
             ),
           ),
         ),
@@ -520,6 +526,47 @@ class _EventCard extends StatelessWidget {
               ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+void _openPhotoFullscreen(BuildContext context, String imageUrl) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) => _FullscreenPhotoPage(imageUrl: imageUrl),
+    ),
+  );
+}
+
+class _FullscreenPhotoPage extends StatelessWidget {
+  const _FullscreenPhotoPage({required this.imageUrl});
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.contain,
+            loadingBuilder: (_, child, progress) {
+              if (progress == null) return child;
+              return const Center(child: CircularProgressIndicator(color: Colors.white));
+            },
+            errorBuilder: (context, error, stackTrace) => const Center(
+              child: Text('Immagine non disponibile', style: TextStyle(color: Colors.white)),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import '../models/trashpot_report.dart';
 abstract class ReportRepository {
   Future<void> submitReport({required ReportDraft draft, String? uid});
   Future<void> anonymizeUserReports(String uid);
+  Future<int> countByUser(String uid);
   Stream<List<TrashpotReport>> watchReports({int limit = 50});
   Stream<TrashpotReport?> watchReport(String reportId);
   Future<void> startCleaning({
@@ -74,6 +75,16 @@ class FirestoreReportRepository implements ReportRepository {
   }
 
   @override
+  Future<int> countByUser(String uid) async {
+    final snap = await _firestore
+        .collection('reports')
+        .where('uid', isEqualTo: uid)
+        .count()
+        .get();
+    return snap.count ?? 0;
+  }
+
+  @override
   Future<void> anonymizeUserReports(String uid) async {
     final snap = await _firestore
         .collection('reports')
@@ -97,6 +108,7 @@ class FirestoreReportRepository implements ReportRepository {
       'uid': uid,
       'status': 'segnalata',
       'type': draft.type,
+      'address': draft.address,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
