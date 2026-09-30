@@ -48,4 +48,15 @@ class AuthService {
   Future<void> deleteAccount() async {
     await _auth.currentUser?.delete();
   }
+
+  /// Sincronizza nome/foto su Firebase Auth (oggi scritti solo su Firestore
+  /// in fase di registrazione) — usato dall'onboarding per allineare le due
+  /// fonti, così `profilo_screen.dart` (che legge da `User.photoURL`) le vede.
+  Future<void> updateProfile({String? displayName, String? photoURL}) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    if (displayName != null) await user.updateDisplayName(displayName);
+    if (photoURL != null) await user.updatePhotoURL(photoURL);
+    await user.reload();
+  }
 }

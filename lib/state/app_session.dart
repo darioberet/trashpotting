@@ -4,9 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
 
 import '../core/error_mapper.dart';
+import '../repositories/user_profile_repository.dart';
 
 class AppUiMessage {
-  const AppUiMessage({required this.text, required this.isError, required this.token});
+  const AppUiMessage({
+    required this.text,
+    required this.isError,
+    required this.token,
+  });
 
   final String text;
   final bool isError;
@@ -20,16 +25,20 @@ class AppSession extends ChangeNotifier {
     FirebaseAuth? auth,
     String? initialUserId,
     bool bindAuthStream = true,
-  })  : _firebaseReady = firebaseReady,
-        _firebaseError = firebaseError,
-        _auth = auth,
-        _currentUserId = initialUserId,
-        _bindAuthStream = bindAuthStream {
+    UserProfileRepository? userProfileRepository,
+  }) : _firebaseReady = firebaseReady,
+       _firebaseError = firebaseError,
+       _auth = auth,
+       _currentUserId = initialUserId,
+       _bindAuthStream = bindAuthStream,
+       _userProfileRepository =
+           userProfileRepository ?? UserProfileRepository() {
     _startAuthBindingIfNeeded();
   }
 
   final FirebaseAuth? _auth;
   final bool _bindAuthStream;
+  final UserProfileRepository _userProfileRepository;
   StreamSubscription<User?>? _authSub;
 
   bool _firebaseReady;
@@ -38,13 +47,45 @@ class AppSession extends ChangeNotifier {
   String? _currentUserId;
   int _messageCounter = 0;
   AppUiMessage? _message;
+  // Ottimistico finché non verificato: evita di bloccare un utente già
+  // onboardato mentre la lettura Firestore è in corso.
+  bool _onboardingComplete = true;
 
   bool get firebaseReady => _firebaseReady;
   Object? get firebaseError => _firebaseError;
   User? get currentUser => _currentUser;
   String? get currentUserId => _currentUser?.uid ?? _currentUserId;
   bool get emailVerified => _currentUser?.emailVerified ?? false;
+  bool get onboardingComplete => _onboardingComplete;
   AppUiMessage? get message => _message;
+
+  /// Segna l'onboarding come completato (chiamato dalla schermata di
+  /// onboarding) e sblocca subito il redirect del router.
+  Future<void> markOnboardingComplete() async {
+    final uid = currentUserId;
+    if (uid == null) return;
+    await _userProfileRepository.setOnboardingComplete(uid, true);
+    if (!_onboardingComplete) {
+      _onboardingComplete = true;
+      notifyListeners();
+    }
+  }
+
+  /// Backstop per i casi limite (utente che chiude l'app a metà onboarding):
+  /// rieseguito ad ogni cambio di stato auth, non solo al primo login —
+  /// la navigazione "vera" avviene esplicitamente da login/verifica email.
+  Future<void> _refreshOnboardingStatus(String uid) async {
+    try {
+      final done = await _userProfileRepository.hasCompletedOnboarding(uid);
+      if (currentUserId != uid) return; // utente cambiato nel frattempo
+      if (done != _onboardingComplete) {
+        _onboardingComplete = done;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Rete assente/errore: resta sul valore ottimistico corrente.
+    }
+  }
 
   void updateFirebaseState({required bool ready, Object? error}) {
     final changed = ready != _firebaseReady || error != _firebaseError;
@@ -61,7 +102,10 @@ class AppSession extends ChangeNotifier {
     if (changed) notifyListeners();
   }
 
-  void publishError(Object error, {String fallback = 'Operazione non riuscita.'}) {
+  void publishError(
+    Object error, {
+    String fallback = 'Operazione non riuscita.',
+  }) {
     _publishMessage(
       text: mapAppError(error, fallback: fallback),
       isError: true,
@@ -74,7 +118,11 @@ class AppSession extends ChangeNotifier {
 
   void _publishMessage({required String text, required bool isError}) {
     _messageCounter += 1;
-    _message = AppUiMessage(text: text, isError: isError, token: _messageCounter);
+    _message = AppUiMessage(
+      text: text,
+      isError: isError,
+      token: _messageCounter,
+    );
     notifyListeners();
   }
 
@@ -83,9 +131,17 @@ class AppSession extends ChangeNotifier {
     final auth = _auth ?? FirebaseAuth.instance;
     _currentUser = auth.currentUser;
     _currentUserId = _currentUser?.uid;
+    if (_currentUserId != null) {
+      unawaited(_refreshOnboardingStatus(_currentUserId!));
+    }
     _authSub = auth.authStateChanges().listen((user) {
       _currentUser = user;
       _currentUserId = user?.uid;
+      if (user == null) {
+        _onboardingComplete = true; // reset all'uscita
+      } else {
+        unawaited(_refreshOnboardingStatus(user.uid));
+      }
       notifyListeners();
     });
   }
@@ -111,7 +167,8 @@ class AppSessionScope extends InheritedNotifier<AppSession> {
   }
 
   static AppSession of(BuildContext context) {
-    final element = context.getElementForInheritedWidgetOfExactType<AppSessionScope>();
+    final element = context
+        .getElementForInheritedWidgetOfExactType<AppSessionScope>();
     final scope = element?.widget as AppSessionScope?;
     assert(scope != null, 'AppSessionScope non trovato nel widget tree.');
     return scope!.notifier!;

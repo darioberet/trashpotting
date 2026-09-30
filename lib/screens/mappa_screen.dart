@@ -2,32 +2,22 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/geo_utils.dart';
+import '../core/map_style.dart';
+import '../core/marker_clustering.dart';
+import '../core/marker_icons.dart';
 import '../maps_android_init.dart';
+import '../models/report_filter.dart';
 import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../services/location_service.dart';
 import '../theme/app_colors.dart';
-
-double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
-  const r = 6371.0;
-  final dLat = (lat2 - lat1) * math.pi / 180;
-  final dLon = (lon2 - lon1) * math.pi / 180;
-  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-      math.cos(lat1 * math.pi / 180) *
-          math.cos(lat2 * math.pi / 180) *
-          math.sin(dLon / 2) *
-          math.sin(dLon / 2);
-  return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-}
-
-String _distanceLabel(double km) {
-  if (km < 1) return '${(km * 1000).round()} m';
-  return '${km.toStringAsFixed(1)} km';
-}
 
 class MappaScreen extends StatefulWidget {
   const MappaScreen({super.key});
@@ -44,6 +34,106 @@ class _MappaScreenState extends State<MappaScreen> {
   LatLng? _initialTarget;
   LatLng? _userPosition;
   bool _mapMountReady = false;
+
+  Set<Marker> _displayMarkers = {};
+  List<TrashpotReport> _lastReports = const [];
+  String? _lastMarkersSignature;
+  int _clusterEpoch = 0;
+
+  static const _radiusPrefsKey = 'map_radius_km';
+  static const _statusPrefsKey = 'map_status_groups';
+  final _preferences = SharedPreferencesAsync();
+  int _radiusKm = defaultReportRadiusKm;
+  Set<ReportStatusGroup> _statusGroups = {...defaultReportStatusGroups};
+
+  // Lo stream va memorizzato: ricrearlo a ogni build (es. dopo il
+  // setState del clustering) riaprirebbe tutte le query Firestore.
+  Stream<List<TrashpotReport>>? _reportsStream;
+  String? _reportsStreamKey;
+
+  Stream<List<TrashpotReport>> _reportsStreamFor(LatLng? center) {
+    final key = center == null
+        ? 'recent'
+        : '${center.latitude},${center.longitude},$_radiusKm';
+    if (key != _reportsStreamKey || _reportsStream == null) {
+      _reportsStreamKey = key;
+      _reportsStream = center == null
+          ? _reportRepository.watchReports()
+          : _reportRepository.watchReportsNear(
+              latitude: center.latitude,
+              longitude: center.longitude,
+              radiusKm: _radiusKm.toDouble(),
+            );
+    }
+    return _reportsStream!;
+  }
+
+  Future<void> _loadFilters() async {
+    try {
+      final radius = await _preferences.getInt(_radiusPrefsKey);
+      final groups = await _preferences.getStringList(_statusPrefsKey);
+      if (!mounted) return;
+      setState(() {
+        if (radius != null && reportRadiusOptionsKm.contains(radius)) {
+          _radiusKm = radius;
+        }
+        if (groups != null) {
+          _statusGroups = ReportStatusGroup.values
+              .where((g) => groups.contains(g.name))
+              .toSet();
+        }
+      });
+    } catch (_) {
+      // Preferenze non disponibili: restano i filtri predefiniti.
+    }
+  }
+
+  void _setRadius(int km) {
+    if (km == _radiusKm) return;
+    setState(() => _radiusKm = km);
+    _preferences.setInt(_radiusPrefsKey, km).ignore();
+    _fitRadius();
+  }
+
+  void _toggleStatusGroup(ReportStatusGroup group) {
+    setState(() {
+      _statusGroups = {..._statusGroups};
+      if (!_statusGroups.remove(group)) _statusGroups.add(group);
+    });
+    _preferences
+        .setStringList(
+          _statusPrefsKey,
+          _statusGroups.map((g) => g.name).toList(),
+        )
+        .ignore();
+  }
+
+  /// Inquadra il cerchio del raggio di ricerca attorno all'utente.
+  Future<void> _fitRadius() async {
+    final c = _mapController;
+    final center = _userPosition;
+    if (c == null || center == null) return;
+    final latDelta = _radiusKm / 110.574;
+    final lngDelta =
+        _radiusKm / (111.320 * math.cos(center.latitude * math.pi / 180));
+    try {
+      await c.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(
+              center.latitude - latDelta,
+              center.longitude - lngDelta,
+            ),
+            northeast: LatLng(
+              center.latitude + latDelta,
+              center.longitude + lngDelta,
+            ),
+          ),
+          24,
+        ),
+      );
+    } catch (_) {}
+  }
 
   static bool get _googleMapsAvailable {
     if (kIsWeb) return true;
@@ -76,14 +166,26 @@ class _MappaScreenState extends State<MappaScreen> {
     );
   }
 
-  double _markerHue(TrashpotStatus s) {
+  Color _markerColor(TrashpotStatus s) {
     return switch (s) {
-      TrashpotStatus.aperta ||
-      TrashpotStatus.segnalata => BitmapDescriptor.hueRed,
+      TrashpotStatus.segnalata => AppColors.redPin,
+      TrashpotStatus.aperta => AppColors.amberDot,
       TrashpotStatus.inLavorazione ||
-      TrashpotStatus.puliziaInCorso => BitmapDescriptor.hueOrange,
-      TrashpotStatus.eventoCreato => BitmapDescriptor.hueAzure,
-      TrashpotStatus.pulita || TrashpotStatus.ripulita => BitmapDescriptor.hueGreen,
+      TrashpotStatus.puliziaInCorso => AppColors.textSecondary,
+      TrashpotStatus.eventoCreato => AppColors.blueText,
+      TrashpotStatus.pulita || TrashpotStatus.ripulita => AppColors.greenBrand,
+    };
+  }
+
+  IconData _markerIcon(TrashpotStatus s) {
+    return switch (s) {
+      TrashpotStatus.segnalata => Icons.warning_amber_outlined,
+      TrashpotStatus.aperta => Icons.schedule_outlined,
+      TrashpotStatus.inLavorazione ||
+      TrashpotStatus.puliziaInCorso => Icons.build_outlined,
+      TrashpotStatus.eventoCreato => Icons.event_outlined,
+      TrashpotStatus.pulita ||
+      TrashpotStatus.ripulita => Icons.check_circle_outline,
     };
   }
 
@@ -98,6 +200,78 @@ class _MappaScreenState extends State<MappaScreen> {
     try {
       await c.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
     } catch (_) {}
+  }
+
+  /// Ricalcola i marker raggruppando (clustering) le segnalazioni vicine
+  /// sullo schermo alla zoom/posizione corrente. Va rieseguito quando
+  /// cambiano i dati o quando l'utente sposta/zooma la mappa
+  /// ([onCameraIdle]), perché la distanza in pixel tra due punti dipende
+  /// dal livello di zoom.
+  Future<void> _recomputeMarkers(List<TrashpotReport> reports) async {
+    final controller = _mapController;
+    _lastReports = reports;
+    if (controller == null || reports.isEmpty) {
+      if (mounted) setState(() => _displayMarkers = {});
+      return;
+    }
+
+    final epoch = ++_clusterEpoch;
+    List<ScreenCoordinate> coords;
+    try {
+      coords = await Future.wait(
+        reports.map(
+          (r) => controller.getScreenCoordinate(LatLng(r.lat, r.lng)),
+        ),
+      );
+    } catch (_) {
+      return;
+    }
+    if (!mounted || epoch != _clusterEpoch) return;
+
+    final groups = clusterByScreenDistance<TrashpotReport>(
+      items: reports,
+      screenPoints: coords,
+      positionOf: (r) => LatLng(r.lat, r.lng),
+    );
+
+    final markers = <Marker>{};
+    for (final group in groups) {
+      if (group.isCluster) {
+        final icon = await MarkerIconFactory.cluster(count: group.items.length);
+        if (!mounted || epoch != _clusterEpoch) return;
+        markers.add(
+          Marker(
+            markerId: MarkerId(
+              'cluster_${group.center.latitude}_${group.center.longitude}_${group.items.length}',
+            ),
+            position: group.center,
+            icon: icon,
+            onTap: () => _fitReports(group.items),
+          ),
+        );
+      } else {
+        final r = group.items.first;
+        final icon = await MarkerIconFactory.pin(
+          color: _markerColor(r.status),
+          icon: _markerIcon(r.status),
+        );
+        if (!mounted || epoch != _clusterEpoch) return;
+        markers.add(
+          Marker(
+            markerId: MarkerId('tp_${r.id}'),
+            position: LatLng(r.lat, r.lng),
+            icon: icon,
+            onTap: () => _openReportDetails(r.id),
+            infoWindow: InfoWindow(
+              title: r.title,
+              snippet: trashpotStatusLabel(r.status),
+            ),
+          ),
+        );
+      }
+    }
+
+    if (mounted) setState(() => _displayMarkers = markers);
   }
 
   Future<void> _resolveInitialPosition() async {
@@ -129,9 +303,9 @@ class _MappaScreenState extends State<MappaScreen> {
       await c.animateCamera(CameraUpdate.newLatLngZoom(pos, 16));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('GPS non disponibile: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('GPS non disponibile: $e')));
     } finally {
       if (mounted) setState(() => _resolvingGps = false);
     }
@@ -152,6 +326,7 @@ class _MappaScreenState extends State<MappaScreen> {
         });
       });
     }
+    _loadFilters();
     _resolveInitialPosition();
   }
 
@@ -197,7 +372,7 @@ class _MappaScreenState extends State<MappaScreen> {
     }
 
     return StreamBuilder<List<TrashpotReport>>(
-      stream: _reportRepository.watchReports(),
+      stream: _reportsStreamFor(_userPosition),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
@@ -220,42 +395,42 @@ class _MappaScreenState extends State<MappaScreen> {
         }
         final isStreamLoading =
             snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData;
+            !snapshot.hasData;
         final rawReports = snapshot.data ?? const <TrashpotReport>[];
         final userPos = _userPosition;
-        final reports = userPos == null
-            ? rawReports
-            : (List<TrashpotReport>.from(rawReports)
-              ..sort((a, b) {
-                final da = _haversineKm(
-                    userPos.latitude, userPos.longitude, a.lat, a.lng);
-                final db = _haversineKm(
-                    userPos.latitude, userPos.longitude, b.lat, b.lng);
-                return da.compareTo(db);
-              }));
-        final openCount = reports
+        // Con la posizione, lo stream è già limitato al raggio e ordinato
+        // per distanza; senza, mostra le più recenti.
+        final reports = rawReports
             .where(
-              (r) =>
-                  r.status == TrashpotStatus.segnalata ||
-                  r.status == TrashpotStatus.aperta,
+              (r) => _statusGroups.contains(ReportStatusGroup.of(r.status)),
             )
-            .length;
+            .toList();
+        final countLabel = reports.length == 1
+            ? '1 segnalazione'
+            : '${reports.length} segnalazioni';
+        final subtitle = userPos == null
+            ? '$countLabel recenti · posizione non disponibile'
+            : '$countLabel entro $_radiusKm km';
+        final emptyMessage = _statusGroups.isEmpty
+            ? 'Seleziona almeno uno stato.'
+            : userPos == null
+            ? 'Nessuna segnalazione con questi filtri.'
+            : 'Nessuna segnalazione entro $_radiusKm km.\n'
+                  'Prova ad allargare il raggio.';
 
-        final markers = {
-          for (final r in reports)
-            Marker(
-              markerId: MarkerId('tp_${r.id}'),
-              position: LatLng(r.lat, r.lng),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                _markerHue(r.status),
-              ),
-              onTap: () => _openReportDetails(r.id),
-              infoWindow: InfoWindow(
-                title: r.title,
-                snippet: trashpotStatusLabel(r.status),
-              ),
-            ),
-        };
+        // Il clustering dipende dallo zoom corrente (distanza in pixel),
+        // quindi va ricalcolato quando cambia la lista segnalazioni — non
+        // durante il build, ma dopo il frame, per non innescare un
+        // setState mentre si sta già costruendo l'albero dei widget.
+        final signature = reports
+            .map((r) => '${r.id}:${r.status}:${r.lat}:${r.lng}')
+            .join('|');
+        if (signature != _lastMarkersSignature) {
+          _lastMarkersSignature = signature;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _recomputeMarkers(reports);
+          });
+        }
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -274,22 +449,42 @@ class _MappaScreenState extends State<MappaScreen> {
                                 target: _initialTarget!,
                                 zoom: 13,
                               ),
-                              markers: markers,
+                              markers: _displayMarkers,
+                              circles: {
+                                if (userPos != null)
+                                  Circle(
+                                    circleId: const CircleId('search_radius'),
+                                    center: userPos,
+                                    radius: _radiusKm * 1000,
+                                    strokeWidth: 1,
+                                    strokeColor: AppColors.greenBrand.withAlpha(
+                                      160,
+                                    ),
+                                    fillColor: AppColors.greenBrand.withAlpha(
+                                      18,
+                                    ),
+                                  ),
+                              },
                               mapType: MapType.normal,
+                              style: mapStyleJson,
                               zoomControlsEnabled: false,
                               mapToolbarEnabled: false,
                               myLocationEnabled: true,
                               myLocationButtonEnabled: false,
                               compassEnabled: true,
+                              onCameraIdle: () =>
+                                  _recomputeMarkers(_lastReports),
                               onMapCreated: (c) {
                                 _mapController = c;
-                                WidgetsBinding.instance
-                                    .addPostFrameCallback((_) async {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) async {
                                   await Future<void>.delayed(
                                     const Duration(milliseconds: 50),
                                   );
                                   if (mounted && reports.isNotEmpty) {
                                     await _fitReports(reports);
+                                    await _recomputeMarkers(reports);
                                   }
                                 });
                               },
@@ -303,9 +498,19 @@ class _MappaScreenState extends State<MappaScreen> {
                     Expanded(
                       child: _ReportListPanel(
                         reports: reports,
-                        openCount: openCount,
+                        title: userPos == null
+                            ? 'Segnalazioni recenti'
+                            : 'Vicino a te',
+                        subtitle: subtitle,
+                        emptyMessage: emptyMessage,
+                        filters: _ReportFiltersBar(
+                          radiusKm: _radiusKm,
+                          radiusEnabled: userPos != null,
+                          statusGroups: _statusGroups,
+                          onRadiusChanged: _setRadius,
+                          onStatusToggled: _toggleStatusGroup,
+                        ),
                         onReportTap: _openReportDetails,
-                        mapHeight: mapHeight,
                         userPosition: userPos,
                         isLoading: isStreamLoading,
                       ),
@@ -333,22 +538,15 @@ class _MappaScreenState extends State<MappaScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.my_location),
-                  ),
-                ),
-
-                // ── Main FAB — navigate to Segnala ─────────────────────
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: FloatingActionButton(
-                    heroTag: 'add_report',
-                    onPressed: () => context.go(AppRoutes.segnala),
-                    backgroundColor: AppColors.greenBrand,
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shape: const CircleBorder(),
-                    child: const Icon(Icons.add, size: 28),
+                        : SvgPicture.asset(
+                            'assets/icons/gps_target.svg',
+                            width: 20,
+                            height: 20,
+                            colorFilter: const ColorFilter.mode(
+                              Colors.white,
+                              BlendMode.srcIn,
+                            ),
+                          ),
                   ),
                 ),
               ],
@@ -365,17 +563,21 @@ class _MappaScreenState extends State<MappaScreen> {
 class _ReportListPanel extends StatelessWidget {
   const _ReportListPanel({
     required this.reports,
-    required this.openCount,
+    required this.title,
+    required this.subtitle,
+    required this.emptyMessage,
+    required this.filters,
     required this.onReportTap,
-    required this.mapHeight,
     this.userPosition,
     this.isLoading = false,
   });
 
   final List<TrashpotReport> reports;
-  final int openCount;
+  final String title;
+  final String subtitle;
+  final String emptyMessage;
+  final Widget filters;
   final void Function(String reportId) onReportTap;
-  final double mapHeight;
   final LatLng? userPosition;
   final bool isLoading;
 
@@ -434,12 +636,14 @@ class _ReportListPanel extends StatelessWidget {
                   final r = reports[i];
                   String? dist;
                   if (userPosition != null) {
-                    dist = _distanceLabel(_haversineKm(
-                      userPosition!.latitude,
-                      userPosition!.longitude,
-                      r.lat,
-                      r.lng,
-                    ));
+                    dist = distanceLabel(
+                      haversineKm(
+                        userPosition!.latitude,
+                        userPosition!.longitude,
+                        r.lat,
+                        r.lng,
+                      ),
+                    );
                   }
                   return _ReportCard(
                     report: r,
@@ -462,127 +666,206 @@ class _ReportListPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Transform.translate(
-      offset: const Offset(0, -16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(20),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: const Border(
+          top: BorderSide(color: AppColors.divider, width: 1),
         ),
-        child: Column(
-          children: [
-            // Drag handle
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.divider,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Vicino a te',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.copyWith(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textPrimary,
-                          ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(20),
+            blurRadius: 6,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
                         ),
-                        Text(
-                          '$openCount segnalazioni aperte',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => _showAllReports(context),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      minimumSize: const Size(48, 48),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Row(
-                      children: [
-                        const Text('Vedi tutte', style: TextStyle(fontSize: 12)),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.chevron_right,
-                          size: 16,
-                          color: AppColors.greenBrand,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Report list
-            Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : reports.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Nessuna segnalazione vicino a te.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
                           color: AppColors.textSecondary,
                         ),
                       ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                      itemCount: reports.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final r = reports[i];
-                        String? dist;
-                        if (userPosition != null) {
-                          dist = _distanceLabel(_haversineKm(
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => _showAllReports(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(48, 48),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('Vedi tutte', style: TextStyle(fontSize: 12)),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: AppColors.greenBrand,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          filters,
+          const SizedBox(height: 8),
+
+          // Report list
+          Expanded(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : reports.isEmpty
+                ? Center(
+                    child: Text(
+                      emptyMessage,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                    itemCount: reports.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 8),
+                    itemBuilder: (context, i) {
+                      final r = reports[i];
+                      String? dist;
+                      if (userPosition != null) {
+                        dist = distanceLabel(
+                          haversineKm(
                             userPosition!.latitude,
                             userPosition!.longitude,
                             r.lat,
                             r.lng,
-                          ));
-                        }
-                        return _ReportCard(
-                          report: r,
-                          computedDistanceLabel: dist,
-                          onTap: () => onReportTap(r.id),
+                          ),
                         );
-                      },
-                    ),
+                      }
+                      return _ReportCard(
+                        report: r,
+                        computedDistanceLabel: dist,
+                        onTap: () => onReportTap(r.id),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Filters (raggio + stato) ───────────────────────────────────────────────
+
+class _ReportFiltersBar extends StatelessWidget {
+  const _ReportFiltersBar({
+    required this.radiusKm,
+    required this.radiusEnabled,
+    required this.statusGroups,
+    required this.onRadiusChanged,
+    required this.onStatusToggled,
+  });
+
+  final int radiusKm;
+  final bool radiusEnabled;
+  final Set<ReportStatusGroup> statusGroups;
+  final ValueChanged<int> onRadiusChanged;
+  final ValueChanged<ReportStatusGroup> onStatusToggled;
+
+  @override
+  Widget build(BuildContext context) {
+    // Colori espliciti: il chipTheme globale non ha bordo né colore del
+    // testo, e i chip non selezionati sparirebbero sul pannello bianco.
+    final cs = Theme.of(context).colorScheme;
+    final side = BorderSide(color: cs.outline);
+    final labelStyle = TextStyle(color: cs.onSurface);
+
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          PopupMenuButton<int>(
+            enabled: radiusEnabled,
+            tooltip: 'Raggio di ricerca',
+            initialValue: radiusKm,
+            onSelected: onRadiusChanged,
+            itemBuilder: (_) => [
+              for (final km in reportRadiusOptionsKm)
+                CheckedPopupMenuItem(
+                  value: km,
+                  checked: km == radiusKm,
+                  child: Text('Entro $km km'),
+                ),
+            ],
+            // Il tap lo gestisce il PopupMenuButton, il chip è solo aspetto.
+            child: IgnorePointer(
+              child: Chip(
+                avatar: Icon(Icons.radar, size: 16, color: cs.primary),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(radiusEnabled ? 'Entro $radiusKm km' : 'Raggio'),
+                    Icon(Icons.arrow_drop_down, size: 18, color: cs.onSurface),
+                  ],
+                ),
+                labelStyle: labelStyle,
+                backgroundColor: cs.surfaceContainerHighest,
+                side: side,
+                visualDensity: VisualDensity.compact,
+              ),
             ),
+          ),
+          const SizedBox(width: 8),
+          for (final group in ReportStatusGroup.values) ...[
+            FilterChip(
+              label: Text(group.label),
+              selected: statusGroups.contains(group),
+              onSelected: (_) => onStatusToggled(group),
+              labelStyle: statusGroups.contains(group)
+                  ? TextStyle(color: cs.onPrimary)
+                  : labelStyle,
+              backgroundColor: cs.surface,
+              selectedColor: cs.primary,
+              checkmarkColor: cs.onPrimary,
+              side: statusGroups.contains(group)
+                  ? BorderSide(color: cs.primary)
+                  : side,
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(width: 8),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -608,110 +891,141 @@ class _ReportCard extends StatelessWidget {
     return Semantics(
       label: '${report.title}, ${trashpotStatusLabel(report.status)}',
       button: true,
-      child: Material(
-        color: AppColors.surfaceWarm,
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // Thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: report.photoUrl != null
-                  ? Image.network(
-                      report.photoUrl!,
-                      width: 56,
-                      height: 56,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _PlaceholderThumb(),
-                    )
-                  : _PlaceholderThumb(),
-            ),
-            const SizedBox(width: 12),
-
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Material(
+          color: AppColors.surfaceWarm,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          report.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: bg,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          trashpotStatusLabel(report.status).toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: fg,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                      ),
-                    ],
+                  // Status accent bar
+                  Container(
+                    width: 3,
+                    height: 64,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: fg,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      if (computedDistanceLabel != null) ...[
-                        const Icon(Icons.place_outlined, size: 11, color: AppColors.textSecondary),
-                        const SizedBox(width: 2),
-                        Text(
-                          computedDistanceLabel!,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  // Thumbnail
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: report.photoUrl != null
+                        ? Image.network(
+                            report.photoUrl!,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => _PlaceholderThumb(),
+                          )
+                        : _PlaceholderThumb(),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                report.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textPrimary,
+                                    ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: bg,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                trashpotStatusLabel(
+                                  report.status,
+                                ).toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: fg,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            if (computedDistanceLabel != null) ...[
+                              const Icon(
+                                Icons.place_outlined,
+                                size: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                computedDistanceLabel!,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            if (report.dateLabel != null) ...[
+                              const Icon(
+                                Icons.access_time_outlined,
+                                size: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                report.dateLabel!,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            if (report.typeLabel != null)
+                              Flexible(
+                                child: Text(
+                                  report.typeLabel!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ],
-                      if (report.dateLabel != null) ...[
-                        const Icon(Icons.access_time_outlined, size: 11, color: AppColors.textSecondary),
-                        const SizedBox(width: 2),
-                        Text(
-                          report.dateLabel!,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(width: 10),
-                      ],
-                      if (report.typeLabel != null)
-                        Flexible(
-                          child: Text(
-                            report.typeLabel!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
         ),
       ),
     );
@@ -722,10 +1036,14 @@ class _PlaceholderThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 56,
-      height: 56,
-      color: AppColors.divider,
-      child: const Icon(Icons.image_outlined, size: 20, color: AppColors.textDisabled),
+      width: 64,
+      height: 64,
+      color: AppColors.greenLight,
+      child: const Icon(
+        Icons.terrain_outlined,
+        size: 22,
+        color: AppColors.greenBrand,
+      ),
     );
   }
 }

@@ -12,7 +12,12 @@
           "package_name": "com.trashpotting.trashpotting_v3"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1059796102944-kpdn6r8teafqrhflvsnb7i9urstasbem.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCGxhxOB8kExRrUdCIrLY_6AGFg6IYRHNw"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1059796102944-kpdn6r8teafqrhflvsnb7i9urstasbem.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1059796102944-9kdbptgpld34b0tgo25dsrpd2snk8tv0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.trashpotting.trashpottingV3"
+              }
+            }
+          ]
         }
       }
     }

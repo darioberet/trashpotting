@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/form_validators.dart';
@@ -35,7 +36,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
 
   Future<void> _showPasswordReset(BuildContext context) async {
-    final controller = TextEditingController(text: _emailController.text.trim());
+    final controller = TextEditingController(
+      text: _emailController.text.trim(),
+    );
     final session = AppSessionScope.of(context);
 
     await showDialog<void>(
@@ -76,7 +79,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 session.publishInfo('Email di recupero inviata a $email.');
               } catch (e) {
                 if (!context.mounted) return;
-                session.publishError(e, fallback: 'Invio email di recupero non riuscito.');
+                session.publishError(
+                  e,
+                  fallback: 'Invio email di recupero non riuscito.',
+                );
               }
             },
             child: const Text('Invia'),
@@ -108,14 +114,22 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
       final user = credential.user;
+      var onboarded = true;
       if (user != null) {
         await widget._userProfileRepository.ensureProfile(
           AppUserProfile.fromAuthUser(user),
         );
+        try {
+          onboarded = await widget._userProfileRepository
+              .hasCompletedOnboarding(user.uid);
+        } catch (_) {
+          // Non bloccare/segnalare un login riuscito per un errore di
+          // rete su questo controllo: al più l'onboarding si ripresenterà.
+        }
       }
       if (!mounted) return;
       session.publishInfo('Login effettuato.');
-      context.go(AppRoutes.mappa);
+      context.go(onboarded ? AppRoutes.mappa : AppRoutes.onboarding);
     } catch (e) {
       if (!mounted) return;
       session.publishError(e, fallback: 'Login non riuscito.');
@@ -139,179 +153,317 @@ class _LoginScreenState extends State<LoginScreen> {
     final session = AppSessionScope.watch(context);
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                const SizedBox(height: 48),
-
-                // Logo
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.delete_sweep_outlined, size: 22, color: AppColors.greenBrand),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Trashpotting',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.greenBrand,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Accedi al tuo account',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                Form(
-                  key: _formKey,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        children: [
+          _WaveHeader(topInset: MediaQuery.of(context).padding.top),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                     children: [
-                      _FieldLabel('Email'),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: _emailController,
-                        focusNode: _emailFocus,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        onFieldSubmitted: (_) =>
-                            _passwordFocus.requestFocus(),
-                        autofillHints: const [
-                          AutofillHints.username,
-                          AutofillHints.email,
-                        ],
-                        decoration: const InputDecoration(
-                          hintText: 'nome@esempio.it',
+                      Text(
+                        'Bentornato',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
-                        validator: FormValidators.email,
                       ),
-                      const SizedBox(height: 16),
-                      _FieldLabel('Password'),
                       const SizedBox(height: 6),
-                      TextFormField(
-                        controller: _passwordController,
-                        focusNode: _passwordFocus,
-                        obscureText: _obscurePassword,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _submit(),
-                        autofillHints: const [AutofillHints.password],
-                        decoration: InputDecoration(
-                          hintText: '••••••••',
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              size: 18,
-                              color: AppColors.textDisabled,
+                      Text(
+                        'Accedi per continuare a fare la differenza',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      Form(
+                        key: _formKey,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _emailController,
+                              focusNode: _emailFocus,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (_) =>
+                                  _passwordFocus.requestFocus(),
+                              autofillHints: const [
+                                AutofillHints.username,
+                                AutofillHints.email,
+                              ],
+                              decoration: InputDecoration(
+                                hintText: 'Email',
+                                prefixIcon: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: SvgPicture.asset(
+                                    'assets/icons/email.svg',
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.greenBrand,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              validator: FormValidators.email,
                             ),
-                            onPressed: () =>
-                                setState(() => _obscurePassword = !_obscurePassword),
-                          ),
+                            const SizedBox(height: 14),
+                            TextFormField(
+                              controller: _passwordController,
+                              focusNode: _passwordFocus,
+                              obscureText: _obscurePassword,
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) => _submit(),
+                              autofillHints: const [AutofillHints.password],
+                              decoration: InputDecoration(
+                                hintText: 'Password',
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline,
+                                  size: 18,
+                                  color: AppColors.greenBrand,
+                                ),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 18,
+                                    color: AppColors.textDisabled,
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
+                                ),
+                              ),
+                              validator: FormValidators.password,
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _showPasswordReset(context),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 8,
+                                  ),
+                                  minimumSize: const Size(48, 48),
+                                ),
+                                child: const Text(
+                                  'Password dimenticata?',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        validator: FormValidators.password,
                       ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _busy ? null : () => _showPasswordReset(context),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                            minimumSize: const Size(48, 48),
-                          ),
-                          child: const Text('Password dimenticata?', style: TextStyle(fontSize: 12)),
+
+                      if (!session.firebaseReady) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Firebase non disponibile. Controlla la configurazione.',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: cs.error),
+                          textAlign: TextAlign.center,
                         ),
+                      ],
+
+                      const SizedBox(height: 20),
+
+                      FilledButton(
+                        onPressed: _busy || !session.firebaseReady
+                            ? null
+                            : _submit,
+                        child: _busy
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Accedi'),
                       ),
+
+                      const SizedBox(height: 28),
+
+                      Row(
+                        children: [
+                          Expanded(child: Divider(color: AppColors.divider)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Icon(
+                              Icons.eco_outlined,
+                              size: 16,
+                              color: AppColors.greenBrand,
+                            ),
+                          ),
+                          Expanded(child: Divider(color: AppColors.divider)),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Non hai un account? ',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                          ),
+                          TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () => context.push(AppRoutes.register),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
+                              minimumSize: const Size(48, 48),
+                            ),
+                            child: const Text(
+                              'Registrati',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
-
-                if (!session.firebaseReady) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Firebase non disponibile. Controlla la configurazione.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.error),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-
-                const SizedBox(height: 20),
-
-                FilledButton(
-                  onPressed: _busy || !session.firebaseReady ? null : _submit,
-                  child: _busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Accedi'),
-                ),
-
-                const SizedBox(height: 32),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Non hai un account? ',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _busy ? null : () => context.push(AppRoutes.register),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        minimumSize: const Size(48, 48),
-                      ),
-                      child: const Text('Registrati', style: TextStyle(fontSize: 13)),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-              ],
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WaveHeader extends StatelessWidget {
+  const _WaveHeader({required this.topInset});
+
+  final double topInset;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipPath(
+      clipper: _WaveBottomClipper(),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(24, topInset + 28, 24, 56),
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/login_header_bg.png'),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 64,
+              height: 74,
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  SvgPicture.asset(
+                    'assets/icons/logo_leaf_pin.svg',
+                    width: 56,
+                    height: 56,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: Icon(
+                      Icons.eco,
+                      size: 22,
+                      color: AppColors.greenBrand,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    child: Container(
+                      width: 26,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withAlpha(30),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Trashpotting',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 26,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-  final String text;
+class _WaveBottomClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path()..lineTo(0, size.height - 36);
+    path.quadraticBezierTo(
+      size.width * 0.25,
+      size.height,
+      size.width * 0.5,
+      size.height - 18,
+    );
+    path.quadraticBezierTo(
+      size.width * 0.75,
+      size.height - 36,
+      size.width,
+      size.height - 8,
+    );
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: AppColors.textPrimary,
-      ),
-    );
-  }
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

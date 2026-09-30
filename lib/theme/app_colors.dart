@@ -16,7 +16,14 @@ abstract final class AppColors {
   // Surface
   static const surfaceWhite = Color(0xFFFFFFFF);
   static const surfaceWarm = Color(0xFFF1EFE8); // warm beige — input bg
+  static const bgAlt = Color(
+    0xFFF7F6F2,
+  ); // sfondo pagina — card bianche sopra creano profondità
   static const divider = Color(0xFFD3D1C7);
+
+  // Ombra colorata verde per dare profondità alle card primarie
+  // (invece del bordo grigio piatto) — vedi design/ai_design_prompt.md.
+  static final cardShadow = greenBrand.withAlpha(31); // ~rgba(29,158,117,0.12)
 
   // Status — amber/warning
   static const amberLight = Color(0xFFFAEEDA);
@@ -36,13 +43,14 @@ abstract final class AppColors {
     return switch (status) {
       TrashpotStatus.segnalata => (bg: redLight, fg: redText),
       TrashpotStatus.aperta => (bg: amberLight, fg: amberText),
-      TrashpotStatus.inLavorazione => (bg: surfaceWarm, fg: const Color(0xFF444441)),
+      TrashpotStatus.inLavorazione => (
+        bg: surfaceWarm,
+        fg: const Color(0xFF444441),
+      ),
       TrashpotStatus.puliziaInCorso => (bg: amberLight, fg: amberText),
       TrashpotStatus.eventoCreato => (bg: blueLight, fg: blueText),
-      TrashpotStatus.pulita || TrashpotStatus.ripulita => (
-        bg: greenLight,
-        fg: greenDark,
-      ),
+      TrashpotStatus.pulita ||
+      TrashpotStatus.ripulita => (bg: greenLight, fg: greenDark),
     };
   }
 }

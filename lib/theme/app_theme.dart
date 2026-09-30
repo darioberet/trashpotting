@@ -10,25 +10,26 @@ abstract final class AppTheme {
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
 
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.greenBrand,
-      brightness: brightness,
-    ).copyWith(
-      primary: AppColors.greenBrand,
-      onPrimary: Colors.white,
-      surface: isDark ? const Color(0xFF1A1A18) : AppColors.surfaceWhite,
-      onSurface: isDark ? const Color(0xFFEEEDEB) : AppColors.textPrimary,
-      surfaceContainerHighest: isDark
-          ? const Color(0xFF2C2C2A)
-          : AppColors.surfaceWarm,
-      onSurfaceVariant: isDark
-          ? const Color(0xFFAAAA9E)
-          : AppColors.textSecondary,
-      outline: isDark ? const Color(0xFF48483E) : AppColors.divider,
-      outlineVariant: isDark ? const Color(0xFF3A3A30) : AppColors.divider,
-      error: AppColors.redPin,
-      onError: Colors.white,
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.greenBrand,
+          brightness: brightness,
+        ).copyWith(
+          primary: AppColors.greenBrand,
+          onPrimary: Colors.white,
+          surface: isDark ? const Color(0xFF1A1A18) : AppColors.surfaceWhite,
+          onSurface: isDark ? const Color(0xFFEEEDEB) : AppColors.textPrimary,
+          surfaceContainerHighest: isDark
+              ? const Color(0xFF2C2C2A)
+              : AppColors.surfaceWarm,
+          onSurfaceVariant: isDark
+              ? const Color(0xFFAAAA9E)
+              : AppColors.textSecondary,
+          outline: isDark ? const Color(0xFF48483E) : AppColors.divider,
+          outlineVariant: isDark ? const Color(0xFF3A3A30) : AppColors.divider,
+          error: AppColors.redPin,
+          onError: Colors.white,
+        );
 
     final base = ThemeData(
       useMaterial3: true,
@@ -42,7 +43,9 @@ abstract final class AppTheme {
     );
 
     return base.copyWith(
-      scaffoldBackgroundColor: colorScheme.surface,
+      // Sfondo pagina leggermente tinto (non bianco puro): le card bianche
+      // sopra creano gerarchia visiva invece di un piatto bianco-su-bianco.
+      scaffoldBackgroundColor: isDark ? colorScheme.surface : AppColors.bgAlt,
 
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
@@ -73,26 +76,29 @@ abstract final class AppTheme {
           return isDark ? const Color(0xFF242422) : AppColors.surfaceWarm;
         }),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: AppColors.divider, width: 0.5),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: AppColors.divider, width: 0.5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.greenBrand, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: AppColors.redPin, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: AppColors.redPin, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
         labelStyle: GoogleFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w500,
@@ -109,7 +115,7 @@ abstract final class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size(double.infinity, 44),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(24),
           ),
           backgroundColor: AppColors.greenBrand,
           foregroundColor: Colors.white,
@@ -126,10 +132,12 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(double.infinity, 44),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(24),
           ),
           side: BorderSide(color: AppColors.divider, width: 0.5),
-          foregroundColor: isDark ? const Color(0xFFEEEDEB) : AppColors.textPrimary,
+          foregroundColor: isDark
+              ? const Color(0xFFEEEDEB)
+              : AppColors.textPrimary,
           textStyle: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -179,17 +187,26 @@ abstract final class AppTheme {
       ),
 
       cardTheme: CardThemeData(
-        elevation: 0,
+        // Ombra verde soffusa invece del bordo grigio piatto: dà profondità
+        // senza sembrare uno scheletro bianco-su-bianco (vedi design brief).
+        elevation: isDark ? 0 : 4,
+        shadowColor: AppColors.cardShadow,
+        surfaceTintColor: Colors.transparent,
         color: isDark ? const Color(0xFF242422) : AppColors.surfaceWhite,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppColors.divider, width: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          side: isDark
+              ? BorderSide(color: AppColors.divider, width: 0.5)
+              : BorderSide.none,
         ),
         margin: EdgeInsets.zero,
       ),
 
       chipTheme: ChipThemeData(
-        labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+        labelStyle: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
         side: BorderSide.none,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
@@ -197,11 +214,10 @@ abstract final class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        backgroundColor: isDark ? const Color(0xFF3A3A30) : AppColors.textPrimary,
-        contentTextStyle: GoogleFonts.inter(
-          fontSize: 13,
-          color: Colors.white,
-        ),
+        backgroundColor: isDark
+            ? const Color(0xFF3A3A30)
+            : AppColors.textPrimary,
+        contentTextStyle: GoogleFonts.inter(fontSize: 13, color: Colors.white),
       ),
 
       dividerTheme: DividerThemeData(

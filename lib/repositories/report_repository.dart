@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/geo_utils.dart';
+import '../core/geohash.dart';
 import '../models/app_user_profile.dart';
 import '../models/report_draft.dart';
 import '../models/trashpot_report.dart';
@@ -9,6 +13,15 @@ abstract class ReportRepository {
   Future<void> anonymizeUserReports(String uid);
   Future<int> countByUser(String uid);
   Stream<List<TrashpotReport>> watchReports({int limit = 50});
+
+  /// Segnalazioni entro [radiusKm] dal punto indicato, ordinate dalla più
+  /// vicina.
+  Stream<List<TrashpotReport>> watchReportsNear({
+    required double latitude,
+    required double longitude,
+    required double radiusKm,
+  });
+  Stream<List<TrashpotReport>> watchReportsByUser(String uid, {int limit = 50});
   Stream<TrashpotReport?> watchReport(String reportId);
   Future<void> startCleaning({
     required String reportId,
@@ -36,10 +49,130 @@ class FirestoreReportRepository implements ReportRepository {
 
   final FirebaseFirestore _firestore;
 
+  /// Tetto di documenti per ciascun range geohash, per non scaricare
+  /// un'intera città in zone molto dense.
+  static const _nearQueryLimit = 200;
+
+  List<TrashpotReport> _parseDocs(QuerySnapshot<Map<String, dynamic>> snap) {
+    return snap.docs
+        .map((doc) {
+          try {
+            return TrashpotReport.fromDoc(doc);
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<TrashpotReport>()
+        .toList();
+  }
+
+  @override
+  Stream<List<TrashpotReport>> watchReportsNear({
+    required double latitude,
+    required double longitude,
+    required double radiusKm,
+  }) {
+    final reports = _firestore.collection('reports');
+    final queries = [
+      for (final (start, end) in geohashQueryBounds(
+        latitude,
+        longitude,
+        radiusKm * 1000,
+      ))
+        reports
+            .orderBy('geohash')
+            .startAt([start])
+            .endAt([end])
+            .limit(_nearQueryLimit)
+            .snapshots()
+            .map(_parseDocs),
+      // Le segnalazioni create prima dell'introduzione del campo `geohash`
+      // non compaiono nei range: finché non sono migrate
+      // (tool/backfill_geohash.js) le recuperiamo tra le più recenti.
+      reports
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .snapshots()
+          .map(
+            (snap) => _parseDocs(snap).where((r) => r.geohash == null).toList(),
+          ),
+    ];
+
+    return _combineLatest(queries).map((lists) {
+      final byId = <String, TrashpotReport>{};
+      final distances = <String, double>{};
+      for (final report in lists.expand((l) => l)) {
+        final km = haversineKm(latitude, longitude, report.lat, report.lng);
+        if (km > radiusKm) continue;
+        byId[report.id] = report;
+        distances[report.id] = km;
+      }
+      return byId.values.toList()
+        ..sort((a, b) => distances[a.id]!.compareTo(distances[b.id]!));
+    });
+  }
+
+  /// Emette l'ultimo valore di ogni stream, dopo che tutti hanno emesso
+  /// almeno una volta (evita liste parziali durante il primo caricamento).
+  static Stream<List<T>> _combineLatest<T>(List<Stream<T>> streams) {
+    late final StreamController<List<T>> controller;
+    final subscriptions = <StreamSubscription<T>>[];
+    final latest = List<T?>.filled(streams.length, null);
+    final hasValue = List<bool>.filled(streams.length, false);
+
+    controller = StreamController<List<T>>(
+      onListen: () {
+        for (var i = 0; i < streams.length; i++) {
+          subscriptions.add(
+            streams[i].listen((value) {
+              latest[i] = value;
+              hasValue[i] = true;
+              if (hasValue.every((v) => v)) {
+                controller.add(List<T>.from(latest));
+              }
+            }, onError: controller.addError),
+          );
+        }
+      },
+      onCancel: () async {
+        for (final sub in subscriptions) {
+          await sub.cancel();
+        }
+        subscriptions.clear();
+      },
+    );
+    return controller.stream;
+  }
+
   @override
   Stream<List<TrashpotReport>> watchReports({int limit = 50}) {
     return _firestore
         .collection('reports')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) {
+                try {
+                  return TrashpotReport.fromDoc(doc);
+                } catch (_) {
+                  return null;
+                }
+              })
+              .whereType<TrashpotReport>()
+              .toList(),
+        );
+  }
+
+  @override
+  Stream<List<TrashpotReport>> watchReportsByUser(
+    String uid, {
+    int limit = 50,
+  }) {
+    return _firestore
+        .collection('reports')
+        .where('uid', isEqualTo: uid)
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .snapshots()
@@ -105,6 +238,8 @@ class FirestoreReportRepository implements ReportRepository {
       'photoUrl': draft.photoUrl,
       'latitude': draft.latitude,
       'longitude': draft.longitude,
+      if (draft.latitude != null && draft.longitude != null)
+        'geohash': geohashForLocation(draft.latitude!, draft.longitude!),
       'uid': uid,
       'status': 'segnalata',
       'type': draft.type,

@@ -5,6 +5,7 @@ import 'package:geocoding/geocoding.dart' as geo;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/location_service.dart';
@@ -103,9 +104,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
         final kb = estimatedBytes / 1024;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'DEBUG — stima: ${kb.toStringAsFixed(1)} KB',
-            ),
+            content: Text('DEBUG — stima: ${kb.toStringAsFixed(1)} KB'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -138,7 +137,10 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
       if (!mounted) return false;
       String? resolvedAddress;
       try {
-        final placemarks = await geo.placemarkFromCoordinates(p.latitude, p.longitude);
+        final placemarks = await geo.placemarkFromCoordinates(
+          p.latitude,
+          p.longitude,
+        );
         if (placemarks.isNotEmpty) {
           final pm = placemarks.first;
           final parts = [
@@ -152,6 +154,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
         latitude: p.latitude,
         longitude: p.longitude,
         address: resolvedAddress,
+        accuracy: p.accuracy,
       );
       if (!silent) session.publishInfo('Posizione GPS acquisita.');
       return true;
@@ -183,68 +186,79 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
           onTap: () => FocusScope.of(context).unfocus(),
           behavior: HitTestBehavior.translucent,
           child: Stack(
-          children: [
-            Column(
-              children: [
-                Expanded(
-                  child: AbsorbPointer(
-                    absorbing: _viewModel.sending,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                      children: [
-                        _PhotoUploadArea(
-                          photoPath: _viewModel.photoPath,
-                          onTap: _choosePhotoSource,
-                          onRemove: _viewModel.clearPhoto,
-                        ),
-                        const SizedBox(height: 12),
-                        _GpsChip(
-                          resolving: _resolvingPosition,
-                          latitude: _viewModel.latitude,
-                          longitude: _viewModel.longitude,
-                        ),
-                        const SizedBox(height: 16),
-                        _FieldLabel('Tipo di rifiuto'),
-                        const SizedBox(height: 8),
-                        _TypeSelector(
-                          selected: _viewModel.reportType,
-                          onSelected: _viewModel.setReportType,
-                        ),
-                        const SizedBox(height: 16),
-                        _FieldLabel('Descrizione'),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: _note,
-                          maxLines: 4,
-                          decoration: const InputDecoration(
-                            hintText: 'Descrivi brevemente i rifiuti che hai trovato...',
-                            alignLabelWithHint: true,
+            children: [
+              Column(
+                children: [
+                  Expanded(
+                    child: AbsorbPointer(
+                      absorbing: _viewModel.sending,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        children: [
+                          Text(
+                            'Segnala rifiuti',
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 22,
+                                  color: AppColors.textPrimary,
+                                ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        _ModerationNotice(),
-                      ],
+                          const SizedBox(height: 16),
+                          _PhotoUploadArea(
+                            photoPath: _viewModel.photoPath,
+                            onTap: _choosePhotoSource,
+                            onRemove: _viewModel.clearPhoto,
+                          ),
+                          const SizedBox(height: 12),
+                          _GpsChip(
+                            resolving: _resolvingPosition,
+                            latitude: _viewModel.latitude,
+                            longitude: _viewModel.longitude,
+                            address: _viewModel.address,
+                            accuracy: _viewModel.accuracy,
+                            onRefresh: () =>
+                                _resolvePosition(forceRefresh: true),
+                          ),
+                          const SizedBox(height: 16),
+                          _FieldLabel('Tipo di rifiuto'),
+                          const SizedBox(height: 8),
+                          _TypeSelector(
+                            selected: _viewModel.reportType,
+                            onSelected: _viewModel.setReportType,
+                          ),
+                          const SizedBox(height: 16),
+                          _FieldLabel('Descrizione'),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _note,
+                            maxLines: 4,
+                            maxLength: 300,
+                            decoration: const InputDecoration(
+                              hintText:
+                                  'Descrivi brevemente i rifiuti che hai trovato...',
+                              alignLabelWithHint: true,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
-                // Sticky bottom CTA
-                _StickyBottomBar(
-                  sending: _viewModel.sending,
-                  onSend: _send,
-                ),
-              ],
-            ),
-
-            if (_viewModel.sending)
-              const Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.black26,
-                  child: Center(child: CircularProgressIndicator()),
-                ),
+                  // Sticky bottom CTA
+                  _StickyBottomBar(sending: _viewModel.sending, onSend: _send),
+                ],
               ),
-          ],
-        ),
+
+              if (_viewModel.sending)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Colors.black26,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
@@ -269,48 +283,91 @@ class _PhotoUploadArea extends StatelessWidget {
     final hasPhoto = photoPath != null;
 
     if (hasPhoto) {
-      return Column(
-        children: [
-          Semantics(
-            label: 'Foto allegata. Tocca per cambiare.',
-            button: true,
-            child: GestureDetector(
+      return Semantics(
+        label: 'Foto allegata. Tocca per cambiare.',
+        button: true,
+        child: Stack(
+          children: [
+            GestureDetector(
               onTap: onTap,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: kIsWeb
-                    ? Container(
-                        height: 120,
-                        color: AppColors.surfaceWarm,
-                        alignment: Alignment.center,
-                        child: Text(
-                          photoPath!.split(RegExp(r'[\\/]')).last,
-                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                        ),
-                      )
-                    : Image.file(
-                        File(photoPath!),
-                        height: 120,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+                borderRadius: BorderRadius.circular(14),
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    kIsWeb
+                        ? Container(
+                            height: 180,
+                            width: double.infinity,
+                            color: AppColors.surfaceWarm,
+                            alignment: Alignment.center,
+                            child: Text(
+                              photoPath!.split(RegExp(r'[\\/]')).last,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          )
+                        : Image.file(
+                            File(photoPath!),
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      color: Colors.black.withAlpha(140),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(
+                            Icons.image_outlined,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Tocca per cambiare foto',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: onRemove,
-              icon: const Icon(Icons.delete_outline, size: 16),
-              label: const Text('Rimuovi foto', style: TextStyle(fontSize: 12)),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.textSecondary,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                minimumSize: const Size(48, 48),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Semantics(
+                label: 'Rimuovi foto',
+                button: true,
+                child: GestureDetector(
+                  onTap: onRemove,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withAlpha(140),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
@@ -320,20 +377,41 @@ class _PhotoUploadArea extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: 120,
+          height: 180,
           decoration: BoxDecoration(
             color: AppColors.surfaceWarm,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.divider, width: 1.5, style: BorderStyle.solid),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.divider,
+              width: 1.5,
+              style: BorderStyle.solid,
+            ),
           ),
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.camera_alt_outlined, size: 28, color: AppColors.textDisabled),
-              SizedBox(height: 8),
-              Text(
-                'Tocca per aggiungere foto',
-                style: TextStyle(fontSize: 13, color: AppColors.textDisabled),
+              SvgPicture.asset(
+                'assets/icons/camera.svg',
+                width: 38,
+                height: 38,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.greenBrand,
+                  BlendMode.srcIn,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Scatta o scegli una foto',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'La foto aiuta la verifica',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -348,107 +426,115 @@ class _GpsChip extends StatelessWidget {
     required this.resolving,
     required this.latitude,
     required this.longitude,
+    this.address,
+    this.accuracy,
+    this.onRefresh,
   });
 
   final bool resolving;
   final double? latitude;
   final double? longitude;
+  final String? address;
+  final double? accuracy;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) {
     if (resolving) {
-      return Row(
-        children: [
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              color: AppColors.greenBrand,
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceWarm,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: AppColors.greenBrand,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Recupero posizione...',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontSize: 12,
-              color: AppColors.textSecondary,
+            const SizedBox(width: 10),
+            Text(
+              'Recupero posizione...',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
     if (latitude == null || longitude == null) return const SizedBox.shrink();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.greenLight,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: AppColors.greenBrand,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 6),
-          const Icon(Icons.place_outlined, size: 13, color: AppColors.greenDark),
-          const SizedBox(width: 4),
-          Text(
-            'Lat ${latitude!.toStringAsFixed(5)}, Lng ${longitude!.toStringAsFixed(5)}',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.greenDark,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    final subtitle = accuracy != null
+        ? 'GPS · precisione ±${accuracy!.round()}m'
+        : 'GPS';
 
-class _ModerationNotice extends StatelessWidget {
-  const _ModerationNotice();
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.amberLight,
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.greenLight,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            margin: const EdgeInsets.only(top: 3),
-            decoration: const BoxDecoration(
-              color: AppColors.amberDot,
-              shape: BoxShape.circle,
-            ),
+          SvgPicture.asset(
+            'assets/icons/location_pin.svg',
+            width: 20,
+            height: 20,
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              'La tua segnalazione sarà visibile sulla mappa dopo la verifica.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontSize: 12,
-                color: AppColors.amberText,
-                height: 1.5,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  address ??
+                      'Lat ${latitude!.toStringAsFixed(5)}, Lng ${longitude!.toStringAsFixed(5)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
+          if (onRefresh != null) ...[
+            const SizedBox(width: 8),
+            Semantics(
+              label: 'Aggiorna posizione GPS',
+              button: true,
+              child: InkWell(
+                onTap: onRefresh,
+                customBorder: const CircleBorder(),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: SvgPicture.asset(
+                    'assets/icons/gps_target.svg',
+                    width: 22,
+                    height: 22,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -468,9 +554,7 @@ class _StickyBottomBar extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(color: AppColors.divider, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
       ),
       child: FilledButton.icon(
         onPressed: sending ? null : onSend,
@@ -478,7 +562,10 @@ class _StickyBottomBar extends StatelessWidget {
             ? const SizedBox(
                 width: 16,
                 height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
             : const Icon(Icons.send_outlined, size: 18),
         label: Text(sending ? 'Invio in corso...' : 'Invia segnalazione'),
@@ -511,33 +598,69 @@ class _TypeSelector extends StatelessWidget {
   final void Function(String?) onSelected;
 
   static const _types = [
-    'Rifiuti abbandonati',
     'Discarica abusiva',
+    'Rifiuti abbandonati',
     'Rifiuti pericolosi',
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      children: [
-        for (final t in _types)
-          ChoiceChip(
-            label: Text(t, style: const TextStyle(fontSize: 12)),
-            selected: selected == t,
-            onSelected: (on) => onSelected(on ? t : null),
-            selectedColor: AppColors.greenLight,
-            labelStyle: TextStyle(
-              color: selected == t ? AppColors.greenDark : AppColors.textSecondary,
-              fontWeight: selected == t ? FontWeight.w600 : FontWeight.normal,
-            ),
-            side: BorderSide(
-              color: selected == t ? AppColors.greenBrand : AppColors.divider,
-            ),
-            backgroundColor: Colors.transparent,
-            showCheckmark: false,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceWhite,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.cardShadow,
+            blurRadius: 12,
+            offset: const Offset(0, 2),
           ),
-      ],
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (i, t) in _types.indexed) ...[
+            if (i > 0) const Divider(height: 1, color: AppColors.divider),
+            InkWell(
+              onTap: () => onSelected(selected == t ? null : t),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      selected == t
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      size: 18,
+                      color: selected == t
+                          ? AppColors.greenBrand
+                          : AppColors.textDisabled,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      t,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: selected == t
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                        fontWeight: selected == t
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

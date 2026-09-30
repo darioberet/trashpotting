@@ -4,13 +4,16 @@ import '../models/leaderboard_entry.dart';
 
 abstract class LeaderboardRepository {
   Future<List<LeaderboardEntry>> fetchTop({int limit = 20});
-  Future<void> incrementPoints({required String uid, required String displayName});
+  Future<void> incrementPoints({
+    required String uid,
+    required String displayName,
+  });
   Future<int> fetchUserPoints(String uid);
 }
 
 class FirestoreLeaderboardRepository implements LeaderboardRepository {
   FirestoreLeaderboardRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -43,6 +46,7 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
       for (var i = 0; i < snap.docs.length; i++)
         LeaderboardEntry(
           rank: i + 1,
+          uid: snap.docs[i].id,
           name: snap.docs[i].data()['name'] as String? ?? 'Sconosciuto',
           points: snap.docs[i].data()['points'] as int? ?? 0,
         ),

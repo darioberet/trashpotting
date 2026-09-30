@@ -76,6 +76,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 : _displayNameController.text.trim(),
           ),
         );
+        // Solo qui il flag viene esplicitamente impostato a false: è
+        // l'unico punto in cui nasce un account nuovo — login non lo tocca
+        // mai, quindi un utente già onboardato non rientra nel flusso.
+        await widget._userProfileRepository.setOnboardingComplete(
+          user.uid,
+          false,
+        );
       }
       if (credential.user != null) {
         await widget._authService.sendEmailVerification();
@@ -157,9 +164,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         textInputAction: TextInputAction.next,
                         onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
                         autofillHints: const [AutofillHints.email],
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                        ),
+                        decoration: const InputDecoration(labelText: 'Email'),
                         validator: FormValidators.email,
                       ),
                       const SizedBox(height: 12),
@@ -180,7 +185,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               size: 18,
                             ),
                             onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
                         ),
                         validator: FormValidators.password,
@@ -202,7 +208,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               size: 18,
                             ),
                             onPressed: () => setState(
-                                () => _obscureConfirm = !_obscureConfirm),
+                              () => _obscureConfirm = !_obscureConfirm,
+                            ),
                           ),
                         ),
                         validator: _validateConfirm,

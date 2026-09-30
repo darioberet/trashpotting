@@ -1,15 +1,21 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'routes.dart';
+import 'screens/aiuto_feedback_screen.dart';
 import 'screens/debug_firebase_screen.dart';
 import 'screens/email_verification_screen.dart';
+import 'screens/impostazioni_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
+import 'screens/mie_segnalazioni_screen.dart';
 import 'screens/notifiche_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/report_detail_screen.dart';
 import 'state/app_session.dart';
+import 'state/theme_controller.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 
@@ -31,6 +37,7 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   late final AppSession _session;
   late final GoRouter _router;
+  final _themeController = ThemeController();
   int _lastMessageToken = -1;
 
   @override
@@ -41,25 +48,44 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
       firebaseError: widget.firebaseError,
     );
     _session.addListener(_onSessionChanged);
+    _themeController.addListener(_onThemeChanged);
+    _themeController.load();
     _router = GoRouter(
       initialLocation: AppRoutes.login,
       refreshListenable: _session,
+      // Solo tracking automatico delle schermate per ora, nessun evento
+      // custom (a differenza di Crashlytics, Analytics supporta anche web).
+      observers: [
+        FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
+      ],
       redirect: (context, state) {
         final location = state.matchedLocation;
         final isAuthRoute =
             location == AppRoutes.login || location == AppRoutes.register;
         final isVerifyRoute = location == AppRoutes.emailVerification;
+        final isOnboardingRoute = location == AppRoutes.onboarding;
         final isPublicRoute =
             isAuthRoute || isVerifyRoute || location == AppRoutes.debugFirebase;
         final isSignedIn = _session.currentUserId != null;
         final emailVerified = _session.emailVerified;
+        final onboarded = _session.onboardingComplete;
 
         if (!isSignedIn && !isPublicRoute) return AppRoutes.login;
         if (isSignedIn && isAuthRoute) {
-          return emailVerified ? AppRoutes.mappa : AppRoutes.emailVerification;
+          if (!emailVerified) return AppRoutes.emailVerification;
+          return onboarded ? AppRoutes.mappa : AppRoutes.onboarding;
         }
         if (isSignedIn && !emailVerified && !isVerifyRoute) {
           return AppRoutes.emailVerification;
+        }
+        // Account nuovo non ancora onboardato: forza il flusso di
+        // benvenuto/profilo prima di lasciarlo entrare nell'app.
+        if (isSignedIn && emailVerified && !onboarded && !isOnboardingRoute) {
+          return AppRoutes.onboarding;
+        }
+        // Onboarding già completato: niente replay se torna indietro.
+        if (isSignedIn && emailVerified && onboarded && isOnboardingRoute) {
+          return AppRoutes.mappa;
         }
         return null;
       },
@@ -75,6 +101,10 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
         GoRoute(
           path: AppRoutes.emailVerification,
           builder: (context, state) => EmailVerificationScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.onboarding,
+          builder: (context, state) => OnboardingScreen(),
         ),
         GoRoute(
           path: AppRoutes.mappa,
@@ -98,13 +128,24 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
         ),
         GoRoute(
           path: '${AppRoutes.reportDetail}/:id',
-          builder: (context, state) => ReportDetailScreen(
-            reportId: state.pathParameters['id']!,
-          ),
+          builder: (context, state) =>
+              ReportDetailScreen(reportId: state.pathParameters['id']!),
         ),
         GoRoute(
           path: AppRoutes.debugFirebase,
           builder: (context, state) => DebugFirebaseScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.impostazioni,
+          builder: (context, state) => const ImpostazioniScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.mieSegnalazioni,
+          builder: (context, state) => MieSegnalazioniScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.aiutoFeedback,
+          builder: (context, state) => const AiutoFeedbackScreen(),
         ),
       ],
       errorBuilder: (context, state) => Scaffold(
@@ -166,10 +207,13 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
       );
   }
 
+  void _onThemeChanged() => setState(() {});
+
   @override
   void dispose() {
     _session.removeListener(_onSessionChanged);
     _session.dispose();
+    _themeController.removeListener(_onThemeChanged);
     super.dispose();
   }
 
@@ -177,14 +221,17 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
   Widget build(BuildContext context) {
     return AppSessionScope(
       session: _session,
-      child: MaterialApp.router(
-        title: 'Trashpotting',
-        debugShowCheckedModeBanner: false,
-        scaffoldMessengerKey: _messengerKey,
-        routerConfig: _router,
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        themeMode: ThemeMode.system,
+      child: ThemeControllerScope(
+        controller: _themeController,
+        child: MaterialApp.router(
+          title: 'Trashpotting',
+          debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: _messengerKey,
+          routerConfig: _router,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: _themeController.mode,
+        ),
       ),
     );
   }

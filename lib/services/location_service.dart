@@ -1,17 +1,26 @@
 import 'package:geolocator/geolocator.dart';
 
 class GpsPosition {
-  const GpsPosition({required this.latitude, required this.longitude});
+  const GpsPosition({
+    required this.latitude,
+    required this.longitude,
+    this.accuracy,
+  });
 
   final double latitude;
   final double longitude;
+
+  /// Precisione della rilevazione GPS in metri, quando disponibile.
+  final double? accuracy;
 }
 
 class LocationService {
   Future<GpsPosition> getCurrentPosition() async {
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) {
-      throw StateError('Servizi di localizzazione disattivati sul dispositivo.');
+      throw StateError(
+        'Servizi di localizzazione disattivati sul dispositivo.',
+      );
     }
 
     var permission = await Geolocator.checkPermission();
@@ -31,6 +40,10 @@ class LocationService {
       ),
     );
 
-    return GpsPosition(latitude: pos.latitude, longitude: pos.longitude);
+    return GpsPosition(
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+      accuracy: pos.accuracy,
+    );
   }
 }

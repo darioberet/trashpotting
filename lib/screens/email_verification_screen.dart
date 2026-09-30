@@ -3,16 +3,23 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
-  EmailVerificationScreen({super.key, AuthService? authService})
-      : _authService = authService ?? AuthService();
+  EmailVerificationScreen({
+    super.key,
+    AuthService? authService,
+    UserProfileRepository? userProfileRepository,
+  }) : _authService = authService ?? AuthService(),
+       _userProfileRepository =
+           userProfileRepository ?? UserProfileRepository();
 
   final AuthService _authService;
+  final UserProfileRepository _userProfileRepository;
 
   @override
   State<EmailVerificationScreen> createState() =>
@@ -28,7 +35,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   void initState() {
     super.initState();
     // Poll every 4 seconds — Firebase Auth doesn't push email-verified changes.
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _checkVerified(silent: true));
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 4),
+      (_) => _checkVerified(silent: true),
+    );
   }
 
   @override
@@ -47,8 +57,19 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         // Trigger session refresh — AppSession listens to authStateChanges which
         // doesn't fire on email-verification; we force it by signing out and back
         // in is not ideal, so instead we just navigate and let the guard handle it.
+        final uid = AppSessionScope.of(context).currentUserId;
+        var onboarded = true;
+        if (uid != null) {
+          try {
+            onboarded = await widget._userProfileRepository
+                .hasCompletedOnboarding(uid);
+          } catch (_) {
+            // Non bloccare un utente già verificato per un errore di rete:
+            // meglio farlo entrare (onboarding al più si ripresenterà).
+          }
+        }
         if (!mounted) return;
-        context.go(AppRoutes.mappa);
+        context.go(onboarded ? AppRoutes.mappa : AppRoutes.onboarding);
       } else if (!silent) {
         AppSessionScope.of(context).publishInfo('Email non ancora verificata.');
       }
@@ -63,13 +84,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     try {
       await widget._authService.sendEmailVerification();
       if (!mounted) return;
-      AppSessionScope.of(context).publishInfo('Email di verifica inviata di nuovo.');
+      AppSessionScope.of(
+        context,
+      ).publishInfo('Email di verifica inviata di nuovo.');
     } catch (e) {
       if (!mounted) return;
-      AppSessionScope.of(context).publishError(
-        e,
-        fallback: 'Impossibile inviare l\'email di verifica.',
-      );
+      AppSessionScope.of(
+        context,
+      ).publishError(e, fallback: 'Impossibile inviare l\'email di verifica.');
     } finally {
       if (mounted) setState(() => _resending = false);
     }
@@ -133,10 +155,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.check_circle_outline, size: 18),
-                    label: Text(_checking ? 'Verifica in corso...' : 'Ho verificato la mia email'),
+                    label: Text(
+                      _checking
+                          ? 'Verifica in corso...'
+                          : 'Ho verificato la mia email',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
@@ -148,14 +177,19 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.refresh, size: 18),
-                    label: Text(_resending ? 'Invio in corso...' : 'Reinvia email'),
+                    label: Text(
+                      _resending ? 'Invio in corso...' : 'Reinvia email',
+                    ),
                   ),
                   const SizedBox(height: 24),
                   TextButton(
                     onPressed: _signOut,
                     child: const Text(
                       'Torna al login',
-                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ],

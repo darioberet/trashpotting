@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
@@ -58,6 +59,7 @@ class _FirebaseBootstrapState extends State<_FirebaseBootstrap> {
         options: DefaultFirebaseOptions.currentPlatform,
       ).timeout(_initTimeout);
       await _activateAppCheck();
+      _activateCrashReporting();
       _firebaseReady = true;
     } on TimeoutException catch (e, st) {
       _firebaseError = e;
@@ -73,6 +75,33 @@ class _FirebaseBootstrapState extends State<_FirebaseBootstrap> {
       }
     } finally {
       if (mounted) setState(() => _resolved = true);
+    }
+  }
+
+  /// Crashlytics non ha implementazione web: niente da attivare lì. In
+  /// debug teniamo la raccolta spenta per non sporcare la dashboard con gli
+  /// errori di sviluppo, ma lasciamo comunque stampare in console.
+  /// Non deve mai poter bloccare l'avvio: stesso trattamento di App Check.
+  void _activateCrashReporting() {
+    if (kIsWeb) return;
+
+    try {
+      FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
+
+      final previousOnError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        previousOnError?.call(details);
+        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+      };
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('Crashlytics activation failed: $e');
+        debugPrintStack(stackTrace: st);
+      }
     }
   }
 

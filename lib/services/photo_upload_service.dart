@@ -26,6 +26,17 @@ class PhotoUploadService {
     );
   }
 
+  Future<String> uploadProfilePhoto({
+    required String localPath,
+    required String ownerId,
+  }) async {
+    return _uploadPhoto(
+      localPath: localPath,
+      ownerId: ownerId,
+      folder: 'profile_photos',
+    );
+  }
+
   Future<String> uploadCleanupPhoto({
     required String localPath,
     required String ownerId,

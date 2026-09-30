@@ -5,7 +5,7 @@ import 'notifier_message_mixin.dart';
 
 class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
   SegnalaViewModel({required ReportService reportService})
-      : _reportService = reportService;
+    : _reportService = reportService;
 
   final ReportService _reportService;
 
@@ -13,6 +13,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
   String? _photoPath;
   double? _latitude;
   double? _longitude;
+  double? _accuracy;
   String? _reportType;
   String? _address;
 
@@ -23,6 +24,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
   String? get photoPath => _photoPath;
   double? get latitude => _latitude;
   double? get longitude => _longitude;
+  double? get accuracy => _accuracy;
   String? get reportType => _reportType;
   String? get address => _address;
 
@@ -35,10 +37,12 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
     required double latitude,
     required double longitude,
     String? address,
+    double? accuracy,
   }) {
     _latitude = latitude;
     _longitude = longitude;
     _address = address;
+    _accuracy = accuracy;
     notifyListeners();
   }
 
@@ -51,6 +55,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
     _latitude = null;
     _longitude = null;
     _address = null;
+    _accuracy = null;
     notifyListeners();
   }
 
@@ -63,6 +68,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
     _photoPath = null;
     _latitude = null;
     _longitude = null;
+    _accuracy = null;
     _reportType = null;
     _address = null;
     notifyListeners();

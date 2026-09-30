@@ -67,6 +67,7 @@ class TrashpotReport {
     required this.status,
     required this.lat,
     required this.lng,
+    this.geohash,
     this.note,
     this.photoUrl,
     this.cleanupPhotoUrl,
@@ -85,6 +86,7 @@ class TrashpotReport {
   final TrashpotStatus status;
   final double lat;
   final double lng;
+  final String? geohash;
   final String? note;
   final String? photoUrl;
   final String? cleanupPhotoUrl;
@@ -119,6 +121,7 @@ class TrashpotReport {
       status: trashpotStatusFromString(data['status'] as String?),
       lat: latitude,
       lng: longitude,
+      geohash: data['geohash'] as String?,
       photoUrl: (data['photoUrl'] as String?)?.trim().isNotEmpty == true
           ? (data['photoUrl'] as String).trim()
           : null,

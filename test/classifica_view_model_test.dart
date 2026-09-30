@@ -1,6 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trashpotting_v3/models/app_user_profile.dart';
 import 'package:trashpotting_v3/models/leaderboard_entry.dart';
+import 'package:trashpotting_v3/models/report_draft.dart';
+import 'package:trashpotting_v3/models/trashpot_report.dart';
 import 'package:trashpotting_v3/repositories/leaderboard_repository.dart';
+import 'package:trashpotting_v3/repositories/report_repository.dart';
 import 'package:trashpotting_v3/state/classifica_view_model.dart';
 
 class _FakeLeaderboardRepository implements LeaderboardRepository {
@@ -21,18 +25,89 @@ class _FakeLeaderboardRepository implements LeaderboardRepository {
   }
 
   @override
-  Future<void> incrementPoints({required String uid, required String displayName}) async {}
+  Future<void> incrementPoints({
+    required String uid,
+    required String displayName,
+  }) async {}
 
   @override
   Future<int> fetchUserPoints(String uid) async => 0;
 }
 
+class _FakeReportRepository implements ReportRepository {
+  _FakeReportRepository({this.countsByUid = const {}});
+
+  final Map<String, int> countsByUid;
+
+  @override
+  Future<int> countByUser(String uid) async => countsByUid[uid] ?? 0;
+
+  @override
+  Future<void> completeCleaning({
+    required String reportId,
+    required AppUserProfile actor,
+    required String cleanupPhotoUrl,
+  }) async {}
+
+  @override
+  Future<void> joinCleanupEvent({
+    required String reportId,
+    required AppUserProfile participant,
+  }) async {}
+
+  @override
+  Future<void> scheduleCleanupEvent({
+    required String reportId,
+    required AppUserProfile creator,
+    required DateTime scheduledAt,
+  }) async {}
+
+  @override
+  Future<void> startCleaning({
+    required String reportId,
+    required AppUserProfile actor,
+  }) async {}
+
+  @override
+  Stream<List<TrashpotReport>> watchReports({int limit = 50}) =>
+      const Stream<List<TrashpotReport>>.empty();
+
+  @override
+  Stream<List<TrashpotReport>> watchReportsNear({
+    required double latitude,
+    required double longitude,
+    required double radiusKm,
+  }) => const Stream<List<TrashpotReport>>.empty();
+
+  @override
+  Stream<List<TrashpotReport>> watchReportsByUser(
+    String uid, {
+    int limit = 50,
+  }) => const Stream<List<TrashpotReport>>.empty();
+
+  @override
+  Stream<TrashpotReport?> watchReport(String reportId) =>
+      const Stream<TrashpotReport?>.empty();
+
+  @override
+  Future<void> submitReport({required ReportDraft draft, String? uid}) async {}
+
+  @override
+  Future<void> anonymizeUserReports(String uid) async {}
+}
+
 void main() {
   test('load uses repository entries on success', () async {
     final repo = _FakeLeaderboardRepository(
-      result: const [LeaderboardEntry(rank: 1, name: 'A', points: 99)],
+      result: const [
+        LeaderboardEntry(rank: 1, uid: 'u1', name: 'A', points: 99),
+      ],
     );
-    final vm = ClassificaViewModel(repository: repo);
+    final vm = ClassificaViewModel(
+      repository: repo,
+      reportRepository: _FakeReportRepository(),
+      enableMockFallback: false,
+    );
 
     await vm.load();
 
@@ -46,7 +121,11 @@ void main() {
 
   test('load returns empty list when repository returns empty', () async {
     final repo = _FakeLeaderboardRepository(result: const []);
-    final vm = ClassificaViewModel(repository: repo);
+    final vm = ClassificaViewModel(
+      repository: repo,
+      reportRepository: _FakeReportRepository(),
+      enableMockFallback: false,
+    );
 
     await vm.load();
 
@@ -60,7 +139,11 @@ void main() {
   test('load stores error on failure', () async {
     final error = StateError('boom');
     final repo = _FakeLeaderboardRepository(error: error);
-    final vm = ClassificaViewModel(repository: repo);
+    final vm = ClassificaViewModel(
+      repository: repo,
+      reportRepository: _FakeReportRepository(),
+      enableMockFallback: false,
+    );
 
     await vm.load();
 
@@ -72,9 +155,15 @@ void main() {
 
   test('load notifies listeners at start and end', () async {
     final repo = _FakeLeaderboardRepository(
-      result: const [LeaderboardEntry(rank: 1, name: 'A', points: 1)],
+      result: const [
+        LeaderboardEntry(rank: 1, uid: 'u1', name: 'A', points: 1),
+      ],
     );
-    final vm = ClassificaViewModel(repository: repo);
+    final vm = ClassificaViewModel(
+      repository: repo,
+      reportRepository: _FakeReportRepository(),
+      enableMockFallback: false,
+    );
     var notifications = 0;
     vm.addListener(() => notifications += 1);
 
@@ -82,4 +171,68 @@ void main() {
 
     expect(notifications, greaterThanOrEqualTo(2));
   });
+
+  test('load fetches report counts per uid from ReportRepository', () async {
+    final repo = _FakeLeaderboardRepository(
+      result: const [
+        LeaderboardEntry(rank: 1, uid: 'u1', name: 'A', points: 10),
+        LeaderboardEntry(rank: 2, uid: 'u2', name: 'B', points: 5),
+      ],
+    );
+    final reportRepo = _FakeReportRepository(countsByUid: {'u1': 12, 'u2': 3});
+    final vm = ClassificaViewModel(
+      repository: repo,
+      reportRepository: reportRepo,
+      enableMockFallback: false,
+    );
+
+    await vm.load();
+
+    expect(vm.reportCountFor('u1'), 12);
+    expect(vm.reportCountFor('u2'), 3);
+    expect(vm.reportCountFor('unknown'), isNull);
+  });
+
+  test(
+    'load falls back to mock entries when enabled and result has fewer than 3 entries',
+    () async {
+      final repo = _FakeLeaderboardRepository(
+        result: const [
+          LeaderboardEntry(rank: 1, uid: 'u1', name: 'A', points: 1),
+        ],
+      );
+      final vm = ClassificaViewModel(
+        repository: repo,
+        reportRepository: _FakeReportRepository(),
+        enableMockFallback: true,
+      );
+
+      await vm.load();
+
+      expect(vm.entries.length, greaterThanOrEqualTo(3));
+      expect(vm.entries.any((e) => e.uid == 'u1'), isFalse);
+      expect(vm.reportCountFor(vm.entries.first.uid), isNotNull);
+    },
+  );
+
+  test(
+    'load keeps real entries when fallback disabled even if fewer than 3',
+    () async {
+      final repo = _FakeLeaderboardRepository(
+        result: const [
+          LeaderboardEntry(rank: 1, uid: 'u1', name: 'A', points: 1),
+        ],
+      );
+      final vm = ClassificaViewModel(
+        repository: repo,
+        reportRepository: _FakeReportRepository(),
+        enableMockFallback: false,
+      );
+
+      await vm.load();
+
+      expect(vm.entries, hasLength(1));
+      expect(vm.entries.first.uid, 'u1');
+    },
+  );
 }

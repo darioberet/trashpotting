@@ -40,6 +40,19 @@ class _NoopReportRepository implements ReportRepository {
       const Stream<List<TrashpotReport>>.empty();
 
   @override
+  Stream<List<TrashpotReport>> watchReportsNear({
+    required double latitude,
+    required double longitude,
+    required double radiusKm,
+  }) => const Stream<List<TrashpotReport>>.empty();
+
+  @override
+  Stream<List<TrashpotReport>> watchReportsByUser(
+    String uid, {
+    int limit = 50,
+  }) => const Stream<List<TrashpotReport>>.empty();
+
+  @override
   Stream<TrashpotReport?> watchReport(String reportId) =>
       const Stream<TrashpotReport?>.empty();
 
@@ -67,7 +80,7 @@ typedef _SubmitHandler =
 
 class _FakeReportService extends ReportService {
   _FakeReportService(this._handler)
-      : super(repository: _NoopReportRepository());
+    : super(repository: _NoopReportRepository());
 
   final _SubmitHandler _handler;
   int calls = 0;
@@ -110,7 +123,16 @@ class _FakeReportService extends ReportService {
 void main() {
   test('submit publishes info when firebase is not ready', () async {
     final service = _FakeReportService(
-      ({required note, uid, displayName, photoPath, latitude, longitude, type, address}) async {},
+      ({
+        required note,
+        uid,
+        displayName,
+        photoPath,
+        latitude,
+        longitude,
+        type,
+        address,
+      }) async {},
     );
     final vm = SegnalaViewModel(reportService: service);
 
@@ -125,7 +147,16 @@ void main() {
 
   test('submit success toggles sending and stores success info', () async {
     final service = _FakeReportService(
-      ({required note, uid, displayName, photoPath, latitude, longitude, type, address}) async {},
+      ({
+        required note,
+        uid,
+        displayName,
+        photoPath,
+        latitude,
+        longitude,
+        type,
+        address,
+      }) async {},
     );
     final vm = SegnalaViewModel(reportService: service);
 

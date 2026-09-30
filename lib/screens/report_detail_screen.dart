@@ -1,10 +1,18 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../core/geo_utils.dart';
+import '../core/map_style.dart';
+import '../core/marker_icons.dart';
 import '../models/app_user_profile.dart';
 import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
+import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
+import '../services/location_service.dart';
 import '../services/media_picker_service.dart';
 import '../services/photo_upload_service.dart';
 import '../state/app_session.dart';
@@ -33,9 +41,56 @@ class ReportDetailScreen extends StatefulWidget {
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
   bool _busy = false;
+  GpsPosition? _userPosition;
+  final _userProfileRepository = UserProfileRepository();
+  String? _reporterLabel;
+  String? _loadedReporterForUid;
+
+  static bool get _mapAvailable {
+    if (kIsWeb) return true;
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Solo per calcolare la distanza mostrata sulla foto: se fallisce
+    // (permessi negati, GPS spento) la chip di distanza resta nascosta.
+    LocationService()
+        .getCurrentPosition()
+        .then((p) {
+          if (mounted) setState(() => _userPosition = p);
+        })
+        .catchError((_) {});
+  }
+
+  void _maybeLoadReporter(String? uid) {
+    if (uid == null || _loadedReporterForUid == uid) return;
+    _loadedReporterForUid = uid;
+    _userProfileRepository
+        .fetchProfile(uid)
+        .then((profile) {
+          if (mounted) setState(() => _reporterLabel = profile?.label);
+        })
+        .catchError((_) {});
+  }
+
+  void _share(TrashpotReport report) {
+    Share.share(
+      'Segnalazione Trashpotting — ${trashpotStatusLabel(report.status)}\n'
+      '${report.title}\n${report.address}',
+    );
+  }
 
   Future<void> _runAction(
-    Future<void> Function(AppUserProfile currentUser, AppSession session) action,
+    Future<void> Function(AppUserProfile currentUser, AppSession session)
+    action,
   ) async {
     if (_busy) return;
     final session = AppSessionScope.of(context);
@@ -98,8 +153,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (pickedTime == null || !mounted) return;
 
     final scheduledAt = DateTime(
-      pickedDate.year, pickedDate.month, pickedDate.day,
-      pickedTime.hour, pickedTime.minute,
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
     );
 
     await _runAction((currentUser, session) async {
@@ -154,18 +212,21 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final session = AppSessionScope.watch(context);
     final currentUser = session.currentUser;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Dettaglio report')),
-      body: StreamBuilder<TrashpotReport?>(
-        stream: widget._repository.watchReport(widget.reportId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return StreamBuilder<TrashpotReport?>(
+      stream: widget._repository.watchReport(widget.reportId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
 
-          if (snapshot.hasError) {
-            return Center(
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -182,12 +243,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ],
                 ),
               ),
-            );
-          }
+            ),
+          );
+        }
 
-          final report = snapshot.data;
-          if (report == null) {
-            return Center(
+        final report = snapshot.data;
+        if (report == null) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -204,16 +268,51 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ],
                 ),
               ),
-            );
-          }
+            ),
+          );
+        }
 
-          final event = report.event;
-          final currentUid = currentUser?.uid;
-          final isEventCreator = event != null && currentUid != null && event.creator.uid == currentUid;
-          final isCleaningOwner = report.cleaningOwner != null && currentUid != null && report.cleaningOwner!.uid == currentUid;
-          final joinedEvent = event?.participants.any((p) => p.uid == currentUid);
+        _maybeLoadReporter(report.reporterUid);
 
-          return Stack(
+        final event = report.event;
+        final currentUid = currentUser?.uid;
+        final isEventCreator =
+            event != null &&
+            currentUid != null &&
+            event.creator.uid == currentUid;
+        final isCleaningOwner =
+            report.cleaningOwner != null &&
+            currentUid != null &&
+            report.cleaningOwner!.uid == currentUid;
+        final joinedEvent = event?.participants.any((p) => p.uid == currentUid);
+        final distanceText = _userPosition == null
+            ? null
+            : distanceLabel(
+                haversineKm(
+                  _userPosition!.latitude,
+                  _userPosition!.longitude,
+                  report.lat,
+                  report.lng,
+                ),
+              );
+
+        // Stessa meccanica di safe-area delle altre tab (Mappa/Classifica/
+        // Profilo): una vera AppBar, posizionata da Scaffold in modo
+        // affidabile sotto la status bar, invece di bottoni circolari
+        // fluttuanti calcolati a mano sopra una foto full-bleed.
+        return Scaffold(
+          // Niente titolo qui: il titolo grande è già nel corpo, sotto la
+          // foto (come nel mockup) — ripeterlo nell'AppBar è ridondante.
+          appBar: AppBar(
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.ios_share_outlined),
+                tooltip: 'Condividi',
+                onPressed: () => _share(report),
+              ),
+            ],
+          ),
+          body: Stack(
             children: [
               Column(
                 children: [
@@ -223,7 +322,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       children: [
                         // Photo header
                         if (report.photoUrl != null)
-                          _PhotoHeader(imageUrl: report.photoUrl!, status: report.status),
+                          _PhotoHeader(
+                            imageUrl: report.photoUrl!,
+                            status: report.status,
+                            typeLabel: report.typeLabel,
+                            distanceText: distanceText,
+                          ),
 
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -235,11 +339,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
                               Text(
                                 report.title,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPrimary,
-                                ),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textPrimary,
+                                    ),
                               ),
                               const SizedBox(height: 12),
 
@@ -248,55 +353,74 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 icon: Icons.place_outlined,
                                 text: report.address,
                               ),
-                              if (report.dateLabel != null) ...[
-                                const SizedBox(height: 6),
-                                _InfoRow(
-                                  icon: Icons.calendar_today_outlined,
-                                  text: report.dateLabel!,
-                                ),
-                              ],
-                              if (report.typeLabel != null) ...[
+                              if (report.photoUrl == null &&
+                                  report.typeLabel != null) ...[
                                 const SizedBox(height: 6),
                                 _InfoRow(
                                   icon: Icons.delete_outline,
                                   text: report.typeLabel!,
                                 ),
                               ],
+                              const SizedBox(height: 8),
+                              _MetaRow(
+                                status: report.status,
+                                dateLabel: report.dateLabel,
+                                reporterLabel: _reporterLabel,
+                              ),
                               const SizedBox(height: 12),
-                              Divider(color: AppColors.divider, thickness: 0.5, height: 1),
+                              Divider(
+                                color: AppColors.divider,
+                                thickness: 0.5,
+                                height: 1,
+                              ),
+                              const SizedBox(height: 16),
+                              _StatusStepper(status: report.status),
+                              const SizedBox(height: 16),
+                              Divider(
+                                color: AppColors.divider,
+                                thickness: 0.5,
+                                height: 1,
+                              ),
                               const SizedBox(height: 12),
 
                               if (report.note != null) ...[
                                 Text(
                                   'Descrizione',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.textPrimary,
-                                  ),
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textPrimary,
+                                      ),
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
                                   report.note!,
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontSize: 13,
-                                    color: AppColors.textSecondary,
-                                    height: 1.6,
-                                  ),
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        fontSize: 13,
+                                        color: AppColors.textSecondary,
+                                        height: 1.6,
+                                      ),
                                 ),
                                 const SizedBox(height: 12),
-                                Divider(color: AppColors.divider, thickness: 0.5, height: 1),
+                                Divider(
+                                  color: AppColors.divider,
+                                  thickness: 0.5,
+                                  height: 1,
+                                ),
                                 const SizedBox(height: 12),
                               ],
 
                               // Cleanup photo
                               Text(
                                 'Foto dopo la pulizia',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPrimary,
-                                ),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textPrimary,
+                                    ),
                               ),
                               const SizedBox(height: 8),
                               if (report.cleanupPhotoUrl != null)
@@ -307,12 +431,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                   decoration: BoxDecoration(
                                     color: AppColors.surfaceWarm,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppColors.divider, width: 0.5, style: BorderStyle.solid),
+                                    border: Border.all(
+                                      color: AppColors.divider,
+                                      width: 0.5,
+                                      style: BorderStyle.solid,
+                                    ),
                                   ),
                                   alignment: Alignment.center,
                                   child: const Text(
                                     'Nessuna foto ancora caricata',
-                                    style: TextStyle(fontSize: 13, color: AppColors.textDisabled),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.textDisabled,
+                                    ),
                                   ),
                                 ),
 
@@ -325,13 +456,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               ],
 
                               if (report.cleaningOwner != null &&
-                                  report.status == TrashpotStatus.puliziaInCorso &&
+                                  report.status ==
+                                      TrashpotStatus.puliziaInCorso &&
                                   !isCleaningOwner) ...[
                                 const SizedBox(height: 12),
                                 _InfoRow(
                                   icon: Icons.person_outline,
-                                  text: 'Pulizia in corso da parte di ${report.cleaningOwner!.label}.',
+                                  text:
+                                      'Pulizia in corso da parte di ${report.cleaningOwner!.label}.',
                                 ),
+                              ],
+
+                              if (_mapAvailable) ...[
+                                const SizedBox(height: 16),
+                                _MiniMap(lat: report.lat, lng: report.lng),
                               ],
 
                               const SizedBox(height: 24),
@@ -367,9 +505,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ),
                 ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -377,44 +515,199 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 // ─── Sub-widgets ─────────────────────────────────────────────────────────────
 
 class _PhotoHeader extends StatelessWidget {
-  const _PhotoHeader({required this.imageUrl, required this.status});
+  const _PhotoHeader({
+    required this.imageUrl,
+    required this.status,
+    this.typeLabel,
+    this.distanceText,
+  });
 
   final String imageUrl;
   final TrashpotStatus status;
+  final String? typeLabel;
+  final String? distanceText;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _openPhotoFullscreen(context, imageUrl),
-      child: SizedBox(
-        height: 220,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-              loadingBuilder: (_, child, progress) {
-                if (progress == null) return child;
-                return ColoredBox(
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+        child: SizedBox(
+          height: 220,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (_, child, progress) {
+                  if (progress == null) return child;
+                  return ColoredBox(
+                    color: cs.surfaceContainerHighest,
+                    child: const Center(child: CircularProgressIndicator()),
+                  );
+                },
+                errorBuilder: (_, _, _) => ColoredBox(
                   color: cs.surfaceContainerHighest,
-                  child: const Center(child: CircularProgressIndicator()),
-                );
-              },
-              errorBuilder: (_, _, _) => ColoredBox(
-                color: cs.surfaceContainerHighest,
-                child: const Center(
-                  child: Icon(Icons.image_not_supported_outlined, size: 40, color: AppColors.textDisabled),
+                  child: const Center(
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 40,
+                      color: AppColors.textDisabled,
+                    ),
+                  ),
                 ),
               ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 72,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withAlpha(0),
+                        Colors.black.withAlpha(90),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 12,
+                left: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _StatusChipInline(status: status),
+                    if (typeLabel != null || distanceText != null) ...[
+                      const SizedBox(height: 8),
+                      _TypeDistanceChip(
+                        typeLabel: typeLabel,
+                        distanceText: distanceText,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeDistanceChip extends StatelessWidget {
+  const _TypeDistanceChip({this.typeLabel, this.distanceText});
+
+  final String? typeLabel;
+  final String? distanceText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(230),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (typeLabel != null) ...[
+            const Icon(
+              Icons.eco_outlined,
+              size: 13,
+              color: AppColors.greenDark,
             ),
-            Positioned(
-              bottom: 12,
-              right: 12,
-              child: _StatusChipInline(status: status),
+            const SizedBox(width: 4),
+            Text(
+              typeLabel!,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
           ],
+          if (typeLabel != null && distanceText != null) ...[
+            const SizedBox(width: 8),
+            Container(width: 1, height: 10, color: AppColors.divider),
+            const SizedBox(width: 8),
+          ],
+          if (distanceText != null) ...[
+            const Icon(
+              Icons.place_outlined,
+              size: 13,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              distanceText!,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniMap extends StatelessWidget {
+  const _MiniMap({required this.lat, required this.lng});
+
+  final double lat;
+  final double lng;
+
+  @override
+  Widget build(BuildContext context) {
+    final position = LatLng(lat, lng);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: 120,
+        child: AbsorbPointer(
+          child: FutureBuilder<BitmapDescriptor>(
+            future: MarkerIconFactory.pin(
+              color: AppColors.greenBrand,
+              icon: Icons.eco,
+            ),
+            builder: (context, snapshot) {
+              final icon = snapshot.data ?? BitmapDescriptor.defaultMarker;
+              return GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: position,
+                  zoom: 15,
+                ),
+                markers: {
+                  Marker(
+                    markerId: const MarkerId('report'),
+                    position: position,
+                    icon: icon,
+                  ),
+                },
+                style: mapStyleJson,
+                liteModeEnabled: true,
+                zoomControlsEnabled: false,
+                zoomGesturesEnabled: false,
+                scrollGesturesEnabled: false,
+                rotateGesturesEnabled: false,
+                tiltGesturesEnabled: false,
+                myLocationButtonEnabled: false,
+              );
+            },
+          ),
         ),
       ),
     );
@@ -448,28 +741,187 @@ class _StatusChipInline extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.text});
+class _StatusStepper extends StatelessWidget {
+  const _StatusStepper({required this.status});
 
-  final IconData icon;
-  final String text;
+  final TrashpotStatus status;
+
+  static const _stages = ['Segnalata', 'Aperta', 'In lavorazione', 'Pulita'];
+
+  int get _activeIndex => switch (status) {
+    TrashpotStatus.segnalata => 0,
+    TrashpotStatus.aperta => 1,
+    TrashpotStatus.inLavorazione ||
+    TrashpotStatus.puliziaInCorso ||
+    TrashpotStatus.eventoCreato => 2,
+    TrashpotStatus.pulita || TrashpotStatus.ripulita => 3,
+  };
 
   @override
   Widget build(BuildContext context) {
+    final active = _activeIndex;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 14, color: AppColors.textSecondary),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        for (final (i, label) in _stages.indexed) ...[
+          if (i > 0)
+            Expanded(
+              child: Container(
+                height: 2,
+                color: i <= active ? AppColors.greenBrand : AppColors.divider,
+              ),
+            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (i == active)
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.greenBrand,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.greenLight, width: 3),
+                  ),
+                  child: const Icon(Icons.circle, size: 6, color: Colors.white),
+                )
+              else if (i == 0)
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: i < active
+                          ? AppColors.greenBrand
+                          : AppColors.textDisabled,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.flag_outlined,
+                    size: 13,
+                    color: i < active
+                        ? AppColors.greenBrand
+                        : AppColors.textDisabled,
+                  ),
+                )
+              else
+                Icon(
+                  i < active ? Icons.check_circle : Icons.circle_outlined,
+                  size: 18,
+                  color: i < active
+                      ? AppColors.greenBrand
+                      : AppColors.textDisabled,
+                ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: i == active ? FontWeight.w600 : FontWeight.normal,
+                  color: i <= active
+                      ? AppColors.textPrimary
+                      : AppColors.textDisabled,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Riga "● Aperta | 📅 data | 👤 segnalante", come nel mockup — il nome del
+/// segnalante è dato reale (profilo Firestore per [TrashpotReport.reporterUid]),
+/// omesso se non disponibile o non ancora caricato.
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.status, this.dateLabel, this.reporterLabel});
+
+  final TrashpotStatus status;
+  final String? dateLabel;
+  final String? reporterLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final dotColor = AppColors.statusChip(status).fg;
+
+    final items = <Widget>[
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            trashpotStatusLabel(status),
+            style: const TextStyle(
               fontSize: 13,
               color: AppColors.textSecondary,
             ),
           ),
+        ],
+      ),
+      if (dateLabel != null)
+        _InfoRow(
+          icon: Icons.calendar_today_outlined,
+          text: dateLabel!,
+          compact: true,
         ),
+      if (reporterLabel != null)
+        _InfoRow(
+          icon: Icons.person_outline,
+          text: reporterLabel!,
+          compact: true,
+        ),
+    ];
+
+    return Wrap(
+      spacing: 14,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final (i, item) in items.indexed) ...[
+          if (i > 0) Container(width: 1, height: 12, color: AppColors.divider),
+          item,
+        ],
+      ],
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.text,
+    this.compact = false,
+  });
+
+  final IconData icon;
+  final String text;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Text(
+      text,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontSize: 13,
+        color: AppColors.textSecondary,
+      ),
+    );
+    return Row(
+      mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: AppColors.textSecondary),
+        const SizedBox(width: 6),
+        compact ? label : Expanded(child: label),
       ],
     );
   }
@@ -502,7 +954,10 @@ class _PhotoSection extends StatelessWidget {
             errorBuilder: (context, error, stackTrace) => ColoredBox(
               color: cs.surfaceContainerHighest,
               child: const Center(
-                child: Text('Immagine non disponibile', style: TextStyle(fontSize: 13)),
+                child: Text(
+                  'Immagine non disponibile',
+                  style: TextStyle(fontSize: 13),
+                ),
               ),
             ),
           ),
@@ -538,7 +993,10 @@ class _EventCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          _InfoRow(icon: Icons.person_outline, text: 'Creato da ${event.creator.label}'),
+          _InfoRow(
+            icon: Icons.person_outline,
+            text: 'Creato da ${event.creator.label}',
+          ),
           const SizedBox(height: 4),
           _InfoRow(icon: Icons.calendar_today_outlined, text: dateText),
           if (event.participants.isNotEmpty) ...[
@@ -593,10 +1051,15 @@ class _FullscreenPhotoPage extends StatelessWidget {
             fit: BoxFit.contain,
             loadingBuilder: (_, child, progress) {
               if (progress == null) return child;
-              return const Center(child: CircularProgressIndicator(color: Colors.white));
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              );
             },
             errorBuilder: (context, error, stackTrace) => const Center(
-              child: Text('Immagine non disponibile', style: TextStyle(color: Colors.white)),
+              child: Text(
+                'Immagine non disponibile',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ),
         ),
@@ -660,7 +1123,10 @@ class _BottomActions extends StatelessWidget {
               label: const Text('Schedula un evento'),
             ),
           ],
-          if (s == TrashpotStatus.eventoCreato && event != null && currentUid != null && joinedEvent != true)
+          if (s == TrashpotStatus.eventoCreato &&
+              event != null &&
+              currentUid != null &&
+              joinedEvent != true)
             FilledButton.icon(
               onPressed: busy ? null : onJoinEvent,
               icon: const Icon(Icons.group_add_outlined, size: 18),

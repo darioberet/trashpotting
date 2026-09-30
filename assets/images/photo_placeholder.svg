@@ -1,0 +1,11 @@
+<svg width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="300" height="300" fill="#E7E5DF"/>
+  <circle cx="150" cy="130" r="34" fill="#FFFFFF"/>
+  <path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.6c.2-.3.5-.4.9-.4h5.2c.4 0 .7.1.9.4l1 1.6H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" fill="none"/>
+  <g transform="translate(105,95) scale(1.9)">
+    <path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.6c.2-.3.5-.4.9-.4h5.2c.4 0 .7.1.9.4l1 1.6H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" fill="#B9B6AC"/>
+    <circle cx="12" cy="13" r="3.6" fill="none" stroke="#E7E5DF" stroke-width="1.6"/>
+  </g>
+  <rect x="0" y="240" width="300" height="60" fill="#00000055"/>
+  <text x="150" y="275" font-family="Roboto, sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle">Tocca per cambiare foto</text>
+</svg>
