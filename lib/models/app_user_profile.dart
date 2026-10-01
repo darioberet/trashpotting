@@ -36,10 +36,8 @@ class AppUserProfile {
     return AppUserProfile(uid: doc.id, username: _usernameFrom(data));
   }
 
-  /// `displayName` è il nome del campo prima della migrazione a `username`
-  /// (tool/migrate_username.js): letto finché ci sono dati non migrati.
   static String? _usernameFrom(Map<String, dynamic> data) {
-    final value = data['username'] ?? data['displayName'];
+    final value = data['username'];
     return value is String ? value : null;
   }
 }

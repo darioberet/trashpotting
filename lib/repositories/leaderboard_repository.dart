@@ -38,7 +38,6 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
   }) {
     return _firestore.collection('leaderboard').doc(uid).set({
       'username': username,
-      'name': FieldValue.delete(),
       'points': FieldValue.increment(amount),
     }, SetOptions(merge: true));
   }
@@ -52,7 +51,7 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
     // Solo se l'utente è già in classifica: un documento senza punti
     // non serve e verrebbe creato vuoto.
     if (!(await ref.get()).exists) return;
-    await ref.update({'username': username, 'name': FieldValue.delete()});
+    await ref.update({'username': username});
   }
 
   @override
@@ -79,10 +78,7 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
         LeaderboardEntry(
           rank: i + 1,
           uid: snap.docs[i].id,
-          name:
-              snap.docs[i].data()['username'] as String? ??
-              snap.docs[i].data()['name'] as String? ??
-              'Utente',
+          name: snap.docs[i].data()['username'] as String? ?? 'Utente',
           points: snap.docs[i].data()['points'] as int? ?? 0,
         ),
     ];

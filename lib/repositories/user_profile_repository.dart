@@ -27,21 +27,14 @@ class UserProfileRepository {
   /// cancellerebbe quello esistente), `createdAt` solo alla prima creazione.
   ///
   /// `users/{uid}` è leggibile dagli altri utenti (nome in segnalazioni e
-  /// classifica), quindi non contiene l'email: i campi `email` e
-  /// `displayName` dei profili creati prima vengono rimossi qui.
+  /// classifica), quindi non contiene mai l'email: quella resta in
+  /// Firebase Auth.
   Future<void> ensureProfile(String uid, {String? username}) async {
     final ref = _firestore.collection('users').doc(uid);
     final snap = await ref.get();
-    final data = snap.data() ?? const <String, dynamic>{};
     final name = username?.trim();
-    final legacyName = data['displayName'];
     return ref.set({
-      if (name != null && name.isNotEmpty)
-        'username': name
-      else if (data['username'] == null && legacyName is String)
-        'username': legacyName,
-      if (data.containsKey('email')) 'email': FieldValue.delete(),
-      if (data.containsKey('displayName')) 'displayName': FieldValue.delete(),
+      if (name != null && name.isNotEmpty) 'username': name,
       'updatedAt': FieldValue.serverTimestamp(),
       if (!snap.exists) 'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

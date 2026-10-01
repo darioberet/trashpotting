@@ -86,16 +86,6 @@ class FirestoreReportRepository implements ReportRepository {
             .limit(_nearQueryLimit)
             .snapshots()
             .map(_parseDocs),
-      // Le segnalazioni create prima dell'introduzione del campo `geohash`
-      // non compaiono nei range: finché non sono migrate
-      // (tool/backfill_geohash.js) le recuperiamo tra le più recenti.
-      reports
-          .orderBy('createdAt', descending: true)
-          .limit(50)
-          .snapshots()
-          .map(
-            (snap) => _parseDocs(snap).where((r) => r.geohash == null).toList(),
-          ),
     ];
 
     return _combineLatest(queries).map((lists) {
