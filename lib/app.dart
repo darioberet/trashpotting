@@ -56,7 +56,8 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
       // Solo tracking automatico delle schermate per ora, nessun evento
       // custom (a differenza di Crashlytics, Analytics supporta anche web).
       observers: [
-        FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
+        if (widget.firebaseReady)
+          FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
       ],
       redirect: (context, state) {
         final location = state.matchedLocation;

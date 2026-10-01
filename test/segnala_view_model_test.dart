@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trashpotting_v3/models/app_user_profile.dart';
+import 'package:trashpotting_v3/models/leaderboard_entry.dart';
 import 'package:trashpotting_v3/models/report_draft.dart';
 import 'package:trashpotting_v3/models/trashpot_report.dart';
+import 'package:trashpotting_v3/repositories/leaderboard_repository.dart';
 import 'package:trashpotting_v3/repositories/report_repository.dart';
 import 'package:trashpotting_v3/services/report_service.dart';
 import 'package:trashpotting_v3/state/segnala_view_model.dart';
@@ -78,9 +80,26 @@ typedef _SubmitHandler =
       String? address,
     });
 
+class _NoopLeaderboardRepository implements LeaderboardRepository {
+  @override
+  Future<List<LeaderboardEntry>> fetchTop({int limit = 20}) async => const [];
+
+  @override
+  Future<void> incrementPoints({
+    required String uid,
+    required String displayName,
+  }) async {}
+
+  @override
+  Future<int> fetchUserPoints(String uid) async => 0;
+}
+
 class _FakeReportService extends ReportService {
   _FakeReportService(this._handler)
-    : super(repository: _NoopReportRepository());
+    : super(
+        repository: _NoopReportRepository(),
+        leaderboardRepository: _NoopLeaderboardRepository(),
+      );
 
   final _SubmitHandler _handler;
   int calls = 0;

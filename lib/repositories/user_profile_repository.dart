@@ -4,9 +4,13 @@ import '../models/app_user_profile.dart';
 
 class UserProfileRepository {
   UserProfileRepository({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestoreOverride = firestore;
 
-  final FirebaseFirestore _firestore;
+  // Risolto al primo uso: AppSession crea il repository anche quando
+  // Firebase non è inizializzato (firebaseReady == false).
+  final FirebaseFirestore? _firestoreOverride;
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
 
   Future<void> deleteProfile(String uid) {
     return _firestore.collection('users').doc(uid).delete();

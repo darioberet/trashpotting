@@ -1,9 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
-  AuthService({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
+  AuthService({FirebaseAuth? auth}) : _authOverride = auth;
 
-  final FirebaseAuth _auth;
+  // Risolto al primo uso: la schermata di login viene costruita anche
+  // quando Firebase non è inizializzato.
+  final FirebaseAuth? _authOverride;
+  FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
 
   Future<UserCredential> signInAnonymously() {
     return _auth.signInAnonymously();
