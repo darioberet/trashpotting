@@ -145,14 +145,18 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Il podio è al completo!',
+                          entries.length < 3
+                              ? 'C\'è ancora posto sul podio!'
+                              : 'Il podio è al completo!',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Non ci sono ancora altri utenti in classifica.',
+                          entries.length < 3
+                              ? 'Segnala o pulisci una zona per entrare in classifica.'
+                              : 'Non ci sono ancora altri utenti in classifica.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),

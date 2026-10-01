@@ -116,7 +116,6 @@ void main() {
     final vm = ClassificaViewModel(
       repository: repo,
       reportRepository: _FakeReportRepository(),
-      enableMockFallback: false,
     );
 
     await vm.load();
@@ -134,7 +133,6 @@ void main() {
     final vm = ClassificaViewModel(
       repository: repo,
       reportRepository: _FakeReportRepository(),
-      enableMockFallback: false,
     );
 
     await vm.load();
@@ -152,7 +150,6 @@ void main() {
     final vm = ClassificaViewModel(
       repository: repo,
       reportRepository: _FakeReportRepository(),
-      enableMockFallback: false,
     );
 
     await vm.load();
@@ -172,7 +169,6 @@ void main() {
     final vm = ClassificaViewModel(
       repository: repo,
       reportRepository: _FakeReportRepository(),
-      enableMockFallback: false,
     );
     var notifications = 0;
     vm.addListener(() => notifications += 1);
@@ -193,7 +189,6 @@ void main() {
     final vm = ClassificaViewModel(
       repository: repo,
       reportRepository: reportRepo,
-      enableMockFallback: false,
     );
 
     await vm.load();
@@ -203,46 +198,20 @@ void main() {
     expect(vm.reportCountFor('unknown'), isNull);
   });
 
-  test(
-    'load falls back to mock entries when enabled and result has fewer than 3 entries',
-    () async {
-      final repo = _FakeLeaderboardRepository(
-        result: const [
-          LeaderboardEntry(rank: 1, uid: 'u1', name: 'A', points: 1),
-        ],
-      );
-      final vm = ClassificaViewModel(
-        repository: repo,
-        reportRepository: _FakeReportRepository(),
-        enableMockFallback: true,
-      );
+  test('load shows real entries even when fewer than 3', () async {
+    final repo = _FakeLeaderboardRepository(
+      result: const [
+        LeaderboardEntry(rank: 1, uid: 'u1', name: 'A', points: 1),
+      ],
+    );
+    final vm = ClassificaViewModel(
+      repository: repo,
+      reportRepository: _FakeReportRepository(),
+    );
 
-      await vm.load();
+    await vm.load();
 
-      expect(vm.entries.length, greaterThanOrEqualTo(3));
-      expect(vm.entries.any((e) => e.uid == 'u1'), isFalse);
-      expect(vm.reportCountFor(vm.entries.first.uid), isNotNull);
-    },
-  );
-
-  test(
-    'load keeps real entries when fallback disabled even if fewer than 3',
-    () async {
-      final repo = _FakeLeaderboardRepository(
-        result: const [
-          LeaderboardEntry(rank: 1, uid: 'u1', name: 'A', points: 1),
-        ],
-      );
-      final vm = ClassificaViewModel(
-        repository: repo,
-        reportRepository: _FakeReportRepository(),
-        enableMockFallback: false,
-      );
-
-      await vm.load();
-
-      expect(vm.entries, hasLength(1));
-      expect(vm.entries.first.uid, 'u1');
-    },
-  );
+    expect(vm.entries, hasLength(1));
+    expect(vm.entries.first.uid, 'u1');
+  });
 }
