@@ -15,10 +15,12 @@ import 'screens/notifiche_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/report_detail_screen.dart';
+import 'services/auth_service.dart';
 import 'state/app_session.dart';
 import 'state/theme_controller.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
+import 'widgets/location_gate.dart';
 
 class TrashpottingApp extends StatefulWidget {
   const TrashpottingApp({
@@ -238,6 +240,20 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
           locale: const Locale('it'),
           supportedLocales: const [Locale('it')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          // Senza GPS l'app non è utilizzabile: il blocco vale solo dopo
+          // login, verifica email e onboarding (che chiede già il permesso).
+          builder: (context, child) => ListenableBuilder(
+            listenable: _session,
+            builder: (context, _) => LocationGate(
+              enabled:
+                  _session.firebaseReady &&
+                  _session.currentUserId != null &&
+                  _session.emailVerified &&
+                  _session.onboardingComplete,
+              onSignOut: () => AuthService().signOut(),
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         ),
       ),
     );
