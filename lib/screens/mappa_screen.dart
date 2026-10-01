@@ -97,11 +97,8 @@ class _MappaScreenState extends State<MappaScreen> {
     _fitRadius();
   }
 
-  void _toggleStatusGroup(ReportStatusGroup group) {
-    setState(() {
-      _statusGroups = {..._statusGroups};
-      if (!_statusGroups.remove(group)) _statusGroups.add(group);
-    });
+  void _setStatusGroups(Set<ReportStatusGroup> groups) {
+    setState(() => _statusGroups = {...groups});
     _preferences
         .setStringList(
           _statusPrefsKey,
@@ -524,7 +521,7 @@ class _MappaScreenState extends State<MappaScreen> {
                           radiusEnabled: userPos != null,
                           statusGroups: _statusGroups,
                           onRadiusChanged: _setRadius,
-                          onStatusToggled: _toggleStatusGroup,
+                          onStatusChanged: _setStatusGroups,
                         ),
                         onReportTap: _openReportDetails,
                         userPosition: userPos,
@@ -808,28 +805,44 @@ class _ReportFiltersBar extends StatelessWidget {
     required this.radiusEnabled,
     required this.statusGroups,
     required this.onRadiusChanged,
-    required this.onStatusToggled,
+    required this.onStatusChanged,
   });
 
   final int radiusKm;
   final bool radiusEnabled;
   final Set<ReportStatusGroup> statusGroups;
   final ValueChanged<int> onRadiusChanged;
-  final ValueChanged<ReportStatusGroup> onStatusToggled;
+  final ValueChanged<Set<ReportStatusGroup>> onStatusChanged;
+
+  String get _statusSummary {
+    if (statusGroups.length == ReportStatusGroup.values.length) {
+      return 'Tutti gli stati';
+    }
+    if (statusGroups.isEmpty) return 'Nessuno stato';
+    // Nell'ordine dell'enum, non in quello di selezione.
+    return ReportStatusGroup.values
+        .where(statusGroups.contains)
+        .map((g) => g.label)
+        .join(', ');
+  }
+
+  Future<void> _openStatusSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) =>
+          _StatusFilterSheet(initial: statusGroups, onChanged: onStatusChanged),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Colori espliciti: il chipTheme globale non ha bordo né colore del
-    // testo, e i chip non selezionati sparirebbero sul pannello bianco.
-    final cs = Theme.of(context).colorScheme;
-    final side = BorderSide(color: cs.outline);
-    final labelStyle = TextStyle(color: cs.onSurface);
-
-    return SizedBox(
-      height: 40,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+    // Due menu compatti invece di un chip per stato: stanno sempre in una
+    // riga (anche con testo ingrandito) e nessuna opzione resta nascosta
+    // fuori dallo schermo.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
         children: [
           PopupMenuButton<int>(
             enabled: radiusEnabled,
@@ -846,42 +859,180 @@ class _ReportFiltersBar extends StatelessWidget {
             ],
             // Il tap lo gestisce il PopupMenuButton, il chip è solo aspetto.
             child: IgnorePointer(
-              child: Chip(
-                avatar: Icon(Icons.radar, size: 16, color: cs.primary),
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(radiusEnabled ? 'Entro $radiusKm km' : 'Raggio'),
-                    Icon(Icons.arrow_drop_down, size: 18, color: cs.onSurface),
-                  ],
-                ),
-                labelStyle: labelStyle,
-                backgroundColor: cs.surfaceContainerHighest,
-                side: side,
-                visualDensity: VisualDensity.compact,
+              child: _DropdownChip(
+                icon: Icons.radar,
+                label: radiusEnabled ? '$radiusKm km' : 'Raggio',
               ),
             ),
           ),
           const SizedBox(width: 8),
-          for (final group in ReportStatusGroup.values) ...[
-            FilterChip(
-              label: Text(group.label),
-              selected: statusGroups.contains(group),
-              onSelected: (_) => onStatusToggled(group),
-              labelStyle: statusGroups.contains(group)
-                  ? TextStyle(color: cs.onPrimary)
-                  : labelStyle,
-              backgroundColor: cs.surface,
-              selectedColor: cs.primary,
-              checkmarkColor: cs.onPrimary,
-              side: statusGroups.contains(group)
-                  ? BorderSide(color: cs.primary)
-                  : side,
-              visualDensity: VisualDensity.compact,
+          Flexible(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _openStatusSheet(context),
+              child: _DropdownChip(
+                icon: Icons.filter_list,
+                label: _statusSummary,
+                highlighted:
+                    statusGroups.length != ReportStatusGroup.values.length,
+                semanticsLabel: 'Filtra per stato: $_statusSummary',
+              ),
             ),
-            const SizedBox(width: 8),
-          ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Aspetto comune dei due menu: icona, testo (troncato se lungo) e freccia.
+class _DropdownChip extends StatelessWidget {
+  const _DropdownChip({
+    required this.icon,
+    required this.label,
+    this.highlighted = false,
+    this.semanticsLabel,
+  });
+
+  final IconData icon;
+  final String label;
+
+  /// Evidenzia un filtro diverso da quello predefinito "tutto".
+  final bool highlighted;
+  final String? semanticsLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fg = highlighted ? cs.primary : cs.onSurface;
+    return Semantics(
+      button: true,
+      label: semanticsLabel,
+      excludeSemantics: semanticsLabel != null,
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.only(left: 10, right: 4),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: highlighted ? cs.primary : cs.outline),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: cs.primary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: fg,
+                ),
+              ),
+            ),
+            Icon(Icons.arrow_drop_down, size: 20, color: fg),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Selezione multipla degli stati: ogni modifica si applica subito alla
+/// mappa e alla lista (non serve un pulsante "Applica").
+class _StatusFilterSheet extends StatefulWidget {
+  const _StatusFilterSheet({required this.initial, required this.onChanged});
+
+  final Set<ReportStatusGroup> initial;
+  final ValueChanged<Set<ReportStatusGroup>> onChanged;
+
+  @override
+  State<_StatusFilterSheet> createState() => _StatusFilterSheetState();
+}
+
+class _StatusFilterSheetState extends State<_StatusFilterSheet> {
+  late Set<ReportStatusGroup> _selected = {...widget.initial};
+
+  static Color _colorOf(ReportStatusGroup group) => switch (group) {
+    ReportStatusGroup.daPulire => AppColors.redPin,
+    ReportStatusGroup.inCorso => AppColors.amberDot,
+    ReportStatusGroup.pulite => AppColors.greenBrand,
+  };
+
+  static String _descriptionOf(ReportStatusGroup group) => switch (group) {
+    ReportStatusGroup.daPulire => 'Segnalate e aperte',
+    ReportStatusGroup.inCorso =>
+      'In lavorazione, evento creato, pulizia in corso',
+    ReportStatusGroup.pulite => 'Già ripulite',
+  };
+
+  void _update(Set<ReportStatusGroup> next) {
+    setState(() => _selected = next);
+    widget.onChanged(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final allSelected = _selected.length == ReportStatusGroup.values.length;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Mostra segnalazioni',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: allSelected
+                        ? null
+                        : () => _update(ReportStatusGroup.values.toSet()),
+                    child: const Text('Mostra tutti'),
+                  ),
+                ],
+              ),
+            ),
+            for (final group in ReportStatusGroup.values)
+              CheckboxListTile(
+                value: _selected.contains(group),
+                onChanged: (checked) {
+                  final next = {..._selected};
+                  if (checked == true) {
+                    next.add(group);
+                  } else {
+                    next.remove(group);
+                  }
+                  _update(next);
+                },
+                secondary: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: _colorOf(group),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                title: Text(group.label),
+                subtitle: Text(_descriptionOf(group)),
+              ),
+          ],
+        ),
       ),
     );
   }
