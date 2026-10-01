@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
 
@@ -32,10 +35,47 @@ class AiutoFeedbackScreen extends StatelessWidget {
     ),
   ];
 
+  static const _feedbackEmail = 'dario.berettini.eco@gmail.com';
+
+  Future<void> _writeToUs(BuildContext context) async {
+    final session = AppSessionScope.of(context);
+    final info = await PackageInfo.fromPlatform();
+    final uri = Uri(
+      scheme: 'mailto',
+      path: _feedbackEmail,
+      // `query` invece di `queryParameters`: quest'ultimo codifica gli spazi
+      // come "+", che molte app di posta mostrano letteralmente.
+      query: _encodeQuery({
+        'subject': 'Feedback Trashpotting',
+        'body':
+            '\n\n---\nVersione app: ${info.version} (${info.buildNumber})\n'
+            'ID utente: ${session.currentUserId ?? '-'}',
+      }),
+    );
+    final opened = await launchUrl(uri);
+    if (!opened) {
+      session.publishInfo(
+        'Nessuna app di posta trovata. Scrivici a $_feedbackEmail',
+      );
+    }
+  }
+
+  static String _encodeQuery(Map<String, String> params) => params.entries
+      .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
+      .join('&');
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Aiuto e feedback')),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: FilledButton.icon(
+          onPressed: () => _writeToUs(context),
+          icon: const Icon(Icons.mail_outline),
+          label: const Text('Scrivici'),
+        ),
+      ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _faqs.length,

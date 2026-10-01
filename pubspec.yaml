@@ -55,6 +55,8 @@ dependencies:
   flutter_svg: ^2.0.10
   flutter_localizations:
     sdk: flutter
+  url_launcher: ^6.3.2
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:
