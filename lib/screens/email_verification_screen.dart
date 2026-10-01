@@ -3,23 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
-  EmailVerificationScreen({
-    super.key,
-    AuthService? authService,
-    UserProfileRepository? userProfileRepository,
-  }) : _authService = authService ?? AuthService(),
-       _userProfileRepository =
-           userProfileRepository ?? UserProfileRepository();
+  EmailVerificationScreen({super.key, AuthService? authService})
+    : _authService = authService ?? AuthService();
 
   final AuthService _authService;
-  final UserProfileRepository _userProfileRepository;
 
   @override
   State<EmailVerificationScreen> createState() =>
@@ -54,22 +47,18 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       await widget._authService.reloadCurrentUser();
       if (!mounted) return;
       if (widget._authService.currentUserEmailVerified) {
-        // Trigger session refresh — AppSession listens to authStateChanges which
-        // doesn't fire on email-verification; we force it by signing out and back
-        // in is not ideal, so instead we just navigate and let the guard handle it.
-        final uid = AppSessionScope.of(context).currentUserId;
-        var onboarded = true;
-        if (uid != null) {
-          try {
-            onboarded = await widget._userProfileRepository
-                .hasCompletedOnboarding(uid);
-          } catch (_) {
-            // Non bloccare un utente già verificato per un errore di rete:
-            // meglio farlo entrare (onboarding al più si ripresenterà).
-          }
-        }
+        // authStateChanges non notifica la verifica dell'email: va riallineata
+        // la sessione a mano, altrimenti il redirect del router legge ancora
+        // emailVerified == false e riporta a questa schermata.
+        // Anche il flag di onboarding in sessione va riletto: il router
+        // decide su quello, non sul valore letto qui. In caso di errore di
+        // rete resta il valore ottimistico (l'utente entra comunque).
+        final session = AppSessionScope.of(context)..refreshCurrentUser();
+        await session.refreshOnboardingStatus();
         if (!mounted) return;
-        context.go(onboarded ? AppRoutes.mappa : AppRoutes.onboarding);
+        context.go(
+          session.onboardingComplete ? AppRoutes.mappa : AppRoutes.onboarding,
+        );
       } else if (!silent) {
         AppSessionScope.of(context).publishInfo('Email non ancora verificata.');
       }

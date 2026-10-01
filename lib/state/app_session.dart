@@ -87,6 +87,29 @@ class AppSession extends ChangeNotifier {
     }
   }
 
+  /// Rilegge il flag di onboarding da Firestore. Va chiamato dopo la
+  /// verifica email: il valore letto al momento della registrazione può
+  /// essere precedente alla scrittura di `onboardingComplete: false`.
+  Future<void> refreshOnboardingStatus() async {
+    final uid = currentUserId;
+    if (uid != null) await _refreshOnboardingStatus(uid);
+  }
+
+  /// Riallinea [currentUser] dopo un `reload()`: l'oggetto [User] ricevuto da
+  /// authStateChanges è uno snapshot e non vede cambi come la verifica
+  /// dell'email, che quel stream non notifica. Senza questo il redirect del
+  /// router continuerebbe a leggere emailVerified == false.
+  void refreshCurrentUser() {
+    if (!_firebaseReady) return;
+    final user = (_auth ?? FirebaseAuth.instance).currentUser;
+    if (user?.uid != _currentUser?.uid ||
+        user?.emailVerified != _currentUser?.emailVerified) {
+      _currentUser = user;
+      _currentUserId = user?.uid;
+      notifyListeners();
+    }
+  }
+
   void updateFirebaseState({required bool ready, Object? error}) {
     final changed = ready != _firebaseReady || error != _firebaseError;
     _firebaseReady = ready;
