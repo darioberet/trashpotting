@@ -101,8 +101,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   ) async {
     if (_busy) return;
     final session = AppSessionScope.of(context);
-    final authUser = session.currentUser;
-    if (authUser == null) {
+    final profile = session.currentProfile;
+    if (profile == null) {
       session.publishError(
         StateError('Utente non autenticato.'),
         fallback: 'Devi effettuare il login per modificare il report.',
@@ -112,7 +112,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
     setState(() => _busy = true);
     try {
-      await action(AppUserProfile.fromAuthUser(authUser), session);
+      await action(profile, session);
     } catch (e) {
       if (!mounted) return;
       session.publishError(e, fallback: 'Operazione non riuscita.');
@@ -213,7 +213,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       try {
         await widget._leaderboardRepository.incrementPoints(
           uid: currentUser.uid,
-          displayName: currentUser.label,
+          username: currentUser.label,
           amount: pointsPerCleanup,
         );
       } catch (e) {

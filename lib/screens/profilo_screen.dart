@@ -109,6 +109,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     final firebaseReady = session.firebaseReady;
     final userId = session.currentUserId;
     final user = session.currentUser;
+    final username = session.username;
 
     if (userId != null) _maybeLoadStats(userId);
 
@@ -153,11 +154,9 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                       ),
                     )
                   : Center(
-                      child:
-                          user?.displayName != null &&
-                              user!.displayName!.trim().isNotEmpty
+                      child: username != null && username.trim().isNotEmpty
                           ? Text(
-                              _initialsFrom(user.displayName!),
+                              _initialsFrom(username),
                               style: const TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.w700,
@@ -177,7 +176,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          user?.displayName ?? (userId != null ? 'Utente' : 'Ospite'),
+          username ?? (userId != null ? 'Utente' : 'Ospite'),
           textAlign: TextAlign.center,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w600,

@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/app_user_profile.dart';
 import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../services/auth_service.dart';
 import '../services/media_picker_service.dart';
 import '../services/photo_upload_service.dart';
+import '../services/username_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
@@ -27,13 +27,16 @@ class OnboardingScreen extends StatefulWidget {
     UserProfileRepository? userProfileRepository,
     MediaPickerService? mediaPickerService,
     PhotoUploadService? photoUploadService,
+    UsernameService? usernameService,
   }) : _authService = authService ?? AuthService(),
+       _usernameService = usernameService ?? UsernameService(),
        _userProfileRepository =
            userProfileRepository ?? UserProfileRepository(),
        _mediaPickerService = mediaPickerService ?? MediaPickerService(),
        _photoUploadService = photoUploadService ?? PhotoUploadService();
 
   final AuthService _authService;
+  final UsernameService _usernameService;
   final UserProfileRepository _userProfileRepository;
   final MediaPickerService _mediaPickerService;
   final PhotoUploadService _photoUploadService;
@@ -60,7 +63,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       final profile = await widget._userProfileRepository.fetchProfile(uid);
       if (!mounted) return;
-      final name = profile?.displayName?.trim();
+      final name = profile?.username?.trim();
       if (name != null && name.isNotEmpty) {
         _nameController.text = name;
       }
@@ -100,19 +103,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         );
       }
       final name = _nameController.text.trim();
-      await widget._authService.updateProfile(
-        displayName: name.isEmpty ? null : name,
-        photoURL: photoUrl,
-      );
+      if (photoUrl != null) {
+        await widget._authService.updateProfile(photoURL: photoUrl);
+      }
+      if (name.isNotEmpty) {
+        await widget._usernameService.save(uid: uid, username: name);
+      }
       // Nome e foto vanno visti subito da Profilo e segnalazioni.
       session.refreshCurrentUser();
-      await widget._userProfileRepository.ensureProfile(
-        AppUserProfile(
-          uid: uid,
-          email: session.currentUser?.email ?? '',
-          displayName: name.isEmpty ? null : name,
-        ),
-      );
+      if (name.isNotEmpty) session.setUsername(name);
       await session.markOnboardingComplete();
       if (!mounted) return;
       context.go(AppRoutes.mappa);
@@ -329,7 +328,7 @@ class _ProfileSetupStep extends StatelessWidget {
           TextField(
             controller: nameController,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(labelText: 'Nome visualizzato'),
+            decoration: const InputDecoration(labelText: 'Username'),
           ),
           const SizedBox(height: 40),
           FilledButton(

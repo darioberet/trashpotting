@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
 
 import '../core/error_mapper.dart';
+import '../models/app_user_profile.dart';
 import '../repositories/user_profile_repository.dart';
 
 class AppUiMessage {
@@ -50,6 +51,9 @@ class AppSession extends ChangeNotifier {
   // Ottimistico finché non verificato: evita di bloccare un utente già
   // onboardato mentre la lettura Firestore è in corso.
   bool _onboardingComplete = true;
+  // Username dell'utente corrente, letto da `users/{uid}` su Firestore
+  // (unica fonte del nome: non si usa User.displayName di Firebase Auth).
+  String? _username;
 
   bool get firebaseReady => _firebaseReady;
   Object? get firebaseError => _firebaseError;
@@ -57,7 +61,22 @@ class AppSession extends ChangeNotifier {
   String? get currentUserId => _currentUser?.uid ?? _currentUserId;
   bool get emailVerified => _currentUser?.emailVerified ?? false;
   bool get onboardingComplete => _onboardingComplete;
+  String? get username => _username;
   AppUiMessage? get message => _message;
+
+  /// Profilo pubblico dell'utente corrente, da incorporare nei report
+  /// (evento, partecipanti, chi pulisce) o da passare alla classifica.
+  AppUserProfile? get currentProfile {
+    final uid = currentUserId;
+    return uid == null ? null : AppUserProfile(uid: uid, username: _username);
+  }
+
+  /// Aggiorna lo username in sessione dopo averlo salvato su Firestore.
+  void setUsername(String? username) {
+    if (username == _username) return;
+    _username = username;
+    notifyListeners();
+  }
 
   /// Segna l'onboarding come completato (chiamato dalla schermata di
   /// onboarding) e sblocca subito il redirect del router.
@@ -77,9 +96,12 @@ class AppSession extends ChangeNotifier {
   Future<void> _refreshOnboardingStatus(String uid) async {
     try {
       final done = await _userProfileRepository.hasCompletedOnboarding(uid);
+      final profile = await _userProfileRepository.fetchProfile(uid);
       if (currentUserId != uid) return; // utente cambiato nel frattempo
-      if (done != _onboardingComplete) {
+      final username = profile?.username;
+      if (done != _onboardingComplete || username != _username) {
         _onboardingComplete = done;
+        _username = username;
         notifyListeners();
       }
     } catch (_) {
@@ -87,8 +109,8 @@ class AppSession extends ChangeNotifier {
     }
   }
 
-  /// Rilegge il flag di onboarding da Firestore. Va chiamato dopo la
-  /// verifica email: il valore letto al momento della registrazione può
+  /// Rilegge da Firestore flag di onboarding e username. Va chiamato dopo la
+  /// verifica email e il login: il valore letto alla registrazione può
   /// essere precedente alla scrittura di `onboardingComplete: false`.
   Future<void> refreshOnboardingStatus() async {
     final uid = currentUserId;
@@ -105,7 +127,6 @@ class AppSession extends ChangeNotifier {
     final user = (_auth ?? FirebaseAuth.instance).currentUser;
     if (user?.uid != _currentUser?.uid ||
         user?.emailVerified != _currentUser?.emailVerified ||
-        user?.displayName != _currentUser?.displayName ||
         user?.photoURL != _currentUser?.photoURL) {
       _currentUser = user;
       _currentUserId = user?.uid;
@@ -165,6 +186,7 @@ class AppSession extends ChangeNotifier {
       _currentUserId = user?.uid;
       if (user == null) {
         _onboardingComplete = true; // reset all'uscita
+        _username = null;
       } else {
         unawaited(_refreshOnboardingStatus(user.uid));
       }

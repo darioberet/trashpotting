@@ -78,7 +78,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
     required bool firebaseReady,
     required String note,
     String? uid,
-    String? displayName,
+    String? username,
   }) async {
     if (_sending) return;
 
@@ -95,7 +95,7 @@ class SegnalaViewModel extends ChangeNotifier with NotifierMessageMixin {
       await _reportService.submit(
         note: note,
         uid: uid,
-        displayName: displayName,
+        username: username,
         photoPath: _photoPath,
         latitude: _latitude,
         longitude: _longitude,

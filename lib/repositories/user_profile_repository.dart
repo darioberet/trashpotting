@@ -22,19 +22,35 @@ class UserProfileRepository {
     return AppUserProfile.fromDoc(doc);
   }
 
-  /// Upsert chiamato a ogni login: non deve cancellare dati già salvati.
-  /// Il nome si scrive solo se noto (al login Firebase Auth può non averlo,
-  /// e un `null` in merge cancellerebbe quello salvato alla registrazione),
-  /// `createdAt` solo alla prima creazione.
-  Future<void> ensureProfile(AppUserProfile profile) async {
-    final ref = _firestore.collection('users').doc(profile.uid);
-    final exists = (await ref.get()).exists;
-    final name = profile.displayName?.trim();
+  /// Upsert chiamato a ogni login e alla registrazione: non deve cancellare
+  /// dati già salvati. Lo username si scrive solo se noto (un `null` in merge
+  /// cancellerebbe quello esistente), `createdAt` solo alla prima creazione.
+  ///
+  /// `users/{uid}` è leggibile dagli altri utenti (nome in segnalazioni e
+  /// classifica), quindi non contiene l'email: i campi `email` e
+  /// `displayName` dei profili creati prima vengono rimossi qui.
+  Future<void> ensureProfile(String uid, {String? username}) async {
+    final ref = _firestore.collection('users').doc(uid);
+    final snap = await ref.get();
+    final data = snap.data() ?? const <String, dynamic>{};
+    final name = username?.trim();
+    final legacyName = data['displayName'];
     return ref.set({
-      'email': profile.email,
-      if (name != null && name.isNotEmpty) 'displayName': name,
+      if (name != null && name.isNotEmpty)
+        'username': name
+      else if (data['username'] == null && legacyName is String)
+        'username': legacyName,
+      if (data.containsKey('email')) 'email': FieldValue.delete(),
+      if (data.containsKey('displayName')) 'displayName': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
-      if (!exists) 'createdAt': FieldValue.serverTimestamp(),
+      if (!snap.exists) 'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setUsername(String uid, String username) {
+    return _firestore.collection('users').doc(uid).set({
+      'username': username,
+      'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 

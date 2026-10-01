@@ -67,7 +67,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
       firebaseReady: session.firebaseReady,
       note: _note.text,
       uid: session.currentUserId,
-      displayName: session.currentUser?.displayName,
+      username: session.username,
     );
 
     if (!mounted) return;

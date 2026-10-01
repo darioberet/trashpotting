@@ -8,10 +8,10 @@ class ReportService {
     ReportRepository? repository,
     PhotoUploadService? photoUploadService,
     LeaderboardRepository? leaderboardRepository,
-  })  : _repository = repository ?? FirestoreReportRepository(),
-        _photoUploadService = photoUploadService,
-        _leaderboardRepository =
-            leaderboardRepository ?? FirestoreLeaderboardRepository();
+  }) : _repository = repository ?? FirestoreReportRepository(),
+       _photoUploadService = photoUploadService,
+       _leaderboardRepository =
+           leaderboardRepository ?? FirestoreLeaderboardRepository();
 
   final ReportRepository _repository;
   final PhotoUploadService? _photoUploadService;
@@ -20,7 +20,7 @@ class ReportService {
   Future<void> submit({
     required String note,
     String? uid,
-    String? displayName,
+    String? username,
     String? photoPath,
     double? latitude,
     double? longitude,
@@ -35,10 +35,7 @@ class ReportService {
     String? photoUrl;
     if (photoPath != null && photoPath.trim().isNotEmpty) {
       photoUrl = await (_photoUploadService ?? PhotoUploadService())
-          .uploadReportPhoto(
-        localPath: photoPath,
-        ownerId: uid ?? 'guest',
-      );
+          .uploadReportPhoto(localPath: photoPath, ownerId: uid ?? 'guest');
     }
 
     final draft = ReportDraft(
@@ -52,10 +49,10 @@ class ReportService {
     await _repository.submitReport(draft: draft, uid: uid);
 
     if (uid != null) {
-      final name = (displayName?.trim().isNotEmpty == true)
-          ? displayName!.trim()
+      final name = (username?.trim().isNotEmpty == true)
+          ? username!.trim()
           : 'Utente';
-      await _leaderboardRepository.incrementPoints(uid: uid, displayName: name);
+      await _leaderboardRepository.incrementPoints(uid: uid, username: name);
     }
   }
 }

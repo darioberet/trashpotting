@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/form_validators.dart';
-import '../models/app_user_profile.dart';
 import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../services/auth_service.dart';
@@ -116,9 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       final user = credential.user;
       if (user != null) {
-        await widget._userProfileRepository.ensureProfile(
-          AppUserProfile.fromAuthUser(user),
-        );
+        await widget._userProfileRepository.ensureProfile(user.uid);
       }
       // Il router decide sul flag in sessione, non su un valore letto qui:
       // va riletto prima di navigare, altrimenti il valore ottimistico

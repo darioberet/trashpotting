@@ -72,7 +72,7 @@ typedef _SubmitHandler =
     Future<void> Function({
       required String note,
       String? uid,
-      String? displayName,
+      String? username,
       String? photoPath,
       double? latitude,
       double? longitude,
@@ -87,12 +87,18 @@ class _NoopLeaderboardRepository implements LeaderboardRepository {
   @override
   Future<void> incrementPoints({
     required String uid,
-    required String displayName,
+    required String username,
     int amount = pointsPerReport,
   }) async {}
 
   @override
   Future<int> fetchUserPoints(String uid) async => 0;
+
+  @override
+  Future<void> updateUsername({
+    required String uid,
+    required String username,
+  }) async {}
 
   @override
   Future<void> deleteEntry(String uid) async {}
@@ -117,7 +123,7 @@ class _FakeReportService extends ReportService {
   Future<void> submit({
     required String note,
     String? uid,
-    String? displayName,
+    String? username,
     String? photoPath,
     double? latitude,
     double? longitude,
@@ -133,7 +139,7 @@ class _FakeReportService extends ReportService {
     await _handler(
       note: note,
       uid: uid,
-      displayName: displayName,
+      username: username,
       photoPath: photoPath,
       latitude: latitude,
       longitude: longitude,
@@ -149,7 +155,7 @@ void main() {
       ({
         required note,
         uid,
-        displayName,
+        username,
         photoPath,
         latitude,
         longitude,
@@ -173,7 +179,7 @@ void main() {
       ({
         required note,
         uid,
-        displayName,
+        username,
         photoPath,
         latitude,
         longitude,
@@ -209,7 +215,7 @@ void main() {
     final service = _FakeReportService(({
       required note,
       uid,
-      displayName,
+      username,
       photoPath,
       latitude,
       longitude,
@@ -238,7 +244,7 @@ void main() {
     final service = _FakeReportService(({
       required note,
       uid,
-      displayName,
+      username,
       photoPath,
       latitude,
       longitude,

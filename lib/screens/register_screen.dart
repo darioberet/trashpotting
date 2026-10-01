@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
 import '../core/form_validators.dart';
-import '../models/app_user_profile.dart';
 import '../repositories/user_profile_repository.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
@@ -26,7 +25,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _displayNameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
@@ -68,18 +67,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       final user = credential.user;
       if (user != null) {
-        final displayName = _displayNameController.text.trim();
-        // Anche su Firebase Auth, non solo nel profilo Firestore: è da lì che
-        // Profilo, classifica ed eventi leggono il nome dell'utente.
-        if (displayName.isNotEmpty) {
-          await widget._authService.updateProfile(displayName: displayName);
-        }
+        final username = _usernameController.text.trim();
+        // Lo username vive solo su Firestore (users/{uid}.username): è da
+        // lì che Profilo, classifica ed eventi leggono il nome.
         await widget._userProfileRepository.ensureProfile(
-          AppUserProfile.fromAuthUser(
-            user,
-            displayName: displayName.isEmpty ? null : displayName,
-          ),
+          user.uid,
+          username: username.isEmpty ? null : username,
         );
+        if (username.isNotEmpty) session.setUsername(username);
         // Solo qui il flag viene esplicitamente impostato a false: è
         // l'unico punto in cui nasce un account nuovo — login non lo tocca
         // mai, quindi un utente già onboardato non rientra nel flusso.
@@ -104,7 +99,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _displayNameController.dispose();
+    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -152,12 +147,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     children: [
                       TextFormField(
-                        controller: _displayNameController,
+                        controller: _usernameController,
                         focusNode: _nameFocus,
                         textInputAction: TextInputAction.next,
                         onFieldSubmitted: (_) => _emailFocus.requestFocus(),
                         decoration: const InputDecoration(
-                          labelText: 'Nome visualizzato (opzionale)',
+                          labelText: 'Username (opzionale)',
                         ),
                       ),
                       const SizedBox(height: 12),

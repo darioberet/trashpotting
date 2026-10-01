@@ -11,10 +11,14 @@ abstract class LeaderboardRepository {
   Future<List<LeaderboardEntry>> fetchTop({int limit = 20});
   Future<void> incrementPoints({
     required String uid,
-    required String displayName,
+    required String username,
     int amount = pointsPerReport,
   });
   Future<int> fetchUserPoints(String uid);
+
+  /// Allinea il nome mostrato in classifica quando l'utente cambia
+  /// username (registrazione, onboarding).
+  Future<void> updateUsername({required String uid, required String username});
 
   /// Rimuove l'utente dalla classifica (eliminazione account).
   Future<void> deleteEntry(String uid);
@@ -29,13 +33,26 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
   @override
   Future<void> incrementPoints({
     required String uid,
-    required String displayName,
+    required String username,
     int amount = pointsPerReport,
   }) {
     return _firestore.collection('leaderboard').doc(uid).set({
-      'name': displayName,
+      'username': username,
+      'name': FieldValue.delete(),
       'points': FieldValue.increment(amount),
     }, SetOptions(merge: true));
+  }
+
+  @override
+  Future<void> updateUsername({
+    required String uid,
+    required String username,
+  }) async {
+    final ref = _firestore.collection('leaderboard').doc(uid);
+    // Solo se l'utente è già in classifica: un documento senza punti
+    // non serve e verrebbe creato vuoto.
+    if (!(await ref.get()).exists) return;
+    await ref.update({'username': username, 'name': FieldValue.delete()});
   }
 
   @override
@@ -62,7 +79,10 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
         LeaderboardEntry(
           rank: i + 1,
           uid: snap.docs[i].id,
-          name: snap.docs[i].data()['name'] as String? ?? 'Sconosciuto',
+          name:
+              snap.docs[i].data()['username'] as String? ??
+              snap.docs[i].data()['name'] as String? ??
+              'Utente',
           points: snap.docs[i].data()['points'] as int? ?? 0,
         ),
     ];
