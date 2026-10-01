@@ -638,6 +638,9 @@ class _TypeDistanceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Chip bianco sopra la foto: colori fissi del tema chiaro, non la
+    // palette, altrimenti in modalità scura il testo diventa chiaro su bianco.
+    final palette = AppPalette.light;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -659,28 +662,24 @@ class _TypeDistanceChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: context.palette.textPrimary,
+                color: palette.textPrimary,
               ),
             ),
           ],
           if (typeLabel != null && distanceText != null) ...[
             const SizedBox(width: 8),
-            Container(width: 1, height: 10, color: context.palette.divider),
+            Container(width: 1, height: 10, color: palette.divider),
             const SizedBox(width: 8),
           ],
           if (distanceText != null) ...[
-            Icon(
-              Icons.place_outlined,
-              size: 13,
-              color: context.palette.textSecondary,
-            ),
+            Icon(Icons.place_outlined, size: 13, color: palette.textSecondary),
             const SizedBox(width: 3),
             Text(
               distanceText!,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: context.palette.textPrimary,
+                color: palette.textPrimary,
               ),
             ),
           ],

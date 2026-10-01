@@ -408,6 +408,9 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
     final cs = Theme.of(context).colorScheme;
     return AlertDialog(
       title: const Text('Elimina account'),
+      // Scorrevole: con la tastiera aperta il dialog si accorcia e il
+      // contenuto altrimenti sfora sopra i pulsanti.
+      scrollable: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
