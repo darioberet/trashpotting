@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../state/theme_controller.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 
 class ImpostazioniScreen extends StatelessWidget {
   const ImpostazioniScreen({super.key});
@@ -30,20 +31,20 @@ class ImpostazioniScreen extends StatelessWidget {
             'Aspetto',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+              color: context.palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.divider, width: 0.5),
+              border: Border.all(color: context.palette.divider, width: 0.5),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 for (final (i, option) in _options.indexed) ...[
-                  if (i > 0) const Divider(height: 1, color: AppColors.divider),
+                  if (i > 0) Divider(height: 1, color: context.palette.divider),
                   InkWell(
                     onTap: () => themeController.setMode(option.mode),
                     borderRadius: BorderRadius.circular(8),
@@ -57,7 +58,7 @@ class ImpostazioniScreen extends StatelessWidget {
                           Icon(
                             option.icon,
                             size: 18,
-                            color: AppColors.textSecondary,
+                            color: context.palette.textSecondary,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -66,8 +67,8 @@ class ImpostazioniScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 13,
                                 color: currentMode == option.mode
-                                    ? AppColors.textPrimary
-                                    : AppColors.textSecondary,
+                                    ? context.palette.textPrimary
+                                    : context.palette.textSecondary,
                                 fontWeight: currentMode == option.mode
                                     ? FontWeight.w600
                                     : FontWeight.normal,
@@ -81,7 +82,7 @@ class ImpostazioniScreen extends StatelessWidget {
                             size: 18,
                             color: currentMode == option.mode
                                 ? AppColors.greenBrand
-                                : AppColors.textDisabled,
+                                : context.palette.textDisabled,
                           ),
                         ],
                       ),

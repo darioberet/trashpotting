@@ -1,5 +1,6 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import 'routes.dart';
@@ -232,6 +233,11 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: _themeController.mode,
+          // L'app è solo in italiano: calendario, orologio e dialog Material
+          // altrimenti comparirebbero in inglese ("Select date", "Cancel").
+          locale: const Locale('it'),
+          supportedLocales: const [Locale('it')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
         ),
       ),
     );

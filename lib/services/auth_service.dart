@@ -52,6 +52,19 @@ class AuthService {
     await _auth.currentUser?.delete();
   }
 
+  /// Firebase richiede un login recente per operazioni sensibili come
+  /// l'eliminazione dell'account (`requires-recent-login`).
+  Future<void> reauthenticateWithPassword(String password) async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      throw StateError('Utente non autenticato.');
+    }
+    await user.reauthenticateWithCredential(
+      EmailAuthProvider.credential(email: email, password: password),
+    );
+  }
+
   /// Sincronizza nome/foto su Firebase Auth (oggi scritti solo su Firestore
   /// in fase di registrazione) — usato dall'onboarding per allineare le due
   /// fonti, così `profilo_screen.dart` (che legge da `User.photoURL`) le vede.

@@ -13,6 +13,7 @@ import '../services/media_picker_service.dart';
 import '../services/photo_upload_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 import '../widgets/image_source_bottom_sheet.dart';
 
 /// Flusso di onboarding mostrato una sola volta, alla prima attivazione di
@@ -103,6 +104,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         displayName: name.isEmpty ? null : name,
         photoURL: photoUrl,
       );
+      // Nome e foto vanno visti subito da Profilo e segnalazioni.
+      session.refreshCurrentUser();
       await widget._userProfileRepository.ensureProfile(
         AppUserProfile(
           uid: uid,
@@ -249,14 +252,17 @@ class _ProfileSetupStep extends StatelessWidget {
             'Completa il tuo profilo',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: context.palette.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Aggiungi una foto e il tuo nome — puoi farlo anche più tardi, '
             'da Profilo.',
-            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            style: TextStyle(
+              fontSize: 13,
+              color: context.palette.textSecondary,
+            ),
           ),
           const SizedBox(height: 32),
           Center(
@@ -281,7 +287,7 @@ class _ProfileSetupStep extends StatelessWidget {
                             : null,
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.cardShadow,
+                            color: context.palette.cardShadow,
                             blurRadius: 16,
                             offset: const Offset(0, 4),
                           ),

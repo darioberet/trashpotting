@@ -10,6 +10,7 @@ import '../routes.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 
 String _initialsFrom(String name) {
   final parts = name
@@ -68,45 +69,33 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     final uid = AppSessionScope.of(context).currentUserId;
     if (uid == null) return;
 
-    final confirmed = await showDialog<bool>(
+    // La password serve per il ri-login che Firebase esige prima di
+    // eliminare un account: chiederla subito evita di cancellare i dati e
+    // poi fallire su `requires-recent-login` lasciando l'account a metà.
+    final password = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Elimina account'),
-        content: const Text(
-          'Questa azione è irreversibile.\n\nIl tuo account verrà eliminato. Le tue segnalazioni rimarranno sulla mappa in forma anonima.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annulla'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-              minimumSize: const Size(88, 40),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Elimina'),
-          ),
-        ],
-      ),
+      builder: (ctx) => const _DeleteAccountDialog(),
     );
-    if (confirmed != true || !mounted) return;
+    if (password == null || !mounted) return;
 
     setState(() => _deletingAccount = true);
     try {
+      await _authService.reauthenticateWithPassword(password);
       await _reportRepository.anonymizeUserReports(uid);
       await _userProfileRepository.deleteProfile(uid);
+      try {
+        await _leaderboardRepository.deleteEntry(uid);
+      } catch (e) {
+        debugPrint('Rimozione dalla classifica non riuscita: $e');
+      }
       await _authService.deleteAccount();
       if (!mounted) return;
       AppSessionScope.of(context).publishInfo('Account eliminato.');
     } catch (e) {
       if (!mounted) return;
-      AppSessionScope.of(context).publishError(
-        e,
-        fallback:
-            'Eliminazione account non riuscita. Potresti dover fare il logout e rientrare prima di eliminare.',
-      );
+      AppSessionScope.of(
+        context,
+      ).publishError(e, fallback: 'Eliminazione account non riuscita.');
     } finally {
       if (mounted) setState(() => _deletingAccount = false);
     }
@@ -139,7 +128,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.cardShadow,
+                  color: context.palette.cardShadow,
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -280,11 +269,11 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                 return Container(
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: context.palette.surfaceWhite,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.cardShadow,
+                        color: context.palette.cardShadow,
                         blurRadius: 16,
                         offset: const Offset(0, 3),
                       ),
@@ -299,7 +288,11 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                           icon: Icons.assignment_outlined,
                         ),
                       ),
-                      Container(width: 1, height: 40, color: AppColors.divider),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: context.palette.divider,
+                      ),
                       Expanded(
                         child: _StatTile(
                           value: done ? '$points' : '—',
@@ -365,22 +358,21 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
             label: 'Logout',
             onTap: _deletingAccount ? null : _logout,
           ),
-          // "Elimina account" nascosta su richiesta: codice mantenuto (non
-          // rimosso) per poterla riattivare — vedi _kShowHiddenMenuItems.
-          if (_kShowHiddenMenuItems)
-            _MenuTile(
-              iconAsset: 'assets/icons/menu_delete.svg',
-              label: 'Elimina account',
-              color: cs.error,
-              trailing: _deletingAccount
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
-              onTap: _deletingAccount ? null : _confirmDeleteAccount,
-            ),
+          // Obbligatoria per Google Play: un'app che permette di creare un
+          // account deve permettere di eliminarlo dall'app stessa.
+          _MenuTile(
+            iconAsset: 'assets/icons/menu_delete.svg',
+            label: 'Elimina account',
+            color: cs.error,
+            trailing: _deletingAccount
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: _deletingAccount ? null : _confirmDeleteAccount,
+          ),
         ],
       ],
     );
@@ -388,6 +380,84 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
 }
 
 const _kShowHiddenMenuItems = false;
+
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _password = TextEditingController();
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _password.text;
+    if (value.isEmpty) return;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('Elimina account'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Questa azione è irreversibile.\n\nIl tuo account e il tuo posto in '
+            'classifica verranno eliminati. Le tue segnalazioni rimarranno '
+            'sulla mappa in forma anonima.\n\nInserisci la password per '
+            'confermare.',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _password,
+            obscureText: _obscure,
+            autofocus: true,
+            autofillHints: const [AutofillHints.password],
+            onSubmitted: (_) => _submit(),
+            decoration: InputDecoration(
+              labelText: 'Password',
+              suffixIcon: IconButton(
+                tooltip: _obscure ? 'Mostra password' : 'Nascondi password',
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annulla'),
+        ),
+        ListenableBuilder(
+          listenable: _password,
+          builder: (context, _) => FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: cs.error,
+              foregroundColor: cs.onError,
+              minimumSize: const Size(88, 40),
+            ),
+            onPressed: _password.text.isEmpty ? null : _submit,
+            child: const Text('Elimina'),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _MenuTile extends StatelessWidget {
   const _MenuTile({
@@ -408,7 +478,7 @@ class _MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = color ?? AppColors.textPrimary;
+    final fg = color ?? context.palette.textPrimary;
     final iconColor = color ?? AppColors.greenBrand;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -440,7 +510,7 @@ class _MenuTile extends StatelessWidget {
             width: 20,
             height: 20,
             colorFilter: ColorFilter.mode(
-              color ?? AppColors.textDisabled,
+              color ?? context.palette.textDisabled,
               BlendMode.srcIn,
             ),
           ),
@@ -480,7 +550,7 @@ class _StatTile extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondary,
+            color: context.palette.textSecondary,
           ),
         ),
       ],

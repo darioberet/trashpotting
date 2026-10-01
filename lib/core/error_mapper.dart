@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
@@ -60,8 +62,19 @@ String mapAppError(
     }
   }
 
+  // Errori di validazione lanciati dai servizi (es. nota troppo corta): il
+  // messaggio è già scritto per l'utente.
+  if (error is ArgumentError && error.message is String) {
+    return error.message as String;
+  }
+
+  if (error is TimeoutException) {
+    return '$fallback L\'operazione ha impiegato troppo tempo: controlla '
+        'connessione e GPS e riprova.';
+  }
+
   if (kDebugMode) {
-    return '$fallback Dettaglio: $error';
+    debugPrint('mapAppError: $error');
   }
   return fallback;
 }

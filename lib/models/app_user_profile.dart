@@ -12,16 +12,19 @@ class AppUserProfile {
   final String email;
   final String? displayName;
 
+  /// Nome da mostrare ad altri utenti: mai l'email, che è un dato personale.
   String get label {
     final name = displayName?.trim();
     if (name != null && name.isNotEmpty) {
       return name;
     }
-    return email;
+    return 'Utente';
   }
 
+  /// Mappa incorporata nei documenti `reports` (evento, partecipanti, chi
+  /// pulisce), leggibili da tutti: per questo non contiene l'email.
   Map<String, dynamic> toMap() {
-    return {'uid': uid, 'email': email, 'displayName': displayName};
+    return {'uid': uid, 'displayName': displayName};
   }
 
   factory AppUserProfile.fromMap(Map<String, dynamic> data) {

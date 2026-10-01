@@ -9,6 +9,7 @@ import '../core/map_style.dart';
 import '../core/marker_icons.dart';
 import '../models/app_user_profile.dart';
 import '../models/trashpot_report.dart';
+import '../repositories/leaderboard_repository.dart';
 import '../repositories/report_repository.dart';
 import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
@@ -17,6 +18,7 @@ import '../services/media_picker_service.dart';
 import '../services/photo_upload_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 import '../widgets/image_source_bottom_sheet.dart';
 
 class ReportDetailScreen extends StatefulWidget {
@@ -26,14 +28,18 @@ class ReportDetailScreen extends StatefulWidget {
     ReportRepository? repository,
     MediaPickerService? mediaPickerService,
     PhotoUploadService? photoUploadService,
+    LeaderboardRepository? leaderboardRepository,
   }) : _repository = repository ?? FirestoreReportRepository(),
        _mediaPickerService = mediaPickerService ?? MediaPickerService(),
-       _photoUploadService = photoUploadService ?? PhotoUploadService();
+       _photoUploadService = photoUploadService ?? PhotoUploadService(),
+       _leaderboardRepository =
+           leaderboardRepository ?? FirestoreLeaderboardRepository();
 
   final String reportId;
   final ReportRepository _repository;
   final MediaPickerService _mediaPickerService;
   final PhotoUploadService _photoUploadService;
+  final LeaderboardRepository _leaderboardRepository;
 
   @override
   State<ReportDetailScreen> createState() => _ReportDetailScreenState();
@@ -84,7 +90,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   void _share(TrashpotReport report) {
     Share.share(
       'Segnalazione Trashpotting — ${trashpotStatusLabel(report.status)}\n'
-      '${report.title}\n${report.address}',
+      '${report.title}\n${report.address}\n'
+      'https://www.google.com/maps/search/?api=1&query=${report.lat},${report.lng}',
     );
   }
 
@@ -159,6 +166,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       pickedTime.hour,
       pickedTime.minute,
     );
+    // Scegliendo oggi il calendario non impedisce un orario già passato.
+    if (!scheduledAt.isAfter(DateTime.now())) {
+      AppSessionScope.of(
+        context,
+      ).publishInfo('Scegli un orario futuro per l\'evento.');
+      return;
+    }
 
     await _runAction((currentUser, session) async {
       await widget._repository.scheduleCleanupEvent(
@@ -193,6 +207,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         actor: currentUser,
         cleanupPhotoUrl: photoUrl,
       );
+
+      // La pulizia è già registrata: un errore sui punti non deve farla
+      // sembrare fallita all'utente.
+      try {
+        await widget._leaderboardRepository.incrementPoints(
+          uid: currentUser.uid,
+          displayName: currentUser.label,
+          amount: pointsPerCleanup,
+        );
+      } catch (e) {
+        debugPrint('incrementPoints dopo pulizia non riuscito: $e');
+      }
 
       if (!mounted) return;
       session.publishInfo('Report segnato come ripulito.');
@@ -343,7 +369,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                     ?.copyWith(
                                       fontSize: 17,
                                       fontWeight: FontWeight.w500,
-                                      color: AppColors.textPrimary,
+                                      color: context.palette.textPrimary,
                                     ),
                               ),
                               const SizedBox(height: 12),
@@ -369,7 +395,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               ),
                               const SizedBox(height: 12),
                               Divider(
-                                color: AppColors.divider,
+                                color: context.palette.divider,
                                 thickness: 0.5,
                                 height: 1,
                               ),
@@ -377,7 +403,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               _StatusStepper(status: report.status),
                               const SizedBox(height: 16),
                               Divider(
-                                color: AppColors.divider,
+                                color: context.palette.divider,
                                 thickness: 0.5,
                                 height: 1,
                               ),
@@ -390,7 +416,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                       ?.copyWith(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
-                                        color: AppColors.textPrimary,
+                                        color: context.palette.textPrimary,
                                       ),
                                 ),
                                 const SizedBox(height: 6),
@@ -399,13 +425,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                   style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
                                         fontSize: 13,
-                                        color: AppColors.textSecondary,
+                                        color: context.palette.textSecondary,
                                         height: 1.6,
                                       ),
                                 ),
                                 const SizedBox(height: 12),
                                 Divider(
-                                  color: AppColors.divider,
+                                  color: context.palette.divider,
                                   thickness: 0.5,
                                   height: 1,
                                 ),
@@ -419,7 +445,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                     ?.copyWith(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
-                                      color: AppColors.textPrimary,
+                                      color: context.palette.textPrimary,
                                     ),
                               ),
                               const SizedBox(height: 8),
@@ -429,20 +455,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 Container(
                                   height: 80,
                                   decoration: BoxDecoration(
-                                    color: AppColors.surfaceWarm,
+                                    color: context.palette.surfaceWarm,
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                      color: AppColors.divider,
+                                      color: context.palette.divider,
                                       width: 0.5,
                                       style: BorderStyle.solid,
                                     ),
                                   ),
                                   alignment: Alignment.center,
-                                  child: const Text(
+                                  child: Text(
                                     'Nessuna foto ancora caricata',
                                     style: TextStyle(
                                       fontSize: 13,
-                                      color: AppColors.textDisabled,
+                                      color: context.palette.textDisabled,
                                     ),
                                   ),
                                 ),
@@ -551,11 +577,11 @@ class _PhotoHeader extends StatelessWidget {
                 },
                 errorBuilder: (_, _, _) => ColoredBox(
                   color: cs.surfaceContainerHighest,
-                  child: const Center(
+                  child: Center(
                     child: Icon(
                       Icons.image_not_supported_outlined,
                       size: 40,
-                      color: AppColors.textDisabled,
+                      color: context.palette.textDisabled,
                     ),
                   ),
                 ),
@@ -630,31 +656,31 @@ class _TypeDistanceChip extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               typeLabel!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: context.palette.textPrimary,
               ),
             ),
           ],
           if (typeLabel != null && distanceText != null) ...[
             const SizedBox(width: 8),
-            Container(width: 1, height: 10, color: AppColors.divider),
+            Container(width: 1, height: 10, color: context.palette.divider),
             const SizedBox(width: 8),
           ],
           if (distanceText != null) ...[
-            const Icon(
+            Icon(
               Icons.place_outlined,
               size: 13,
-              color: AppColors.textSecondary,
+              color: context.palette.textSecondary,
             ),
             const SizedBox(width: 3),
             Text(
               distanceText!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: context.palette.textPrimary,
               ),
             ),
           ],
@@ -767,7 +793,9 @@ class _StatusStepper extends StatelessWidget {
             Expanded(
               child: Container(
                 height: 2,
-                color: i <= active ? AppColors.greenBrand : AppColors.divider,
+                color: i <= active
+                    ? AppColors.greenBrand
+                    : context.palette.divider,
               ),
             ),
           Column(
@@ -795,7 +823,7 @@ class _StatusStepper extends StatelessWidget {
                     border: Border.all(
                       color: i < active
                           ? AppColors.greenBrand
-                          : AppColors.textDisabled,
+                          : context.palette.textDisabled,
                       width: 1.5,
                     ),
                   ),
@@ -804,7 +832,7 @@ class _StatusStepper extends StatelessWidget {
                     size: 13,
                     color: i < active
                         ? AppColors.greenBrand
-                        : AppColors.textDisabled,
+                        : context.palette.textDisabled,
                   ),
                 )
               else
@@ -813,7 +841,7 @@ class _StatusStepper extends StatelessWidget {
                   size: 18,
                   color: i < active
                       ? AppColors.greenBrand
-                      : AppColors.textDisabled,
+                      : context.palette.textDisabled,
                 ),
               const SizedBox(height: 4),
               Text(
@@ -822,8 +850,8 @@ class _StatusStepper extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: i == active ? FontWeight.w600 : FontWeight.normal,
                   color: i <= active
-                      ? AppColors.textPrimary
-                      : AppColors.textDisabled,
+                      ? context.palette.textPrimary
+                      : context.palette.textDisabled,
                 ),
               ),
             ],
@@ -860,9 +888,9 @@ class _MetaRow extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             trashpotStatusLabel(status),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: AppColors.textSecondary,
+              color: context.palette.textSecondary,
             ),
           ),
         ],
@@ -887,7 +915,8 @@ class _MetaRow extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final (i, item) in items.indexed) ...[
-          if (i > 0) Container(width: 1, height: 12, color: AppColors.divider),
+          if (i > 0)
+            Container(width: 1, height: 12, color: context.palette.divider),
           item,
         ],
       ],
@@ -912,14 +941,14 @@ class _InfoRow extends StatelessWidget {
       text,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
         fontSize: 13,
-        color: AppColors.textSecondary,
+        color: context.palette.textSecondary,
       ),
     );
     return Row(
       mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 14, color: AppColors.textSecondary),
+        Icon(icon, size: 14, color: context.palette.textSecondary),
         const SizedBox(width: 6),
         compact ? label : Expanded(child: label),
       ],
@@ -978,7 +1007,7 @@ class _EventCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.greenLight,
+        color: context.palette.greenLight,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -989,7 +1018,9 @@ class _EventCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: AppColors.greenDark,
+              color: (Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.greenBrand
+                  : AppColors.greenDark),
             ),
           ),
           const SizedBox(height: 8),
@@ -1006,7 +1037,9 @@ class _EventCard extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: AppColors.greenDark,
+                color: (Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.greenBrand
+                    : AppColors.greenDark),
               ),
             ),
             const SizedBox(height: 4),
@@ -1105,7 +1138,9 @@ class _BottomActions extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
+        border: Border(
+          top: BorderSide(color: context.palette.divider, width: 0.5),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

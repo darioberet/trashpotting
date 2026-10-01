@@ -18,6 +18,7 @@ import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../services/location_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 
 class MappaScreen extends StatefulWidget {
   const MappaScreen({super.key});
@@ -40,6 +41,7 @@ class _MappaScreenState extends State<MappaScreen> {
   String? _lastMarkersSignature;
   int _clusterEpoch = 0;
 
+  static const _fallbackTarget = LatLng(42.5, 12.5); // centro Italia
   static const _radiusPrefsKey = 'map_radius_km';
   static const _statusPrefsKey = 'map_status_groups';
   final _preferences = SharedPreferencesAsync();
@@ -171,7 +173,7 @@ class _MappaScreenState extends State<MappaScreen> {
       TrashpotStatus.segnalata => AppColors.redPin,
       TrashpotStatus.aperta => AppColors.amberDot,
       TrashpotStatus.inLavorazione ||
-      TrashpotStatus.puliziaInCorso => AppColors.textSecondary,
+      TrashpotStatus.puliziaInCorso => context.palette.textSecondary,
       TrashpotStatus.eventoCreato => AppColors.blueText,
       TrashpotStatus.pulita || TrashpotStatus.ripulita => AppColors.greenBrand,
     };
@@ -285,7 +287,8 @@ class _MappaScreenState extends State<MappaScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _initialTarget ??= const LatLng(0, 0));
+      // Senza GPS si parte dall'Italia, non da (0,0) in mezzo all'oceano.
+      setState(() => _initialTarget ??= _fallbackTarget);
     }
   }
 
@@ -358,7 +361,7 @@ class _MappaScreenState extends State<MappaScreen> {
                 'Esegui l\'app su emulatore/dispositivo o Chrome per vedere la mappa.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: context.palette.textSecondary,
                 ),
               ),
             ],
@@ -411,12 +414,17 @@ class _MappaScreenState extends State<MappaScreen> {
         final subtitle = userPos == null
             ? '$countLabel recenti · posizione non disponibile'
             : '$countLabel entro $_radiusKm km';
+        final allStatuses =
+            _statusGroups.length == ReportStatusGroup.values.length;
         final emptyMessage = _statusGroups.isEmpty
             ? 'Seleziona almeno uno stato.'
             : userPos == null
             ? 'Nessuna segnalazione con questi filtri.'
-            : 'Nessuna segnalazione entro $_radiusKm km.\n'
-                  'Prova ad allargare il raggio.';
+            : allStatuses
+            ? 'Nessuna segnalazione entro $_radiusKm km.\n'
+                  'Prova ad allargare il raggio.'
+            : 'Nessuna segnalazione entro $_radiusKm km con questi filtri.\n'
+                  'Prova ad allargare il raggio o a includere altri stati.';
 
         // Il clustering dipende dallo zoom corrente (distanza in pixel),
         // quindi va ricalcolato quando cambia la lista segnalazioni — non
@@ -447,7 +455,7 @@ class _MappaScreenState extends State<MappaScreen> {
                           ? GoogleMap(
                               initialCameraPosition: CameraPosition(
                                 target: _initialTarget!,
-                                zoom: 13,
+                                zoom: _userPosition == null ? 5.5 : 13,
                               ),
                               markers: _displayMarkers,
                               circles: {
@@ -482,8 +490,16 @@ class _MappaScreenState extends State<MappaScreen> {
                                   await Future<void>.delayed(
                                     const Duration(milliseconds: 50),
                                   );
-                                  if (mounted && reports.isNotEmpty) {
+                                  if (!mounted) return;
+                                  // Con la posizione si inquadra il raggio
+                                  // di ricerca (anche tornando sulla tab),
+                                  // senza si inquadrano le segnalazioni.
+                                  if (_userPosition != null) {
+                                    await _fitRadius();
+                                  } else if (reports.isNotEmpty) {
                                     await _fitReports(reports);
+                                  }
+                                  if (mounted && reports.isNotEmpty) {
                                     await _recomputeMarkers(reports);
                                   }
                                 });
@@ -602,7 +618,7 @@ class _ReportListPanel extends StatelessWidget {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.divider,
+                  color: context.palette.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -669,8 +685,8 @@ class _ReportListPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: cs.surface,
-        border: const Border(
-          top: BorderSide(color: AppColors.divider, width: 1),
+        border: Border(
+          top: BorderSide(color: context.palette.divider, width: 1),
         ),
         boxShadow: [
           BoxShadow(
@@ -696,14 +712,14 @@ class _ReportListPanel extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: context.palette.textPrimary,
                         ),
                       ),
                       Text(
                         subtitle,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontSize: 11,
-                          color: AppColors.textSecondary,
+                          color: context.palette.textSecondary,
                         ),
                       ),
                     ],
@@ -748,7 +764,7 @@ class _ReportListPanel extends StatelessWidget {
                       emptyMessage,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: context.palette.textSecondary,
                       ),
                     ),
                   )
@@ -894,7 +910,7 @@ class _ReportCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Material(
-          color: AppColors.surfaceWarm,
+          color: context.palette.surfaceWarm,
           child: InkWell(
             onTap: onTap,
             child: Padding(
@@ -942,7 +958,7 @@ class _ReportCard extends StatelessWidget {
                                     ?.copyWith(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
-                                      color: AppColors.textPrimary,
+                                      color: context.palette.textPrimary,
                                     ),
                               ),
                             ),
@@ -974,33 +990,33 @@ class _ReportCard extends StatelessWidget {
                         Row(
                           children: [
                             if (computedDistanceLabel != null) ...[
-                              const Icon(
+                              Icon(
                                 Icons.place_outlined,
                                 size: 11,
-                                color: AppColors.textSecondary,
+                                color: context.palette.textSecondary,
                               ),
                               const SizedBox(width: 2),
                               Text(
                                 computedDistanceLabel!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
-                                  color: AppColors.textSecondary,
+                                  color: context.palette.textSecondary,
                                 ),
                               ),
                               const SizedBox(width: 10),
                             ],
                             if (report.dateLabel != null) ...[
-                              const Icon(
+                              Icon(
                                 Icons.access_time_outlined,
                                 size: 11,
-                                color: AppColors.textSecondary,
+                                color: context.palette.textSecondary,
                               ),
                               const SizedBox(width: 2),
                               Text(
                                 report.dateLabel!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
-                                  color: AppColors.textSecondary,
+                                  color: context.palette.textSecondary,
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -1011,9 +1027,9 @@ class _ReportCard extends StatelessWidget {
                                   report.typeLabel!,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
-                                    color: AppColors.textSecondary,
+                                    color: context.palette.textSecondary,
                                   ),
                                 ),
                               ),
@@ -1038,7 +1054,7 @@ class _PlaceholderThumb extends StatelessWidget {
     return Container(
       width: 64,
       height: 64,
-      color: AppColors.greenLight,
+      color: context.palette.greenLight,
       child: const Icon(
         Icons.terrain_outlined,
         size: 22,

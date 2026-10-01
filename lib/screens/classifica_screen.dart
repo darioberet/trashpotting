@@ -6,6 +6,7 @@ import '../repositories/leaderboard_repository.dart';
 import '../state/app_session.dart';
 import '../state/classifica_view_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 
 class ClassificaScreen extends StatefulWidget {
   ClassificaScreen({super.key, LeaderboardRepository? repository})
@@ -234,75 +235,21 @@ class _ClassificaHeroHeader extends StatelessWidget {
             'Top contributor del territorio',
             style: TextStyle(fontSize: 14, color: Colors.white.withAlpha(190)),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              if (loading)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              else
-                const _PeriodToggle(),
-            ],
-          ),
+          if (loading) ...[
+            const SizedBox(height: 12),
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+          ],
           if (topEntries.isNotEmpty) ...[
             const SizedBox(height: 20),
             _Podium(entries: topEntries, viewModel: viewModel),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Toggle puramente visivo: "Questo mese" è mostrato come selezionato
-/// (fedele al mockup) ma non filtra nulla — non abbiamo dati storici per
-/// farlo, quindi non è interattivo.
-class _PeriodToggle extends StatelessWidget {
-  const _PeriodToggle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: Colors.white.withAlpha(38),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Text(
-              'Questo mese',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: AppColors.greenBrand,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Text(
-              'Sempre',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -468,11 +415,11 @@ class _PodiumSlot extends StatelessWidget {
             width: avatarRadius * 3.2,
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.palette.surfaceWhite,
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.cardShadow,
+                  color: context.palette.cardShadow,
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -486,10 +433,10 @@ class _PodiumSlot extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.palette.textPrimary,
                   ),
                 ),
                 Text(
@@ -503,12 +450,14 @@ class _PodiumSlot extends StatelessWidget {
                 if (reportCount != null) ...[
                   const SizedBox(height: 2),
                   Text(
-                    '$reportCount segnalazioni',
+                    reportCount == 1
+                        ? '1 segnalazione'
+                        : '$reportCount segnalazioni',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10,
-                      color: AppColors.textSecondary,
+                      color: context.palette.textSecondary,
                     ),
                   ),
                 ],
@@ -536,7 +485,9 @@ class _RankRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: isCurrentUser ? AppColors.greenLight : Colors.white,
+        color: isCurrentUser
+            ? context.palette.greenLight
+            : context.palette.surfaceWhite,
         borderRadius: BorderRadius.circular(14),
         border: isCurrentUser
             ? const Border(
@@ -547,7 +498,7 @@ class _RankRow extends StatelessWidget {
             ? null
             : [
                 BoxShadow(
-                  color: AppColors.cardShadow,
+                  color: context.palette.cardShadow,
                   blurRadius: 12,
                   offset: const Offset(0, 3),
                 ),
@@ -561,10 +512,10 @@ class _RankRow extends StatelessWidget {
             child: Text(
               '${entry.rank}',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+                color: context.palette.textPrimary,
               ),
             ),
           ),
@@ -578,18 +529,20 @@ class _RankRow extends StatelessWidget {
               children: [
                 Text(
                   isCurrentUser ? 'Tu' : entry.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.palette.textPrimary,
                   ),
                 ),
                 if (reportCount != null)
                   Text(
-                    '$reportCount segnalazioni',
-                    style: const TextStyle(
+                    reportCount == 1
+                        ? '1 segnalazione'
+                        : '$reportCount segnalazioni',
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textSecondary,
+                      color: context.palette.textSecondary,
                     ),
                   ),
               ],

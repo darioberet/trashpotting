@@ -6,6 +6,7 @@ import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 
 class MieSegnalazioniScreen extends StatelessWidget {
   MieSegnalazioniScreen({super.key, ReportRepository? repository})
@@ -24,7 +25,7 @@ class MieSegnalazioniScreen extends StatelessWidget {
               child: Text(
                 'Accedi per vedere le tue segnalazioni.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: context.palette.textSecondary,
                 ),
               ),
             )
@@ -62,10 +63,10 @@ class MieSegnalazioniScreen extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.assignment_outlined,
                             size: 56,
-                            color: AppColors.divider,
+                            color: context.palette.divider,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -109,7 +110,7 @@ class _MyReportCard extends StatelessWidget {
     final (:bg, :fg) = AppColors.statusChip(report.status);
 
     return Material(
-      color: AppColors.surfaceWarm,
+      color: context.palette.surfaceWarm,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -129,22 +130,22 @@ class _MyReportCard extends StatelessWidget {
                         errorBuilder: (_, _, _) => Container(
                           width: 52,
                           height: 52,
-                          color: AppColors.divider,
-                          child: const Icon(
+                          color: context.palette.divider,
+                          child: Icon(
                             Icons.image_outlined,
                             size: 20,
-                            color: AppColors.textDisabled,
+                            color: context.palette.textDisabled,
                           ),
                         ),
                       )
                     : Container(
                         width: 52,
                         height: 52,
-                        color: AppColors.divider,
-                        child: const Icon(
+                        color: context.palette.divider,
+                        child: Icon(
                           Icons.image_outlined,
                           size: 20,
-                          color: AppColors.textDisabled,
+                          color: context.palette.textDisabled,
                         ),
                       ),
               ),
@@ -158,10 +159,10 @@ class _MyReportCard extends StatelessWidget {
                       report.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: context.palette.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -169,9 +170,9 @@ class _MyReportCard extends StatelessWidget {
                       report.address,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: AppColors.textSecondary,
+                        color: context.palette.textSecondary,
                       ),
                     ),
                   ],

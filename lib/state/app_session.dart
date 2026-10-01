@@ -95,15 +95,18 @@ class AppSession extends ChangeNotifier {
     if (uid != null) await _refreshOnboardingStatus(uid);
   }
 
-  /// Riallinea [currentUser] dopo un `reload()`: l'oggetto [User] ricevuto da
-  /// authStateChanges è uno snapshot e non vede cambi come la verifica
-  /// dell'email, che quel stream non notifica. Senza questo il redirect del
-  /// router continuerebbe a leggere emailVerified == false.
+  /// Riallinea [currentUser] dopo un `reload()` o un `updateProfile`:
+  /// l'oggetto [User] ricevuto da authStateChanges è uno snapshot e non vede
+  /// cambi come la verifica dell'email, il nome o la foto, che quello stream
+  /// non notifica. Senza questo il router continuerebbe a leggere
+  /// emailVerified == false e Profilo/segnalazioni un nome vuoto.
   void refreshCurrentUser() {
     if (!_firebaseReady) return;
     final user = (_auth ?? FirebaseAuth.instance).currentUser;
     if (user?.uid != _currentUser?.uid ||
-        user?.emailVerified != _currentUser?.emailVerified) {
+        user?.emailVerified != _currentUser?.emailVerified ||
+        user?.displayName != _currentUser?.displayName ||
+        user?.photoURL != _currentUser?.photoURL) {
       _currentUser = user;
       _currentUserId = user?.uid;
       notifyListeners();

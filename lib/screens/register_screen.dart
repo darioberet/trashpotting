@@ -68,12 +68,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       final user = credential.user;
       if (user != null) {
+        final displayName = _displayNameController.text.trim();
+        // Anche su Firebase Auth, non solo nel profilo Firestore: è da lì che
+        // Profilo, classifica ed eventi leggono il nome dell'utente.
+        if (displayName.isNotEmpty) {
+          await widget._authService.updateProfile(displayName: displayName);
+        }
         await widget._userProfileRepository.ensureProfile(
           AppUserProfile.fromAuthUser(
             user,
-            displayName: _displayNameController.text.trim().isEmpty
-                ? null
-                : _displayNameController.text.trim(),
+            displayName: displayName.isEmpty ? null : displayName,
           ),
         );
         // Solo qui il flag viene esplicitamente impostato a false: è

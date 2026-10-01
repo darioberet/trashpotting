@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 
 class AiutoFeedbackScreen extends StatelessWidget {
   const AiutoFeedbackScreen({super.key});
@@ -22,7 +23,7 @@ class AiutoFeedbackScreen extends StatelessWidget {
     (
       question: 'Come guadagno punti in classifica?',
       answer:
-          'Ogni segnalazione inviata e ogni pulizia completata contribuiscono al tuo punteggio.',
+          'Ogni segnalazione inviata vale 1 punto, ogni pulizia completata (con la foto finale) vale 2 punti.',
     ),
     (
       question: 'Posso eliminare una mia segnalazione?',
@@ -43,7 +44,7 @@ class AiutoFeedbackScreen extends StatelessWidget {
           final faq = _faqs[i];
           return Container(
             decoration: BoxDecoration(
-              color: AppColors.surfaceWarm,
+              color: context.palette.surfaceWarm,
               borderRadius: BorderRadius.circular(12),
             ),
             child: ExpansionTile(
@@ -51,22 +52,22 @@ class AiutoFeedbackScreen extends StatelessWidget {
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               title: Text(
                 faq.question,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.palette.textPrimary,
                 ),
               ),
               iconColor: AppColors.greenBrand,
-              collapsedIconColor: AppColors.textSecondary,
+              collapsedIconColor: context.palette.textSecondary,
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     faq.answer,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: AppColors.textSecondary,
+                      color: context.palette.textSecondary,
                       height: 1.5,
                     ),
                   ),

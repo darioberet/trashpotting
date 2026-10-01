@@ -15,6 +15,7 @@ import '../services/image_processing_service.dart';
 import '../state/app_session.dart';
 import '../state/segnala_view_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 import '../widgets/image_source_bottom_sheet.dart';
 
 class SegnalaScreen extends StatefulWidget {
@@ -201,7 +202,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
                                 ?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 22,
-                                  color: AppColors.textPrimary,
+                                  color: context.palette.textPrimary,
                                 ),
                           ),
                           const SizedBox(height: 16),
@@ -299,13 +300,13 @@ class _PhotoUploadArea extends StatelessWidget {
                         ? Container(
                             height: 180,
                             width: double.infinity,
-                            color: AppColors.surfaceWarm,
+                            color: context.palette.surfaceWarm,
                             alignment: Alignment.center,
                             child: Text(
                               photoPath!.split(RegExp(r'[\\/]')).last,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: AppColors.textSecondary,
+                                color: context.palette.textSecondary,
                               ),
                             ),
                           )
@@ -379,10 +380,10 @@ class _PhotoUploadArea extends StatelessWidget {
         child: Container(
           height: 180,
           decoration: BoxDecoration(
-            color: AppColors.surfaceWarm,
+            color: context.palette.surfaceWarm,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppColors.divider,
+              color: context.palette.divider,
               width: 1.5,
               style: BorderStyle.solid,
             ),
@@ -400,18 +401,21 @@ class _PhotoUploadArea extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Scatta o scegli una foto',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.palette.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'La foto aiuta la verifica',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.palette.textSecondary,
+                ),
               ),
             ],
           ),
@@ -444,7 +448,7 @@ class _GpsChip extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceWarm,
+          color: context.palette.surfaceWarm,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -462,7 +466,7 @@ class _GpsChip extends StatelessWidget {
               'Recupero posizione...',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontSize: 12,
-                color: AppColors.textSecondary,
+                color: context.palette.textSecondary,
               ),
             ),
           ],
@@ -479,7 +483,7 @@ class _GpsChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.greenLight,
+        color: context.palette.greenLight,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -500,17 +504,17 @@ class _GpsChip extends StatelessWidget {
                       'Lat ${latitude!.toStringAsFixed(5)}, Lng ${longitude!.toStringAsFixed(5)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textPrimary,
+                    color: context.palette.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: context.palette.textSecondary,
                   ),
                 ),
               ],
@@ -554,7 +558,9 @@ class _StickyBottomBar extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
+        border: Border(
+          top: BorderSide(color: context.palette.divider, width: 0.5),
+        ),
       ),
       child: FilledButton.icon(
         onPressed: sending ? null : onSend,
@@ -585,7 +591,7 @@ class _FieldLabel extends StatelessWidget {
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
         fontSize: 13,
         fontWeight: FontWeight.w500,
-        color: AppColors.textPrimary,
+        color: context.palette.textPrimary,
       ),
     );
   }
@@ -607,11 +613,11 @@ class _TypeSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
+        color: context.palette.surfaceWhite,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: AppColors.cardShadow,
+            color: context.palette.cardShadow,
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -621,7 +627,7 @@ class _TypeSelector extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final (i, t) in _types.indexed) ...[
-            if (i > 0) const Divider(height: 1, color: AppColors.divider),
+            if (i > 0) Divider(height: 1, color: context.palette.divider),
             InkWell(
               onTap: () => onSelected(selected == t ? null : t),
               borderRadius: BorderRadius.circular(8),
@@ -639,7 +645,7 @@ class _TypeSelector extends StatelessWidget {
                       size: 18,
                       color: selected == t
                           ? AppColors.greenBrand
-                          : AppColors.textDisabled,
+                          : context.palette.textDisabled,
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -647,8 +653,8 @@ class _TypeSelector extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         color: selected == t
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
+                            ? context.palette.textPrimary
+                            : context.palette.textSecondary,
                         fontWeight: selected == t
                             ? FontWeight.w600
                             : FontWeight.normal,

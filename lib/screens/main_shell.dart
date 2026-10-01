@@ -7,6 +7,7 @@ import '../repositories/notification_repository.dart';
 import '../routes.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 import 'classifica_screen.dart';
 import 'mappa_screen.dart';
 import 'profilo_screen.dart';
@@ -101,8 +102,8 @@ class _MainShellState extends State<MainShell> {
       padding: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: const Border(
-          top: BorderSide(color: AppColors.divider, width: 0.5),
+        border: Border(
+          top: BorderSide(color: context.palette.divider, width: 0.5),
         ),
       ),
       child: SizedBox(
@@ -226,7 +227,9 @@ class _NavBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = selected ? AppColors.greenBrand : AppColors.textDisabled;
+    final iconColor = selected
+        ? AppColors.greenBrand
+        : context.palette.textDisabled;
     return InkResponse(
       onTap: onTap,
       radius: 40,
@@ -239,7 +242,7 @@ class _NavBarItem extends StatelessWidget {
             height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: selected ? AppColors.greenLight : Colors.transparent,
+              color: selected ? context.palette.greenLight : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
             ),
             child: SvgPicture.asset(
@@ -255,7 +258,11 @@ class _NavBarItem extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-              color: selected ? AppColors.greenDark : AppColors.textDisabled,
+              color: selected
+                  ? (Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.greenBrand
+                        : AppColors.greenDark)
+                  : context.palette.textDisabled,
               letterSpacing: 0.3,
             ),
           ),

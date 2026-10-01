@@ -7,6 +7,7 @@ import '../routes.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   EmailVerificationScreen({super.key, AuthService? authService})
@@ -133,7 +134,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     'Abbiamo inviato un link di verifica a\n$email\n\nClicca il link nell\'email per attivare il tuo account.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: context.palette.textSecondary,
                       height: 1.6,
                     ),
                   ),
@@ -173,11 +174,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                   const SizedBox(height: 24),
                   TextButton(
                     onPressed: _signOut,
-                    child: const Text(
+                    child: Text(
                       'Torna al login',
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textSecondary,
+                        color: context.palette.textSecondary,
                       ),
                     ),
                   ),

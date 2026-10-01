@@ -22,12 +22,19 @@ class UserProfileRepository {
     return AppUserProfile.fromDoc(doc);
   }
 
-  Future<void> ensureProfile(AppUserProfile profile) {
-    return _firestore.collection('users').doc(profile.uid).set({
+  /// Upsert chiamato a ogni login: non deve cancellare dati già salvati.
+  /// Il nome si scrive solo se noto (al login Firebase Auth può non averlo,
+  /// e un `null` in merge cancellerebbe quello salvato alla registrazione),
+  /// `createdAt` solo alla prima creazione.
+  Future<void> ensureProfile(AppUserProfile profile) async {
+    final ref = _firestore.collection('users').doc(profile.uid);
+    final exists = (await ref.get()).exists;
+    final name = profile.displayName?.trim();
+    return ref.set({
       'email': profile.email,
-      'displayName': profile.displayName,
+      if (name != null && name.isNotEmpty) 'displayName': name,
       'updatedAt': FieldValue.serverTimestamp(),
-      'createdAt': FieldValue.serverTimestamp(),
+      if (!exists) 'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 

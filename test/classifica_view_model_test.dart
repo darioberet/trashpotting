@@ -28,10 +28,14 @@ class _FakeLeaderboardRepository implements LeaderboardRepository {
   Future<void> incrementPoints({
     required String uid,
     required String displayName,
+    int amount = pointsPerReport,
   }) async {}
 
   @override
   Future<int> fetchUserPoints(String uid) async => 0;
+
+  @override
+  Future<void> deleteEntry(String uid) async {}
 }
 
 class _FakeReportRepository implements ReportRepository {

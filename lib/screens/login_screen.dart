@@ -9,6 +9,7 @@ import '../routes.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 
 class LoginScreen extends StatefulWidget {
   LoginScreen({
@@ -114,22 +115,22 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
       final user = credential.user;
-      var onboarded = true;
       if (user != null) {
         await widget._userProfileRepository.ensureProfile(
           AppUserProfile.fromAuthUser(user),
         );
-        try {
-          onboarded = await widget._userProfileRepository
-              .hasCompletedOnboarding(user.uid);
-        } catch (_) {
-          // Non bloccare/segnalare un login riuscito per un errore di
-          // rete su questo controllo: al più l'onboarding si ripresenterà.
-        }
       }
+      // Il router decide sul flag in sessione, non su un valore letto qui:
+      // va riletto prima di navigare, altrimenti il valore ottimistico
+      // (true) rimanda alla mappa un utente che deve fare l'onboarding.
+      // In caso di errore di rete resta il valore ottimistico.
+      session.refreshCurrentUser();
+      await session.refreshOnboardingStatus();
       if (!mounted) return;
       session.publishInfo('Login effettuato.');
-      context.go(onboarded ? AppRoutes.mappa : AppRoutes.onboarding);
+      context.go(
+        session.onboardingComplete ? AppRoutes.mappa : AppRoutes.onboarding,
+      );
     } catch (e) {
       if (!mounted) return;
       session.publishError(e, fallback: 'Login non riuscito.');
@@ -171,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          color: context.palette.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -180,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontSize: 13,
-                          color: AppColors.textSecondary,
+                          color: context.palette.textSecondary,
                         ),
                       ),
 
@@ -239,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ? Icons.visibility_off_outlined
                                         : Icons.visibility_outlined,
                                     size: 18,
-                                    color: AppColors.textDisabled,
+                                    color: context.palette.textDisabled,
                                   ),
                                   onPressed: () => setState(
                                     () => _obscurePassword = !_obscurePassword,
@@ -307,7 +308,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       Row(
                         children: [
-                          Expanded(child: Divider(color: AppColors.divider)),
+                          Expanded(
+                            child: Divider(color: context.palette.divider),
+                          ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: Icon(
@@ -316,7 +319,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: AppColors.greenBrand,
                             ),
                           ),
-                          Expanded(child: Divider(color: AppColors.divider)),
+                          Expanded(
+                            child: Divider(color: context.palette.divider),
+                          ),
                         ],
                       ),
 
@@ -334,7 +339,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
                                   fontSize: 13,
-                                  color: AppColors.textSecondary,
+                                  color: context.palette.textSecondary,
                                 ),
                           ),
                           TextButton(
