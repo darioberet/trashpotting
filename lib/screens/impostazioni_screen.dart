@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/push_service.dart';
+import '../state/app_session.dart';
 import '../state/theme_controller.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
@@ -92,8 +94,70 @@ class ImpostazioniScreen extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          const _NotificationsSection(),
         ],
       ),
+    );
+  }
+}
+
+/// Preferenze notifiche. Le notifiche personali (zona ripulita, promemoria
+/// eventi) sono sempre attive finché Android le consente; quella "vicino a
+/// me" si può disattivare.
+class _NotificationsSection extends StatelessWidget {
+  const _NotificationsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = AppSessionScope.watch(context).currentUserId;
+    if (uid == null) return const SizedBox.shrink();
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Notifiche',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: palette.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: palette.divider, width: 0.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: StreamBuilder<bool>(
+            stream: PushService.instance.watchNearbyEnabled(uid),
+            builder: (context, snap) => SwitchListTile(
+              value: snap.data ?? true,
+              onChanged: snap.hasData
+                  ? (v) => PushService.instance.setNearbyEnabled(uid, v)
+                  : null,
+              secondary: const Icon(Icons.near_me_outlined, size: 20),
+              title: Text(
+                'Nuove segnalazioni vicino a me',
+                style: TextStyle(fontSize: 13, color: palette.textPrimary),
+              ),
+              subtitle: Text(
+                'Al massimo una al giorno, entro 5 km dall\'ultima posizione '
+                'in cui hai aperto l\'app.',
+                style: TextStyle(fontSize: 12, color: palette.textSecondary),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Ricevi sempre le notifiche quando una tua segnalazione viene '
+          'ripulita e il giorno prima degli eventi a cui partecipi. Puoi '
+          'disattivare tutte le notifiche dalle impostazioni di Android.',
+          style: TextStyle(fontSize: 12, color: palette.textSecondary),
+        ),
+      ],
     );
   }
 }

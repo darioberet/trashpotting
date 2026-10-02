@@ -9,6 +9,7 @@ import '../repositories/report_repository.dart';
 import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../services/auth_service.dart';
+import '../services/push_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
@@ -83,6 +84,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     try {
       await _authService.reauthenticateWithPassword(password);
       await _reportRepository.anonymizeUserReports(uid);
+      await PushService.instance.deleteUserData(uid);
       await _userProfileRepository.deleteProfile(uid);
       try {
         await _leaderboardRepository.deleteEntry(uid);

@@ -25,6 +25,8 @@ Email: <a href="mailto:dario.berettini.eco@gmail.com">dario.berettini.eco@gmail.
 <tr><td>Posizione GPS</td><td>Solo quando usi l'app: per mostrarti le segnalazioni vicine e per registrare il punto di una nuova segnalazione</td><td>Gli altri utenti vedono solo la posizione delle segnalazioni, non la tua posizione attuale</td></tr>
 <tr><td>Foto, descrizione, tipo e indirizzo delle segnalazioni e delle pulizie</td><td>Quando segnali o completi una pulizia</td><td>Tutti gli utenti</td></tr>
 <tr><td>Partecipazione a eventi, punti in classifica</td><td>Quando partecipi o contribuisci</td><td>Tutti gli utenti</td></tr>
+<tr><td>Token del dispositivo per le notifiche push</td><td>Quando consenti le notifiche</td><td>Nessun altro utente</td></tr>
+<tr><td>Posizione approssimativa (arrotondata a circa 1 km)</td><td>Quando apri la mappa, se è attiva l'opzione "Nuove segnalazioni vicino a me"</td><td>Nessun altro utente: serve solo a inviarti al massimo una notifica al giorno sulle segnalazioni entro 5 km. Puoi disattivarla in Impostazioni → Notifiche</td></tr>
 <tr><td>Segnalazioni di contenuti inappropriati</td><td>Quando segnali un contenuto</td><td>Solo i moderatori</td></tr>
 <tr><td>Dati tecnici: rapporti di crash, schermate visitate, identificativo del dispositivo, verifica di integrità dell'app</td><td>Durante l'uso</td><td>Solo noi, in forma aggregata</td></tr>
 </table>
@@ -32,9 +34,10 @@ Email: <a href="mailto:dario.berettini.eco@gmail.com">dario.berettini.eco@gmail.
 
 <h2>3. Perché li trattiamo e su quale base</h2>
 <ul>
-<li><strong>Fornire il servizio</strong> (account, segnalazioni, pulizie, eventi, classifica): esecuzione del contratto, cioè dei Termini d'uso che accetti alla registrazione (art. 6.1.b GDPR).</li>
+<li><strong>Fornire il servizio</strong> (account, segnalazioni, pulizie, eventi, classifica, notifiche sulle tue segnalazioni e sugli eventi): esecuzione del contratto, cioè dei Termini d'uso che accetti alla registrazione (art. 6.1.b GDPR).</li>
 <li><strong>Posizione GPS</strong>: necessaria al funzionamento dell'app. Viene usata solo con il tuo permesso, revocabile in qualsiasi momento dalle impostazioni del telefono.</li>
 <li><strong>Sicurezza, prevenzione degli abusi e moderazione</strong> (limite di segnalazioni giornaliere, blocco degli account che violano le regole, verifica dell'integrità dell'app): legittimo interesse (art. 6.1.f).</li>
+<li><strong>Notifiche sulle nuove segnalazioni vicine</strong>: legittimo interesse a coinvolgere la comunità, con possibilità di opporti in ogni momento disattivandole dall'app.</li>
 <li><strong>Statistiche e correzione degli errori</strong> (crash e schermate visitate): legittimo interesse a migliorare l'app.</li>
 </ul>
 <p>Non vendiamo i tuoi dati, non li usiamo per pubblicità e non facciamo profilazione.</p>
@@ -42,7 +45,7 @@ Email: <a href="mailto:dario.berettini.eco@gmail.com">dario.berettini.eco@gmail.
 <h2>4. Fornitori e trasferimenti fuori dall'UE</h2>
 <p>L'app usa servizi di Google LLC e Google Ireland Ltd., che trattano i dati per nostro conto come responsabili del trattamento:</p>
 <ul>
-<li>Firebase Authentication (account), Cloud Firestore (dati, server nell'Unione Europea), Firebase Storage (foto, server negli Stati Uniti), Firebase App Check, Crashlytics e Google Analytics for Firebase;</li>
+<li>Firebase Authentication (account), Cloud Firestore (dati, server nell'Unione Europea), Firebase Storage (foto, server negli Stati Uniti), Firebase App Check, Firebase Cloud Messaging e Cloud Functions (invio delle notifiche, server nell'Unione Europea), Crashlytics e Google Analytics for Firebase;</li>
 <li>Google Maps SDK per Android (visualizzazione della mappa).</li>
 </ul>
 <p>Alcuni dati, in particolare le foto, sono conservati negli Stati Uniti. Il trasferimento avviene sulla base dell'EU-U.S. Data Privacy Framework, a cui Google aderisce, e delle Clausole contrattuali standard approvate dalla Commissione europea. Maggiori informazioni: <a href="https://firebase.google.com/support/privacy">firebase.google.com/support/privacy</a>.</p>

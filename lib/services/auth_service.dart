@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'push_service.dart';
+
 class AuthService {
   AuthService({FirebaseAuth? auth}) : _authOverride = auth;
 
@@ -29,8 +31,11 @@ class AuthService {
     );
   }
 
-  Future<void> signOut() {
-    return _auth.signOut();
+  /// Prima del logout il dispositivo smette di ricevere le notifiche di
+  /// questo account (dopo il logout le regole non lo permetterebbero più).
+  Future<void> signOut() async {
+    await PushService.instance.unregister();
+    await _auth.signOut();
   }
 
   Future<void> sendPasswordResetEmail(String email) {

@@ -154,10 +154,38 @@ service cloud.firestore {
 
       allow delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
 
+      // Token FCM dei dispositivi (id = token): privati, li legge solo la
+      // Cloud Function con l'Admin SDK.
+      match /devices/{token} {
+        allow read, delete: if signedIn() && request.auth.uid == uid;
+        allow create, update: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['platform', 'updatedAt']);
+      }
+
+      // Preferenze notifiche e posizione approssimativa (per "nuova
+      // segnalazione vicino a te"): private. `lastNearbyAt` lo scrive solo la
+      // Cloud Function.
+      match /notifyPrefs/{docId} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create, update: if signedIn() && request.auth.uid == uid
+          && docId == 'settings'
+          && request.resource.data.keys().hasOnly(
+               ['nearby', 'latitude', 'longitude', 'geohash', 'updatedAt',
+                'lastNearbyAt'])
+          && request.resource.data.get('lastNearbyAt', null)
+               == (resource == null ? null : resource.data.get('lastNearbyAt', null))
+          && (request.resource.data.get('latitude', null) == null
+              || request.resource.data.latitude is number);
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+
       match /notifications/{notificationId} {
         allow read: if signedIn() && request.auth.uid == uid;
         allow update: if signedIn() && request.auth.uid == uid
           && changed().hasOnly(['read']);
+        // Le crea solo la Cloud Function; il proprietario le può cancellare
+        // (eliminazione account).
+        allow delete: if signedIn() && request.auth.uid == uid;
       }
     }
 

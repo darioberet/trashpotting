@@ -275,6 +275,24 @@ describe('voti della community', () => {
   });
 });
 
+describe('notifiche: dispositivi e preferenze', () => {
+  test('i token e le preferenze sono privati del proprietario', async () => {
+    await assertSucceeds(setDoc(doc(fs('bruno'), 'users/bruno/devices/tok123'), { platform: 'android', updatedAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(fs('alice'), 'users/bruno/devices/tok123')));
+    await assertFails(setDoc(doc(fs('alice'), 'users/bruno/devices/x'), { platform: 'android' }));
+    await assertSucceeds(setDoc(doc(fs('bruno'), 'users/bruno/notifyPrefs/settings'), { nearby: true, latitude: 43.9, longitude: 12.8, geohash: 'srbj2v0' }));
+    await assertFails(getDoc(doc(fs('alice'), 'users/bruno/notifyPrefs/settings')));
+  });
+
+  test("l'utente non può falsificare l'ultimo invio (limite di 1 al giorno)", async () => {
+    await assertFails(setDoc(doc(fs('bruno'), 'users/bruno/notifyPrefs/settings'), { nearby: true, lastNearbyAt: Timestamp.fromDate(new Date(0)) }));
+  });
+
+  test('le notifiche le crea solo il server', async () => {
+    await assertFails(setDoc(doc(fs('bruno'), 'users/bruno/notifications/n1'), { title: 'x', read: false }));
+  });
+});
+
 describe('classifica', () => {
   test('ognuno aumenta solo i propri punti, di 1 o 2', async () => {
     const db = fs('bruno');

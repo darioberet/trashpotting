@@ -291,12 +291,25 @@ Elenco delle segnalazioni dell'utente, dalla più recente, con stato e miniatura
 
 ## 11. Notifiche
 
-**Schermata:** `notifiche_screen.dart` (campanella in alto)
+### 11.1 Notifiche push
+Inviate dalle **Cloud Functions** (`functions/index.js`, regione `europe-west1`). Ognuna viene salvata anche in `users/{uid}/notifications` e compare nella schermata Notifiche (campanella).
 
-Mostra le notifiche in `users/{uid}/notifications`. Toccandone una viene segnata come letta, e se non ce ne sono compare lo stato vuoto.
+| Notifica | A chi | Quando |
+|---|---|---|
+| "🎉 Zona ripulita!" | autore della segnalazione | quando qualcun altro la segna come ripulita (`onReportCleaned`) |
+| "📅 Domani si pulisce!" | partecipanti all'evento | ogni giorno alle 18:00 (ora di Roma), per gli eventi del giorno dopo (`eventReminders`) |
+| "📍 Nuova segnalazione vicino a te" | utenti entro 5 km, escluso l'autore | alla creazione di una segnalazione, **al massimo una al giorno** per persona (`onReportCreated`) |
 
-> **Nota:** oggi nessuna parte del sistema crea notifiche (servirebbe una Cloud Function), quindi la lista è sempre vuota. La schermata è pronta per quando verranno aggiunte.
-
+- **Tocco sulla notifica:** apre il dettaglio della segnalazione.
+- **App aperta:** la notifica compare come messaggio in basso.
+- **Permesso:** quello di Android 13 viene chiesto dopo l'onboarding, non sopra.
+- **Logout:** il dispositivo smette di ricevere le notifiche dell'account.
+- **Dati** (privati, letti solo dal proprietario e dal server):
+  - `users/{uid}/devices/{token}`: token FCM del dispositivo;
+  - `users/{uid}/notifyPrefs/settings`: `nearby` (on/off), posizione **arrotondata a circa 1 km** (aggiornata dalla mappa solo se ci si sposta di almeno 1 km), `lastNearbyAt` (scritto solo dal server).
+- **Impostazioni → Notifiche:** interruttore "Nuove segnalazioni vicino a me". Le altre notifiche si disattivano dalle impostazioni di Android.
+- **Android:** icona monocromatica `ic_notification` (il logo), colore del brand, canale "Notifiche Trashpotting".
+- **Pubblicazione:** `firebase deploy --only functions`.
 ---
 
 ## 12. Impostazioni e tema
@@ -423,7 +436,6 @@ In `hosting/` (Firebase Hosting, `https://trashpotting-app.web.app`): `privacy`,
 
 ## 19. Limiti noti
 
-- **Notifiche:** la schermata esiste, ma nessuno le genera (servirebbe una Cloud Function).
 - **Punti:** le regole limitano ogni incremento a +1 o +2, ma non impediscono incrementi ripetuti fatti chiamando Firestore direttamente. Per chiuderlo servirebbe una Cloud Function.
 - **Utente bloccato:** può ancora fare login e leggere. Per disabilitare l'accesso servirebbe sospendere l'account in Firebase Auth.
 - **Ripulite recenti:** la query prende le 100 più recenti in tutto il database e filtra per distanza. Con molti utenti in città diverse andrà fatta per zona.

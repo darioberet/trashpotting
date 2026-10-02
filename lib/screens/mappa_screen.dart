@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -18,6 +19,7 @@ import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../services/location_service.dart';
+import '../services/push_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
 
@@ -303,6 +305,9 @@ class _MappaScreenState extends State<MappaScreen> {
         _initialTarget = pos;
         _userPosition = pos;
       });
+      unawaited(
+        PushService.instance.updateApproximateLocation(p.latitude, p.longitude),
+      );
     } catch (_) {
       if (!mounted) return;
       // Senza GPS si parte dall'Italia, non da (0,0) in mezzo all'oceano.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -17,6 +19,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/report_detail_screen.dart';
 import 'services/auth_service.dart';
+import 'services/push_service.dart';
 import 'state/app_session.dart';
 import 'state/theme_controller.dart';
 import 'theme/app_colors.dart';
@@ -213,6 +216,7 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
   }
 
   void _onSessionChanged() {
+    _syncPush();
     final message = _session.message;
     if (message == null || message.token == _lastMessageToken) return;
     _lastMessageToken = message.token;
@@ -226,6 +230,28 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
               : AppColors.greenDark,
         ),
       );
+  }
+
+  /// Registra il dispositivo per le notifiche quando l'utente è davvero
+  /// dentro l'app: dopo verifica email e onboarding, così il permesso di
+  /// Android non compare sopra l'onboarding.
+  void _syncPush() {
+    final uid = _session.currentUserId;
+    if (!_session.firebaseReady ||
+        uid == null ||
+        !_session.emailVerified ||
+        !_session.onboardingComplete ||
+        _session.blocked) {
+      return;
+    }
+    final push = PushService.instance;
+    push.onOpenReport = (id) {
+      _router.push('${AppRoutes.reportDetail}/$id');
+    };
+    push.onForegroundMessage = (title, body) {
+      _session.publishInfo(body.isEmpty ? title : '$title\n$body');
+    };
+    unawaited(push.register(uid));
   }
 
   void _onThemeChanged() => setState(() {});

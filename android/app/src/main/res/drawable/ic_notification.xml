@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icona delle notifiche: il segnaposto del logo con la foglia "bucata".
+     Android usa solo la forma (alpha), il colore lo decide il sistema. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M16 2C9.4 2 4 7.2 4 13.6 4 20.8 11.6 27.4 15 29.8c.6.4 1.4.4 2 0 3.4-2.4 11-9 11-16.2C28 7.2 22.6 2 16 2zM16 8.5c2.6 0 4.7 1.4 4.7 4.6 0 3.7-4.7 5.9-4.7 5.9s-4.7-2.2-4.7-5.9c0-3.2 2.1-4.6 4.7-4.6z" />
+</vector>
