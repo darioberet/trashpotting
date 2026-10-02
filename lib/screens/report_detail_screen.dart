@@ -347,6 +347,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
         _maybeLoadReporter(report.reporterUid);
         _maybeLoadMyVote(currentUser?.uid);
+        final hasPhotoHeader =
+            report.photoUrl != null || report.cleanupPhotoUrl != null;
         final distanceMeters = _userPosition == null
             ? null
             : haversineKm(
@@ -410,9 +412,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       padding: EdgeInsets.zero,
                       children: [
                         // Photo header
-                        if (report.photoUrl != null)
+                        if (hasPhotoHeader)
                           _PhotoHeader(
-                            imageUrl: report.photoUrl!,
+                            beforeUrl: report.photoUrl,
+                            afterUrl: report.cleanupPhotoUrl,
                             status: report.status,
                             typeLabel: report.typeLabel,
                             distanceText: distanceText,
@@ -423,7 +426,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (report.photoUrl == null)
+                              if (!hasPhotoHeader)
                                 _StatusChipInline(status: report.status),
 
                               Text(
@@ -442,7 +445,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 icon: Icons.place_outlined,
                                 text: report.address,
                               ),
-                              if (report.photoUrl == null &&
+                              if (!hasPhotoHeader &&
                                   report.typeLabel != null) ...[
                                 const SizedBox(height: 6),
                                 _InfoRow(
@@ -524,41 +527,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 const SizedBox(height: 16),
                               ],
 
-                              // Cleanup photo
-                              Text(
-                                'Foto dopo la pulizia',
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: context.palette.textPrimary,
-                                    ),
-                              ),
-                              const SizedBox(height: 8),
-                              if (report.cleanupPhotoUrl != null)
-                                _PhotoSection(imageUrl: report.cleanupPhotoUrl!)
-                              else
-                                Container(
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color: context.palette.surfaceWarm,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: context.palette.divider,
-                                      width: 0.5,
-                                      style: BorderStyle.solid,
-                                    ),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    'Nessuna foto ancora caricata',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: context.palette.textDisabled,
-                                    ),
-                                  ),
-                                ),
-
                               if (event != null) ...[
                                 const SizedBox(height: 16),
                                 _EventCard(
@@ -626,91 +594,215 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
 // ─── Sub-widgets ─────────────────────────────────────────────────────────────
 
-class _PhotoHeader extends StatelessWidget {
+/// Foto in testa al dettaglio. Se la zona è stata ripulita mostra le due
+/// foto "Prima" e "Dopo" da scorrere, con il selettore in alto.
+class _PhotoHeader extends StatefulWidget {
   const _PhotoHeader({
-    required this.imageUrl,
+    required this.beforeUrl,
+    required this.afterUrl,
     required this.status,
     this.typeLabel,
     this.distanceText,
   });
 
-  final String imageUrl;
+  final String? beforeUrl;
+  final String? afterUrl;
   final TrashpotStatus status;
   final String? typeLabel;
   final String? distanceText;
 
   @override
+  State<_PhotoHeader> createState() => _PhotoHeaderState();
+}
+
+class _PhotoHeaderState extends State<_PhotoHeader> {
+  final _controller = PageController();
+  int _page = 0;
+
+  List<(String, String)> get _photos => [
+    if (widget.beforeUrl != null) ('Prima', widget.beforeUrl!),
+    if (widget.afterUrl != null) ('Dopo', widget.afterUrl!),
+  ];
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () => _openPhotoFullscreen(context, imageUrl),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-        child: SizedBox(
-          height: 220,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image(
-                image: CachedNetworkImageProvider(imageUrl),
-                fit: BoxFit.cover,
-                loadingBuilder: (_, child, progress) {
-                  if (progress == null) return child;
-                  return ColoredBox(
-                    color: cs.surfaceContainerHighest,
-                    child: const Center(child: CircularProgressIndicator()),
-                  );
-                },
-                errorBuilder: (_, _, _) => ColoredBox(
-                  color: cs.surfaceContainerHighest,
-                  child: Center(
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      size: 40,
-                      color: context.palette.textDisabled,
-                    ),
+    final photos = _photos;
+    // Le etichette servono solo se c'è la foto "Dopo".
+    final labelled = widget.afterUrl != null;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+      child: SizedBox(
+        height: 240,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView(
+              controller: _controller,
+              onPageChanged: (p) => setState(() => _page = p),
+              children: [
+                for (final (_, url) in photos)
+                  GestureDetector(
+                    onTap: () => _openPhotoFullscreen(context, url),
+                    child: _HeaderImage(url: url),
                   ),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 72,
+              ],
+            ),
+            // Sfumatura in basso per la leggibilità dei chip.
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 72,
+              child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withAlpha(0),
-                        Colors.black.withAlpha(90),
-                      ],
+                      colors: [Color(0x00000000), Color(0x5A000000)],
                     ),
                   ),
                 ),
               ),
+            ),
+            if (labelled)
               Positioned(
-                bottom: 12,
-                left: 12,
+                top: 12,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: _BeforeAfterToggle(
+                    labels: [for (final (label, _) in photos) label],
+                    selected: _page,
+                    onSelected: (i) => _controller.animateToPage(
+                      i,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              bottom: 12,
+              left: 12,
+              child: IgnorePointer(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _StatusChipInline(status: status),
-                    if (typeLabel != null || distanceText != null) ...[
+                    _StatusChipInline(status: widget.status),
+                    if (widget.typeLabel != null ||
+                        widget.distanceText != null) ...[
                       const SizedBox(height: 8),
                       _TypeDistanceChip(
-                        typeLabel: typeLabel,
-                        distanceText: distanceText,
+                        typeLabel: widget.typeLabel,
+                        distanceText: widget.distanceText,
                       ),
                     ],
                   ],
                 ),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderImage extends StatelessWidget {
+  const _HeaderImage({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Image(
+      image: CachedNetworkImageProvider(url),
+      fit: BoxFit.cover,
+      loadingBuilder: (_, child, progress) {
+        if (progress == null) return child;
+        return ColoredBox(
+          color: cs.surfaceContainerHighest,
+          child: const Center(child: CircularProgressIndicator()),
+        );
+      },
+      errorBuilder: (_, _, _) => ColoredBox(
+        color: cs.surfaceContainerHighest,
+        child: Center(
+          child: Icon(
+            Icons.image_not_supported_outlined,
+            size: 40,
+            color: context.palette.textDisabled,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Selettore "Prima | Dopo" sopra la foto: colori fissi perché sta sempre
+/// su un'immagine, in qualsiasi tema.
+class _BeforeAfterToggle extends StatelessWidget {
+  const _BeforeAfterToggle({
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.black.withAlpha(110),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < labels.length; i++)
+            Semantics(
+              button: true,
+              selected: i == selected,
+              label: 'Foto ${labels[i]}',
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: () => onSelected(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: i == selected ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                  child: Text(
+                    labels[i],
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: i == selected ? AppColors.greenDark : Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1227,46 +1319,6 @@ class _InfoRow extends StatelessWidget {
         const SizedBox(width: 6),
         compact ? label : Expanded(child: label),
       ],
-    );
-  }
-}
-
-class _PhotoSection extends StatelessWidget {
-  const _PhotoSection({required this.imageUrl});
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () => _openPhotoFullscreen(context, imageUrl),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: Image(
-            image: CachedNetworkImageProvider(imageUrl),
-            fit: BoxFit.cover,
-            loadingBuilder: (_, child, progress) {
-              if (progress == null) return child;
-              return ColoredBox(
-                color: cs.surfaceContainerHighest,
-                child: const Center(child: CircularProgressIndicator()),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) => ColoredBox(
-              color: cs.surfaceContainerHighest,
-              child: const Center(
-                child: Text(
-                  'Immagine non disponibile',
-                  style: TextStyle(fontSize: 13),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
