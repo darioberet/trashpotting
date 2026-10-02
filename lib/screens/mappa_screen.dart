@@ -201,6 +201,20 @@ class _MappaScreenState extends State<MappaScreen> {
     } catch (_) {}
   }
 
+  /// Tap su un gruppo: centra e avvicina di due livelli. Inquadrare i punti
+  /// del gruppo non basta: con segnalazioni a poche centinaia di metri il
+  /// margine di [_boundsForReports] lascia lo zoom invariato.
+  Future<void> _zoomIntoCluster(LatLng center) async {
+    final c = _mapController;
+    if (c == null) return;
+    try {
+      final zoom = await c.getZoomLevel();
+      await c.animateCamera(
+        CameraUpdate.newLatLngZoom(center, math.min(zoom + 2, 19)),
+      );
+    } catch (_) {}
+  }
+
   /// Ricalcola i marker raggruppando (clustering) le segnalazioni vicine
   /// sullo schermo alla zoom/posizione corrente. Va rieseguito quando
   /// cambiano i dati o quando l'utente sposta/zooma la mappa
@@ -245,7 +259,7 @@ class _MappaScreenState extends State<MappaScreen> {
             ),
             position: group.center,
             icon: icon,
-            onTap: () => _fitReports(group.items),
+            onTap: () => _zoomIntoCluster(group.center),
           ),
         );
       } else {
