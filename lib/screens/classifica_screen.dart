@@ -5,8 +5,10 @@ import '../models/leaderboard_entry.dart';
 import '../repositories/leaderboard_repository.dart';
 import '../state/app_session.dart';
 import '../state/classifica_view_model.dart';
+import '../widgets/skeleton.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 class ClassificaScreen extends StatefulWidget {
   ClassificaScreen({super.key, LeaderboardRepository? repository})
@@ -70,7 +72,11 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
 
         Widget content;
         if (isLoading) {
-          content = const Center(child: CircularProgressIndicator());
+          content = const SkeletonList(
+            padding: EdgeInsets.all(16),
+            thumbSize: 40,
+            circleThumb: true,
+          );
         } else if (isEmpty) {
           content = LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
@@ -89,7 +95,7 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          Icons.emoji_events_outlined,
+                          AppIcons.trophy,
                           size: 44,
                           color: AppColors.greenBrand,
                         ),
@@ -138,7 +144,7 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.groups_outlined,
+                            AppIcons.usersGroup,
                             size: 34,
                             color: AppColors.greenBrand,
                           ),

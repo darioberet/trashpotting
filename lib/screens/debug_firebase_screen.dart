@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/firebase_health_service.dart';
 import '../state/app_session.dart';
+import '../theme/app_icons.dart';
 
 /// Diagnostica Firebase (ex home di sviluppo).
 class DebugFirebaseScreen extends StatefulWidget {
@@ -104,13 +105,13 @@ class _DebugFirebaseScreenState extends State<DebugFirebaseScreen> {
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: (!session.firebaseReady || _busy) ? null : _signInAnonymously,
-              icon: const Icon(Icons.person_outline),
+              icon: const Icon(AppIcons.user),
               label: const Text('Accesso anonimo'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: (!session.firebaseReady || _busy) ? null : _probeFirestore,
-              icon: const Icon(Icons.cloud_upload_outlined),
+              icon: const Icon(AppIcons.upload),
               label: const Text('Test scrittura Firestore'),
             ),
             if (_status != null) ...[

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icona "a tema" di Android 13+ (schermata home con icone monocromatiche):
+     il segnaposto del logo con la foglia, centrato nella zona sicura
+     dell'icona adattiva (108dp, contenuto entro 66dp). Il sistema la colora. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="1.6"
+        android:scaleY="1.6"
+        android:translateX="28.4"
+        android:translateY="27.2">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M16 2C9.4 2 4 7.2 4 13.6 4 20.8 11.6 27.4 15 29.8c.6.4 1.4.4 2 0 3.4-2.4 11-9 11-16.2C28 7.2 22.6 2 16 2zM16 8.5c2.6 0 4.7 1.4 4.7 4.6 0 3.7-4.7 5.9-4.7 5.9s-4.7-2.2-4.7-5.9c0-3.2 2.1-4.6 4.7-4.6z" />
+    </group>
+</vector>

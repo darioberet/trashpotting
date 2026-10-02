@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   EmailVerificationScreen({super.key, AuthService? authService})
@@ -116,7 +117,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.mark_email_unread_outlined,
+                      AppIcons.emailUnread,
                       size: 36,
                       color: AppColors.greenBrand,
                     ),
@@ -150,7 +151,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.check_circle_outline, size: 18),
+                        : const Icon(AppIcons.statusCleaned, size: 18),
                     label: Text(
                       _checking
                           ? 'Verifica in corso...'
@@ -166,7 +167,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.refresh, size: 18),
+                        : const Icon(AppIcons.refresh, size: 18),
                     label: Text(
                       _resending ? 'Invio in corso...' : 'Reinvia email',
                     ),

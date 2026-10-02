@@ -5,7 +5,7 @@ import 'package:geocoding/geocoding.dart' as geo;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,6 +22,7 @@ import '../state/segnala_view_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
 import '../widgets/image_source_bottom_sheet.dart';
+import '../theme/app_icons.dart';
 
 class SegnalaScreen extends StatefulWidget {
   SegnalaScreen({
@@ -144,6 +145,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
       _seenInfoToken = _viewModel.infoToken;
       session.publishInfo(_viewModel.lastInfo!);
       if (_viewModel.lastInfo == 'Segnalazione inviata correttamente.') {
+        unawaited(HapticFeedback.mediumImpact());
         _note.clear();
         _viewModel.clearDraftExtras();
       }
@@ -391,11 +393,7 @@ class _PhotoUploadArea extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: const [
-                          Icon(
-                            Icons.image_outlined,
-                            size: 16,
-                            color: Colors.white,
-                          ),
+                          Icon(AppIcons.image, size: 16, color: Colors.white),
                           SizedBox(width: 6),
                           Text(
                             'Tocca per cambiare foto',
@@ -427,7 +425,7 @@ class _PhotoUploadArea extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.close,
+                      AppIcons.close,
                       size: 16,
                       color: Colors.white,
                     ),
@@ -459,14 +457,10 @@ class _PhotoUploadArea extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset(
-                'assets/icons/camera.svg',
-                width: 38,
-                height: 38,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.greenBrand,
-                  BlendMode.srcIn,
-                ),
+              const Icon(
+                AppIcons.camera,
+                size: 40,
+                color: AppColors.greenBrand,
               ),
               const SizedBox(height: 10),
               Text(
@@ -558,11 +552,7 @@ class _GpsChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SvgPicture.asset(
-            'assets/icons/location_pin.svg',
-            width: 20,
-            height: 20,
-          ),
+          const Icon(AppIcons.place, size: 20, color: AppColors.greenBrand),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -600,10 +590,10 @@ class _GpsChip extends StatelessWidget {
                 customBorder: const CircleBorder(),
                 child: Padding(
                   padding: const EdgeInsets.all(6),
-                  child: SvgPicture.asset(
-                    'assets/icons/gps_target.svg',
-                    width: 22,
-                    height: 22,
+                  child: const Icon(
+                    AppIcons.myLocation,
+                    size: 22,
+                    color: AppColors.greenBrand,
                   ),
                 ),
               ),
@@ -643,7 +633,7 @@ class _StickyBottomBar extends StatelessWidget {
                   color: Colors.white,
                 ),
               )
-            : const Icon(Icons.send_outlined, size: 18),
+            : const Icon(AppIcons.send, size: 18),
         label: Text(sending ? 'Invio in corso...' : 'Invia segnalazione'),
       ),
     );
@@ -709,9 +699,7 @@ class _TypeSelector extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      selected == t
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
+                      selected == t ? AppIcons.radioOn : AppIcons.radioOff,
                       size: 18,
                       color: selected == t
                           ? AppColors.greenBrand

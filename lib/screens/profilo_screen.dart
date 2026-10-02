@@ -13,6 +13,7 @@ import '../services/push_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 String _initialsFrom(String name) {
   final parts = name
@@ -168,8 +169,8 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                             )
                           : Icon(
                               userId != null
-                                  ? Icons.person
-                                  : Icons.person_outline,
+                                  ? AppIcons.userFilled
+                                  : AppIcons.user,
                               size: 44,
                               color: Colors.white,
                             ),
@@ -209,7 +210,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: const [
-                    Icon(Icons.verified, size: 13, color: Colors.white),
+                    Icon(AppIcons.verified, size: 13, color: Colors.white),
                     SizedBox(width: 4),
                     Text(
                       'Email verificata',
@@ -236,7 +237,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.warning_amber_outlined,
+                          AppIcons.statusReported,
                           size: 14,
                           color: cs.error,
                         ),
@@ -287,7 +288,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                         child: _StatTile(
                           value: done ? '$reports' : '—',
                           label: 'segnalazioni',
-                          icon: Icons.assignment_outlined,
+                          icon: AppIcons.myReports,
                         ),
                       ),
                       Container(
@@ -299,7 +300,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                         child: _StatTile(
                           value: done ? '$points' : '—',
                           label: 'punti',
-                          icon: Icons.star_outline,
+                          icon: AppIcons.star,
                         ),
                       ),
                     ],
@@ -322,13 +323,13 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
         const SizedBox(height: 32),
         if (firebaseReady && userId != null)
           _MenuTile(
-            iconAsset: 'assets/icons/menu_reports.svg',
+            icon: AppIcons.myReports,
             label: 'Le mie segnalazioni',
             onTap: () => context.push(AppRoutes.mieSegnalazioni),
           ),
         if (firebaseReady && userId != null && session.isAdmin)
           _MenuTile(
-            icon: Icons.shield_outlined,
+            icon: AppIcons.shield,
             label: 'Moderazione',
             onTap: () => context.push(AppRoutes.moderazione),
           ),
@@ -338,38 +339,38 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
         // dove reinserirle. Per riattivarle: _kShowHiddenMenuItems = true.
         if (_kShowHiddenMenuItems) ...[
           _MenuTile(
-            icon: Icons.notifications_outlined,
+            icon: AppIcons.notifications,
             label: 'Notifiche',
             onTap: () => context.push(AppRoutes.notifiche),
           ),
         ],
         _MenuTile(
-          iconAsset: 'assets/icons/menu_settings.svg',
+          icon: AppIcons.settings,
           label: 'Impostazioni',
           onTap: () => context.push(AppRoutes.impostazioni),
         ),
         _MenuTile(
-          iconAsset: 'assets/icons/menu_help.svg',
+          icon: AppIcons.help,
           label: 'Aiuto e feedback',
           onTap: () => context.push(AppRoutes.aiutoFeedback),
         ),
         if (_kShowHiddenMenuItems && kDebugMode)
           _MenuTile(
-            icon: Icons.tune_outlined,
+            icon: AppIcons.tune,
             label: 'Debug Firebase',
             onTap: () => context.push(AppRoutes.debugFirebase),
           ),
         if (firebaseReady && userId != null) ...[
           const Divider(height: 24),
           _MenuTile(
-            icon: Icons.logout,
+            icon: AppIcons.logout,
             label: 'Logout',
             onTap: _deletingAccount ? null : _logout,
           ),
           // Obbligatoria per Google Play: un'app che permette di creare un
           // account deve permettere di eliminarlo dall'app stessa.
           _MenuTile(
-            iconAsset: 'assets/icons/menu_delete.svg',
+            icon: AppIcons.delete,
             label: 'Elimina account',
             color: cs.error,
             trailing: _deletingAccount
@@ -441,7 +442,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
               labelText: 'Password',
               suffixIcon: IconButton(
                 tooltip: _obscure ? 'Mostra password' : 'Nascondi password',
-                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(_obscure ? AppIcons.hidden : AppIcons.visible),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
@@ -516,14 +517,10 @@ class _MenuTile extends StatelessWidget {
       ),
       trailing:
           trailing ??
-          SvgPicture.asset(
-            'assets/icons/chevron_right.svg',
-            width: 20,
-            height: 20,
-            colorFilter: ColorFilter.mode(
-              color ?? context.palette.textDisabled,
-              BlendMode.srcIn,
-            ),
+          Icon(
+            AppIcons.chevronRight,
+            size: 18,
+            color: color ?? context.palette.textDisabled,
           ),
       onTap: onTap,
     );

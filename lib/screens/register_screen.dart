@@ -7,6 +7,7 @@ import '../core/legal.dart';
 import '../repositories/user_profile_repository.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
+import '../theme/app_icons.dart';
 
 class RegisterScreen extends StatefulWidget {
   RegisterScreen({
@@ -182,8 +183,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
+                                  ? AppIcons.hidden
+                                  : AppIcons.visible,
                               size: 18,
                             ),
                             onPressed: () => setState(
@@ -205,8 +206,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscureConfirm
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
+                                  ? AppIcons.hidden
+                                  : AppIcons.visible,
                               size: 18,
                             ),
                             onPressed: () => setState(
@@ -247,7 +248,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   onPressed: _busy || !session.firebaseReady ? null : _submit,
-                  icon: const Icon(Icons.person_add_alt_1_outlined),
+                  icon: const Icon(AppIcons.userAdd),
                   label: Text(
                     _busy ? 'Registrazione in corso...' : 'Registrati',
                   ),

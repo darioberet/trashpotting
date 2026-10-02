@@ -314,6 +314,14 @@ Inviate dalle **Cloud Functions** (`functions/index.js`, regione `europe-west1`)
 
 ## 12. Impostazioni e tema
 
+**Icone:** un unico set, **Phosphor** (`phosphor_flutter`), raccolto in `lib/theme/app_icons.dart`. Si usano sempre `AppIcons.*` e mai `Icons.*`. I marker della mappa mostrano il **tipo di rifiuto**: secchio per discarica abusiva, sacco per rifiuti abbandonati, simbolo di rischio biologico per quelli pericolosi. Il **colore** indica lo stato. Su Android 13 e successivi l'app ha anche l'**icona a tema** monocromatica (`ic_launcher_monochrome`).
+
+**Micro-interazioni:**
+- vibrazione leggera al cambio scheda, all'invio di una segnalazione, alle azioni nel dettaglio e al voto;
+- transizione "fade forwards" tra le schermate;
+- caricamenti a scheletro (`widgets/skeleton.dart`) nelle liste di Mappa, Le mie segnalazioni e Classifica.
+
+
 **Schermata:** `impostazioni_screen.dart`
 
 - **Tema:** Chiaro, Scuro, Automatico (di sistema). Si applica subito ed è ricordato (`state/theme_controller.dart`).

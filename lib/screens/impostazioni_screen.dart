@@ -5,17 +5,18 @@ import '../state/app_session.dart';
 import '../state/theme_controller.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 class ImpostazioniScreen extends StatelessWidget {
   const ImpostazioniScreen({super.key});
 
   static const _options = [
-    (mode: ThemeMode.light, label: 'Chiaro', icon: Icons.light_mode_outlined),
-    (mode: ThemeMode.dark, label: 'Scuro', icon: Icons.dark_mode_outlined),
+    (mode: ThemeMode.light, label: 'Chiaro', icon: AppIcons.themeLight),
+    (mode: ThemeMode.dark, label: 'Scuro', icon: AppIcons.themeDark),
     (
       mode: ThemeMode.system,
       label: 'Automatico (di sistema)',
-      icon: Icons.brightness_auto_outlined,
+      icon: AppIcons.themeAuto,
     ),
   ];
 
@@ -79,8 +80,8 @@ class ImpostazioniScreen extends StatelessWidget {
                           ),
                           Icon(
                             currentMode == option.mode
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_off,
+                                ? AppIcons.radioOn
+                                : AppIcons.radioOff,
                             size: 18,
                             color: currentMode == option.mode
                                 ? AppColors.greenBrand
@@ -137,7 +138,7 @@ class _NotificationsSection extends StatelessWidget {
               onChanged: snap.hasData
                   ? (v) => PushService.instance.setNearbyEnabled(uid, v)
                   : null,
-              secondary: const Icon(Icons.near_me_outlined, size: 20),
+              secondary: const Icon(AppIcons.nearMe, size: 20),
               title: Text(
                 'Nuove segnalazioni vicino a me',
                 style: TextStyle(fontSize: 13, color: palette.textPrimary),

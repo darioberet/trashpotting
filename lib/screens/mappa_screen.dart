@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,8 +19,10 @@ import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../services/location_service.dart';
 import '../services/push_service.dart';
+import '../widgets/skeleton.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 class MappaScreen extends StatefulWidget {
   const MappaScreen({super.key});
@@ -184,16 +185,18 @@ class _MappaScreenState extends State<MappaScreen> {
     };
   }
 
-  IconData _markerIcon(TrashpotStatus s) {
-    return switch (s) {
-      TrashpotStatus.segnalata => Icons.warning_amber_outlined,
-      TrashpotStatus.aperta => Icons.schedule_outlined,
-      TrashpotStatus.inLavorazione ||
-      TrashpotStatus.puliziaInCorso => Icons.build_outlined,
-      TrashpotStatus.eventoCreato => Icons.event_outlined,
+  /// Il colore del marker dice lo stato; l'icona dice il tipo di rifiuto
+  /// finché c'è da pulire, poi l'avanzamento (evento, pulizia, ripulita).
+  IconData _markerIcon(TrashpotReport r) {
+    return switch (r.status) {
+      TrashpotStatus.segnalata ||
+      TrashpotStatus.aperta ||
+      TrashpotStatus.inLavorazione => AppIcons.forWasteType(r.typeLabel),
+      TrashpotStatus.eventoCreato => AppIcons.markerEvent,
+      TrashpotStatus.puliziaInCorso => AppIcons.markerCleaning,
       TrashpotStatus.pulita ||
-      TrashpotStatus.ripulita => Icons.check_circle_outline,
-      TrashpotStatus.sparita => Icons.help_outline,
+      TrashpotStatus.ripulita => AppIcons.markerCleaned,
+      TrashpotStatus.sparita => AppIcons.markerGone,
     };
   }
 
@@ -275,7 +278,7 @@ class _MappaScreenState extends State<MappaScreen> {
         final r = group.items.first;
         final icon = await MarkerIconFactory.pin(
           color: _markerColor(r.status),
-          icon: _markerIcon(r.status),
+          icon: _markerIcon(r),
         );
         if (!mounted || epoch != _clusterEpoch) return;
         markers.add(
@@ -372,7 +375,7 @@ class _MappaScreenState extends State<MappaScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.map_outlined, size: 64, color: AppColors.greenBrand),
+              Icon(AppIcons.map, size: 64, color: AppColors.greenBrand),
               const SizedBox(height: 16),
               Text(
                 'Google Maps è disponibile su Android, iOS e web.',
@@ -407,7 +410,7 @@ class _MappaScreenState extends State<MappaScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.cloud_off_outlined, size: 48),
+                  const Icon(AppIcons.offline, size: 48),
                   const SizedBox(height: 12),
                   Text(
                     'Errore di rete. Riavvia l\'app o verifica la connessione.',
@@ -577,14 +580,10 @@ class _MappaScreenState extends State<MappaScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : SvgPicture.asset(
-                            'assets/icons/gps_target.svg',
-                            width: 20,
-                            height: 20,
-                            colorFilter: const ColorFilter.mode(
-                              Colors.white,
-                              BlendMode.srcIn,
-                            ),
+                        : const Icon(
+                            AppIcons.myLocation,
+                            size: 22,
+                            color: Colors.white,
                           ),
                   ),
                 ),
@@ -658,7 +657,7 @@ class _ReportListPanel extends StatelessWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(AppIcons.close),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ],
@@ -763,7 +762,7 @@ class _ReportListPanel extends StatelessWidget {
                       const Text('Vedi tutte', style: TextStyle(fontSize: 12)),
                       const SizedBox(width: 2),
                       const Icon(
-                        Icons.chevron_right,
+                        AppIcons.chevronRight,
                         size: 16,
                         color: AppColors.greenBrand,
                       ),
@@ -780,7 +779,9 @@ class _ReportListPanel extends StatelessWidget {
           // Report list
           Expanded(
             child: isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const SkeletonList(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 80),
+                  )
                 : reports.isEmpty
                 ? Center(
                     child: Text(
@@ -886,7 +887,7 @@ class _ReportFiltersBar extends StatelessWidget {
             // Il tap lo gestisce il PopupMenuButton, il chip è solo aspetto.
             child: IgnorePointer(
               child: _DropdownChip(
-                icon: Icons.radar,
+                icon: AppIcons.radius,
                 label: radiusEnabled ? '$radiusKm km' : 'Raggio',
               ),
             ),
@@ -897,7 +898,7 @@ class _ReportFiltersBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               onTap: () => _openStatusSheet(context),
               child: _DropdownChip(
-                icon: Icons.filter_list,
+                icon: AppIcons.filter,
                 label: _statusSummary,
                 highlighted:
                     statusGroups.length != ReportStatusGroup.values.length,
@@ -960,7 +961,7 @@ class _DropdownChip extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.arrow_drop_down, size: 20, color: fg),
+            Icon(AppIcons.dropdown, size: 20, color: fg),
           ],
         ),
       ),
@@ -1169,7 +1170,7 @@ class _ReportCard extends StatelessWidget {
                           children: [
                             if (computedDistanceLabel != null) ...[
                               Icon(
-                                Icons.place_outlined,
+                                AppIcons.place,
                                 size: 11,
                                 color: context.palette.textSecondary,
                               ),
@@ -1185,7 +1186,7 @@ class _ReportCard extends StatelessWidget {
                             ],
                             if (report.dateLabel != null) ...[
                               Icon(
-                                Icons.access_time_outlined,
+                                AppIcons.time,
                                 size: 11,
                                 color: context.palette.textSecondary,
                               ),
@@ -1234,7 +1235,7 @@ class _PlaceholderThumb extends StatelessWidget {
       height: 64,
       color: context.palette.greenLight,
       child: const Icon(
-        Icons.terrain_outlined,
+        AppIcons.landscape,
         size: 22,
         color: AppColors.greenBrand,
       ),

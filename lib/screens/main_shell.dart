@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,6 +13,7 @@ import 'classifica_screen.dart';
 import 'mappa_screen.dart';
 import 'profilo_screen.dart';
 import 'segnala_screen.dart';
+import '../theme/app_icons.dart';
 
 /// Contenitore principale: tab Mappa, Segnala, Profilo.
 class MainShell extends StatefulWidget {
@@ -25,6 +27,13 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _index;
+
+  void _selectTab(int index) {
+    if (index == _index) return;
+    HapticFeedback.selectionClick();
+    setState(() => _index = index);
+  }
+
   final _notificationRepository = FirestoreNotificationRepository();
 
   int _normalizedIndex(int value) => value.clamp(0, 3);
@@ -61,7 +70,7 @@ class _MainShellState extends State<MainShell> {
     final uid = AppSessionScope.watch(context).currentUserId;
 
     final icon = uid == null
-        ? const Icon(Icons.notifications_outlined)
+        ? const Icon(AppIcons.notifications)
         : StreamBuilder<List<AppNotification>>(
             stream: _notificationRepository.watchUserNotifications(uid),
             builder: (context, snapshot) {
@@ -69,7 +78,7 @@ class _MainShellState extends State<MainShell> {
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  const Icon(Icons.notifications_outlined),
+                  const Icon(AppIcons.notifications),
                   if (hasUnread)
                     Positioned(
                       top: -1,
@@ -112,32 +121,35 @@ class _MainShellState extends State<MainShell> {
           children: [
             Expanded(
               child: _NavBarItem(
-                asset: 'assets/icons/nav_map.svg',
+                icon: AppIcons.map,
+                activeIcon: AppIcons.mapActive,
                 label: 'Mappa',
                 selected: _index == 0,
-                onTap: () => setState(() => _index = 0),
+                onTap: () => _selectTab(0),
               ),
             ),
             Expanded(
               child: _SegnalaFabItem(
                 selected: _index == 1,
-                onTap: () => setState(() => _index = 1),
+                onTap: () => _selectTab(1),
               ),
             ),
             Expanded(
               child: _NavBarItem(
-                asset: 'assets/icons/nav_leaderboard.svg',
+                icon: AppIcons.leaderboard,
+                activeIcon: AppIcons.leaderboardActive,
                 label: 'Classifica',
                 selected: _index == 2,
-                onTap: () => setState(() => _index = 2),
+                onTap: () => _selectTab(2),
               ),
             ),
             Expanded(
               child: _NavBarItem(
-                asset: 'assets/icons/nav_profile.svg',
+                icon: AppIcons.profile,
+                activeIcon: AppIcons.profileActive,
                 label: 'Profilo',
                 selected: _index == 3,
-                onTap: () => setState(() => _index = 3),
+                onTap: () => _selectTab(3),
               ),
             ),
           ],
@@ -214,13 +226,15 @@ class _MainShellState extends State<MainShell> {
 /// selezionata) + label, come da mockup.
 class _NavBarItem extends StatelessWidget {
   const _NavBarItem({
-    required this.asset,
+    required this.icon,
+    required this.activeIcon,
     required this.label,
     required this.selected,
     required this.onTap,
   });
 
-  final String asset;
+  final IconData icon;
+  final IconData activeIcon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -245,11 +259,10 @@ class _NavBarItem extends StatelessWidget {
               color: selected ? context.palette.greenLight : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: SvgPicture.asset(
-              asset,
-              width: 22,
-              height: 22,
-              colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            child: Icon(
+              selected ? activeIcon : icon,
+              size: 22,
+              color: iconColor,
             ),
           ),
           const SizedBox(height: 2),
@@ -313,7 +326,7 @@ class _SegnalaFabItem extends StatelessWidget {
                   ],
                 ),
                 child: const Icon(
-                  Icons.add_location_alt,
+                  AppIcons.addPlace,
                   color: Colors.white,
                   size: 26,
                 ),

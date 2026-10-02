@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../theme/app_icons.dart';
 
 /// Rasterizza marker personalizzati (cerchio colorato con icona, o badge
 /// numerico per i cluster) in [BitmapDescriptor], con una cache in memoria
@@ -14,7 +15,7 @@ abstract final class MarkerIconFactory {
 
   static Future<BitmapDescriptor> pin({
     required Color color,
-    IconData icon = Icons.delete_outline,
+    IconData icon = AppIcons.delete,
     double size = 40, // dp — cerchio ~36px + bordo bianco, da design brief
   }) {
     final key = 'pin_${color.toString()}_${icon.codePoint}_$size';

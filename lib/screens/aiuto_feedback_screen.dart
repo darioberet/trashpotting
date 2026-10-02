@@ -6,6 +6,7 @@ import '../core/legal.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 class AiutoFeedbackScreen extends StatelessWidget {
   const AiutoFeedbackScreen({super.key});
@@ -94,7 +95,7 @@ class AiutoFeedbackScreen extends StatelessWidget {
             const SizedBox(height: 4),
             FilledButton.icon(
               onPressed: () => _writeToUs(context),
-              icon: const Icon(Icons.mail_outline),
+              icon: const Icon(AppIcons.email),
               label: const Text('Scrivici'),
             ),
           ],

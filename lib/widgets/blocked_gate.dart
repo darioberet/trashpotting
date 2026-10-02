@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 /// Schermata mostrata sopra l'app a un utente bloccato da un admin. Le
 /// regole Firestore impediscono comunque le scritture: questa schermata
@@ -43,7 +44,7 @@ class BlockedGate extends StatelessWidget {
                         color: cs.errorContainer,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.block, size: 44, color: cs.error),
+                      child: Icon(AppIcons.block, size: 44, color: cs.error),
                     ),
                     const SizedBox(height: 24),
                     Text(

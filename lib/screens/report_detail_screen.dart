@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:share_plus/share_plus.dart';
@@ -23,6 +26,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
 import '../widgets/image_source_bottom_sheet.dart';
 import '../widgets/moderation_actions.dart';
+import '../theme/app_icons.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   ReportDetailScreen({
@@ -110,6 +114,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       );
       if (!mounted) return;
       setState(() => _myVote = vote);
+      unawaited(HapticFeedback.lightImpact());
       session.publishInfo(
         vote == CommunityVote.present
             ? 'Grazie! Hai confermato la segnalazione (+$pointsPerVote punto).'
@@ -160,6 +165,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     setState(() => _busy = true);
     try {
       await action(profile, session);
+      unawaited(HapticFeedback.lightImpact());
     } catch (e) {
       if (!mounted) return;
       session.publishError(e, fallback: 'Operazione non riuscita.');
@@ -305,7 +311,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.cloud_off_outlined, size: 48),
+                    const Icon(AppIcons.offline, size: 48),
                     const SizedBox(height: 16),
                     const Text('Errore di rete. Controlla la connessione.'),
                     const SizedBox(height: 16),
@@ -330,7 +336,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.delete_outline, size: 48),
+                    const Icon(AppIcons.delete, size: 48),
                     const SizedBox(height: 16),
                     const Text('Report non disponibile o eliminato.'),
                     const SizedBox(height: 16),
@@ -391,7 +397,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           appBar: AppBar(
             actions: [
               IconButton(
-                icon: const Icon(Icons.ios_share_outlined),
+                icon: const Icon(AppIcons.share),
                 tooltip: 'Condividi',
                 onPressed: () => _share(report),
               ),
@@ -442,14 +448,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
                               // Info rows
                               _InfoRow(
-                                icon: Icons.place_outlined,
+                                icon: AppIcons.place,
                                 text: report.address,
                               ),
                               if (!hasPhotoHeader &&
                                   report.typeLabel != null) ...[
                                 const SizedBox(height: 6),
                                 _InfoRow(
-                                  icon: Icons.delete_outline,
+                                  icon: AppIcons.forWasteType(report.typeLabel),
                                   text: report.typeLabel!,
                                 ),
                               ],
@@ -519,7 +525,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               ],
                               if (report.status == TrashpotStatus.sparita) ...[
                                 const _InfoRow(
-                                  icon: Icons.help_outline,
+                                  icon: AppIcons.help,
                                   text:
                                       'Più persone sul posto hanno indicato '
                                       'che questo rifiuto non c\'è più.',
@@ -541,7 +547,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                   !isCleaningOwner) ...[
                                 const SizedBox(height: 12),
                                 _InfoRow(
-                                  icon: Icons.person_outline,
+                                  icon: AppIcons.user,
                                   text:
                                       'Pulizia in corso da parte di ${report.cleaningOwner!.label}.',
                                 ),
@@ -739,7 +745,7 @@ class _HeaderImage extends StatelessWidget {
         color: cs.surfaceContainerHighest,
         child: Center(
           child: Icon(
-            Icons.image_not_supported_outlined,
+            AppIcons.imageBroken,
             size: 40,
             color: context.palette.textDisabled,
           ),
@@ -829,8 +835,8 @@ class _TypeDistanceChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (typeLabel != null) ...[
-            const Icon(
-              Icons.eco_outlined,
+            Icon(
+              AppIcons.forWasteType(typeLabel),
               size: 13,
               color: AppColors.greenDark,
             ),
@@ -850,7 +856,7 @@ class _TypeDistanceChip extends StatelessWidget {
             const SizedBox(width: 8),
           ],
           if (distanceText != null) ...[
-            Icon(Icons.place_outlined, size: 13, color: palette.textSecondary),
+            Icon(AppIcons.place, size: 13, color: palette.textSecondary),
             const SizedBox(width: 3),
             Text(
               distanceText!,
@@ -917,7 +923,7 @@ class _CommunityVoteCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.how_to_vote_outlined, size: 18),
+              const Icon(AppIcons.vote, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -951,7 +957,7 @@ class _CommunityVoteCard extends StatelessWidget {
                     onPressed: busy
                         ? null
                         : () => onVote(CommunityVote.present),
-                    icon: const Icon(Icons.check, size: 18),
+                    icon: const Icon(AppIcons.check, size: 18),
                     label: const Text('C\'è ancora'),
                   ),
                 ),
@@ -959,7 +965,7 @@ class _CommunityVoteCard extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: busy ? null : () => onVote(CommunityVote.gone),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                     label: const Text('Non c\'è più'),
                   ),
                 ),
@@ -998,7 +1004,7 @@ class _ReportMenu extends StatelessWidget {
         const PopupMenuItem(
           value: _ReportMenuAction.flag,
           child: ListTile(
-            leading: Icon(Icons.flag_outlined),
+            leading: Icon(AppIcons.flag),
             title: Text('Segnala contenuto'),
             contentPadding: EdgeInsets.zero,
           ),
@@ -1008,7 +1014,7 @@ class _ReportMenu extends StatelessWidget {
         PopupMenuItem(
           value: _ReportMenuAction.remove,
           child: ListTile(
-            leading: Icon(Icons.delete_outline, color: error),
+            leading: Icon(AppIcons.delete, color: error),
             title: Text('Rimuovi segnalazione', style: TextStyle(color: error)),
             contentPadding: EdgeInsets.zero,
           ),
@@ -1017,7 +1023,7 @@ class _ReportMenu extends StatelessWidget {
           PopupMenuItem(
             value: _ReportMenuAction.blockAuthor,
             child: ListTile(
-              leading: Icon(Icons.block, color: error),
+              leading: Icon(AppIcons.block, color: error),
               title: Text('Blocca autore', style: TextStyle(color: error)),
               contentPadding: EdgeInsets.zero,
             ),
@@ -1073,7 +1079,7 @@ class _MiniMap extends StatelessWidget {
           child: FutureBuilder<BitmapDescriptor>(
             future: MarkerIconFactory.pin(
               color: AppColors.greenBrand,
-              icon: Icons.eco,
+              icon: AppIcons.leaf,
             ),
             builder: (context, snapshot) {
               final icon = snapshot.data ?? BitmapDescriptor.defaultMarker;
@@ -1178,7 +1184,7 @@ class _StatusStepper extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.greenLight, width: 3),
                   ),
-                  child: const Icon(Icons.circle, size: 6, color: Colors.white),
+                  child: const Icon(AppIcons.dot, size: 6, color: Colors.white),
                 )
               else if (i == 0)
                 Container(
@@ -1195,7 +1201,7 @@ class _StatusStepper extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    Icons.flag_outlined,
+                    AppIcons.flag,
                     size: 13,
                     color: i < active
                         ? AppColors.greenBrand
@@ -1204,7 +1210,7 @@ class _StatusStepper extends StatelessWidget {
                 )
               else
                 Icon(
-                  i < active ? Icons.check_circle : Icons.circle_outlined,
+                  i < active ? AppIcons.statusCleanedFilled : AppIcons.circle,
                   size: 18,
                   color: i < active
                       ? AppColors.greenBrand
@@ -1263,17 +1269,9 @@ class _MetaRow extends StatelessWidget {
         ],
       ),
       if (dateLabel != null)
-        _InfoRow(
-          icon: Icons.calendar_today_outlined,
-          text: dateLabel!,
-          compact: true,
-        ),
+        _InfoRow(icon: AppIcons.calendar, text: dateLabel!, compact: true),
       if (reporterLabel != null)
-        _InfoRow(
-          icon: Icons.person_outline,
-          text: reporterLabel!,
-          compact: true,
-        ),
+        _InfoRow(icon: AppIcons.user, text: reporterLabel!, compact: true),
     ];
 
     return Wrap(
@@ -1352,11 +1350,11 @@ class _EventCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _InfoRow(
-            icon: Icons.person_outline,
+            icon: AppIcons.user,
             text: 'Creato da ${event.creator.label}',
           ),
           const SizedBox(height: 4),
-          _InfoRow(icon: Icons.calendar_today_outlined, text: dateText),
+          _InfoRow(icon: AppIcons.calendar, text: dateText),
           if (event.participants.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -1373,7 +1371,7 @@ class _EventCard extends StatelessWidget {
             for (final p in event.participants)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: _InfoRow(icon: Icons.person_outline, text: p.label),
+                child: _InfoRow(icon: AppIcons.user, text: p.label),
               ),
           ],
         ],
@@ -1475,13 +1473,13 @@ class _BottomActions extends StatelessWidget {
           if (s == TrashpotStatus.segnalata && event == null) ...[
             FilledButton.icon(
               onPressed: busy ? null : onStartCleaning,
-              icon: const Icon(Icons.cleaning_services_outlined, size: 18),
+              icon: const Icon(AppIcons.clean, size: 18),
               label: const Text('Voglio pulire questa zona'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: busy ? null : onScheduleEvent,
-              icon: const Icon(Icons.event_outlined, size: 18),
+              icon: const Icon(AppIcons.statusEvent, size: 18),
               label: const Text('Schedula un evento'),
             ),
           ],
@@ -1491,27 +1489,27 @@ class _BottomActions extends StatelessWidget {
               joinedEvent != true)
             FilledButton.icon(
               onPressed: busy ? null : onJoinEvent,
-              icon: const Icon(Icons.group_add_outlined, size: 18),
+              icon: const Icon(AppIcons.joinGroup, size: 18),
               label: const Text('Partecipa all\'evento'),
             ),
           if (s == TrashpotStatus.eventoCreato && isEventCreator) ...[
             if (joinedEvent == true) const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: busy ? null : onStartCleaning,
-              icon: const Icon(Icons.play_arrow_outlined, size: 18),
+              icon: const Icon(AppIcons.start, size: 18),
               label: const Text('Passa a pulizia in corso'),
             ),
           ],
           if (s == TrashpotStatus.puliziaInCorso && isCleaningOwner)
             FilledButton.icon(
               onPressed: busy ? null : onCompleteCleaning,
-              icon: const Icon(Icons.camera_alt_outlined, size: 18),
+              icon: const Icon(AppIcons.camera, size: 18),
               label: const Text('Segna come ripulito e carica foto'),
             ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: onOpenMap,
-            icon: const Icon(Icons.map_outlined, size: 18),
+            icon: const Icon(AppIcons.map, size: 18),
             label: const Text('Apri su mappa'),
           ),
         ],

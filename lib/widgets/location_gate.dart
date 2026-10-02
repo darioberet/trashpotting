@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 enum _LocationStatus { checking, ok, serviceOff, denied, deniedForever }
 
@@ -193,7 +194,7 @@ class _BlockedView extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.location_off_outlined,
+                  AppIcons.locationOff,
                   size: 44,
                   color: AppColors.greenBrand,
                 ),
@@ -221,7 +222,7 @@ class _BlockedView extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: busy ? null : onFix,
-                  icon: const Icon(Icons.my_location),
+                  icon: const Icon(AppIcons.myLocation),
                   label: Text(action),
                 ),
               ),

@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 class LoginScreen extends StatefulWidget {
   LoginScreen({
@@ -205,12 +206,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 hintText: 'Email',
                                 prefixIcon: Padding(
                                   padding: const EdgeInsets.all(12),
-                                  child: SvgPicture.asset(
-                                    'assets/icons/email.svg',
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.greenBrand,
-                                      BlendMode.srcIn,
-                                    ),
+                                  child: const Icon(
+                                    AppIcons.email,
+                                    color: AppColors.greenBrand,
                                   ),
                                 ),
                               ),
@@ -227,15 +225,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Password',
                                 prefixIcon: const Icon(
-                                  Icons.lock_outline,
+                                  AppIcons.lock,
                                   size: 18,
                                   color: AppColors.greenBrand,
                                 ),
                                 suffixIcon: IconButton(
                                   icon: Icon(
                                     _obscurePassword
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
+                                        ? AppIcons.hidden
+                                        : AppIcons.visible,
                                     size: 18,
                                     color: context.palette.textDisabled,
                                   ),
@@ -311,7 +309,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: Icon(
-                              Icons.eco_outlined,
+                              AppIcons.wasteType,
                               size: 16,
                               color: AppColors.greenBrand,
                             ),
@@ -414,7 +412,7 @@ class _WaveHeader extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 14),
                     child: Icon(
-                      Icons.eco,
+                      AppIcons.leaf,
                       size: 22,
                       color: AppColors.greenBrand,
                     ),

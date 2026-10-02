@@ -16,6 +16,7 @@ import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/image_source_bottom_sheet.dart';
+import '../theme/app_icons.dart';
 
 /// Colori delle illustrazioni dell'onboarding (assets/onboarding/): lo
 /// sfondo coincide con il loro, così le immagini si fondono con la pagina.
@@ -407,7 +408,7 @@ class _ProfilePage extends StatelessWidget {
                         ),
                         child: !hasPhoto
                             ? const Icon(
-                                Icons.person,
+                                AppIcons.userFilled,
                                 size: 56,
                                 color: AppColors.greenBrand,
                               )
@@ -426,7 +427,7 @@ class _ProfilePage extends StatelessWidget {
                             ),
                           ),
                           child: const Icon(
-                            Icons.camera_alt,
+                            AppIcons.cameraFilled,
                             size: 18,
                             color: Colors.white,
                           ),
@@ -465,7 +466,7 @@ class _ProfilePage extends StatelessWidget {
                 textInputAction: TextInputAction.done,
                 decoration: const InputDecoration(
                   labelText: 'Username',
-                  prefixIcon: Icon(Icons.alternate_email),
+                  prefixIcon: Icon(AppIcons.username),
                 ),
               ),
             ],

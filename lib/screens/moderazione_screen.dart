@@ -9,6 +9,7 @@ import '../routes.dart';
 import '../state/app_session.dart';
 import '../theme/app_palette.dart';
 import '../widgets/moderation_actions.dart';
+import '../theme/app_icons.dart';
 
 /// Area admin: contenuti segnalati dagli utenti e utenti bloccati.
 /// Raggiungibile solo con la custom claim `admin` (vedi redirect in app.dart).
@@ -78,7 +79,7 @@ class _FlagsTab extends StatelessWidget {
         if (groups.isEmpty) {
           return const _Message(
             'Nessun contenuto da controllare.',
-            icon: Icons.verified_user_outlined,
+            icon: AppIcons.shieldOk,
           );
         }
         return ListView.separated(
@@ -148,7 +149,7 @@ class _FlaggedReportCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Chip(
                       avatar: Icon(
-                        Icons.flag,
+                        AppIcons.flagFilled,
                         size: 16,
                         color: theme.colorScheme.error,
                       ),
@@ -183,7 +184,7 @@ class _FlaggedReportCard extends StatelessWidget {
                       OutlinedButton.icon(
                         onPressed: () =>
                             context.push('${AppRoutes.reportDetail}/$reportId'),
-                        icon: const Icon(Icons.open_in_new, size: 18),
+                        icon: const Icon(AppIcons.openExternal, size: 18),
                         label: const Text('Apri'),
                       ),
                     OutlinedButton.icon(
@@ -192,7 +193,7 @@ class _FlaggedReportCard extends StatelessWidget {
                         () => moderation.dismissFlags(reportId),
                         success: 'Segnalazioni archiviate.',
                       ),
-                      icon: const Icon(Icons.check, size: 18),
+                      icon: const Icon(AppIcons.check, size: 18),
                       label: Text(gone ? 'Archivia' : 'Ignora'),
                     ),
                     if (report != null)
@@ -206,7 +207,7 @@ class _FlaggedReportCard extends StatelessWidget {
                           moderation: moderation,
                           reportId: reportId,
                         ),
-                        icon: const Icon(Icons.delete_outline, size: 18),
+                        icon: const Icon(AppIcons.delete, size: 18),
                         label: const Text('Rimuovi'),
                       ),
                     if (report?.reporterUid != null)
@@ -216,7 +217,7 @@ class _FlaggedReportCard extends StatelessWidget {
                           moderation: moderation,
                           uid: report!.reporterUid!,
                         ),
-                        icon: const Icon(Icons.block, size: 18),
+                        icon: const Icon(AppIcons.block, size: 18),
                         label: const Text('Blocca autore'),
                       ),
                   ],
@@ -270,7 +271,7 @@ class _GoneTab extends StatelessWidget {
         if (reports.isEmpty) {
           return const _Message(
             'Nessuna segnalazione sparita.',
-            icon: Icons.check_circle_outline,
+            icon: AppIcons.statusCleaned,
           );
         }
         final theme = Theme.of(context);
@@ -311,7 +312,7 @@ class _GoneTab extends StatelessWidget {
                         OutlinedButton.icon(
                           onPressed: () =>
                               context.push('${AppRoutes.reportDetail}/${r.id}'),
-                          icon: const Icon(Icons.open_in_new, size: 18),
+                          icon: const Icon(AppIcons.openExternal, size: 18),
                           label: const Text('Apri'),
                         ),
                         FilledButton.icon(
@@ -320,7 +321,7 @@ class _GoneTab extends StatelessWidget {
                             () => moderation.restoreReport(r),
                             success: 'Segnalazione rimessa sulla mappa.',
                           ),
-                          icon: const Icon(Icons.restore, size: 18),
+                          icon: const Icon(AppIcons.restore, size: 18),
                           label: const Text('Ripristina'),
                         ),
                         TextButton.icon(
@@ -329,7 +330,7 @@ class _GoneTab extends StatelessWidget {
                             moderation: moderation,
                             reportId: r.id,
                           ),
-                          icon: const Icon(Icons.delete_outline, size: 18),
+                          icon: const Icon(AppIcons.delete, size: 18),
                           label: const Text('Rimuovi'),
                         ),
                       ],
@@ -365,7 +366,7 @@ class _BlockedTab extends StatelessWidget {
         if (users.isEmpty) {
           return const _Message(
             'Nessun utente bloccato.',
-            icon: Icons.people_outline,
+            icon: AppIcons.users,
           );
         }
         return ListView.separated(
@@ -377,7 +378,7 @@ class _BlockedTab extends StatelessWidget {
             final at = u.blockedAt;
             return Card(
               child: ListTile(
-                leading: const Icon(Icons.block),
+                leading: const Icon(AppIcons.block),
                 title: Text(u.username ?? 'Utente'),
                 subtitle: at == null
                     ? null
@@ -407,7 +408,7 @@ class _BlockedTab extends StatelessWidget {
 }
 
 class _Message extends StatelessWidget {
-  const _Message(this.text, {this.icon = Icons.error_outline});
+  const _Message(this.text, {this.icon = AppIcons.error});
 
   final String text;
   final IconData icon;

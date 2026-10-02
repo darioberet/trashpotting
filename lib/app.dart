@@ -26,6 +26,7 @@ import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'widgets/blocked_gate.dart';
 import 'widgets/location_gate.dart';
+import 'theme/app_icons.dart';
 
 class TrashpottingApp extends StatefulWidget {
   const TrashpottingApp({
@@ -179,7 +180,7 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.link_off_outlined, size: 56),
+                const Icon(AppIcons.linkBroken, size: 56),
                 const SizedBox(height: 16),
                 Text(
                   'Pagina non trovata',

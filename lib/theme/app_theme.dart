@@ -46,6 +46,16 @@ abstract final class AppTheme {
 
     return base.copyWith(
       extensions: [palette],
+
+      // Transizione "fade forwards" di Material 3 (Android 14+): la nuova
+      // schermata entra con dissolvenza e un leggero scorrimento, più fluida
+      // dello zoom predefinito.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       // Sfondo pagina leggermente tinto (non bianco puro): le card bianche
       // sopra creano gerarchia visiva invece di un piatto bianco-su-bianco.
       scaffoldBackgroundColor: isDark ? colorScheme.surface : AppColors.bgAlt,

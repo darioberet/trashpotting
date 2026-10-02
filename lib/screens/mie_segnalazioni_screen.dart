@@ -6,8 +6,10 @@ import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../state/app_session.dart';
+import '../widgets/skeleton.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_icons.dart';
 
 class MieSegnalazioniScreen extends StatelessWidget {
   MieSegnalazioniScreen({super.key, ReportRepository? repository})
@@ -35,7 +37,10 @@ class MieSegnalazioniScreen extends StatelessWidget {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const SkeletonList(
+                    padding: EdgeInsets.all(16),
+                    thumbSize: 52,
+                  );
                 }
                 if (snapshot.hasError) {
                   return Center(
@@ -44,7 +49,7 @@ class MieSegnalazioniScreen extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.cloud_off_outlined, size: 48),
+                          const Icon(AppIcons.offline, size: 48),
                           const SizedBox(height: 12),
                           Text(
                             'Errore di rete. Riprova più tardi.',
@@ -65,7 +70,7 @@ class MieSegnalazioniScreen extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.assignment_outlined,
+                            AppIcons.myReports,
                             size: 56,
                             color: context.palette.divider,
                           ),
@@ -133,7 +138,7 @@ class _MyReportCard extends StatelessWidget {
                           height: 52,
                           color: context.palette.divider,
                           child: Icon(
-                            Icons.image_outlined,
+                            AppIcons.image,
                             size: 20,
                             color: context.palette.textDisabled,
                           ),
@@ -144,7 +149,7 @@ class _MyReportCard extends StatelessWidget {
                         height: 52,
                         color: context.palette.divider,
                         child: Icon(
-                          Icons.image_outlined,
+                          AppIcons.image,
                           size: 20,
                           color: context.palette.textDisabled,
                         ),

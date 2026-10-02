@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_notification.dart';
 import '../repositories/notification_repository.dart';
 import '../state/app_session.dart';
+import '../theme/app_icons.dart';
 
 /// Schermata Notifiche — allineata al percorso `/app/notifiche` del prototipo Figma Make.
 /// Dati: sottocollezione `users/{uid}/notifications` (documenti con title, body, read, createdAt).
@@ -18,21 +19,21 @@ class NotificheScreen extends StatelessWidget {
       body: 'È stata aperta una segnalazione nel raggio di 500 m. Tocca per i dettagli.',
       timeLabel: '10 min',
       read: false,
-      icon: Icons.place_outlined,
+      icon: AppIcons.place,
     ),
     _MockNotification(
       title: 'Raccolta confermata',
       body: 'Il punto segnalato in Via Roma è stato verificato dalla community.',
       timeLabel: 'Ieri',
       read: true,
-      icon: Icons.check_circle_outline,
+      icon: AppIcons.statusCleaned,
     ),
     _MockNotification(
       title: 'Promemoria',
       body: 'Completa il profilo per ricevere avvisi personalizzati.',
       timeLabel: '3 giorni fa',
       read: true,
-      icon: Icons.person_outline,
+      icon: AppIcons.user,
     ),
   ];
 
@@ -184,11 +185,11 @@ class NotificheScreen extends StatelessWidget {
   static IconData _iconForType(String? type) {
     switch (type) {
       case 'report':
-        return Icons.report_outlined;
+        return AppIcons.flag;
       case 'success':
-        return Icons.check_circle_outline;
+        return AppIcons.statusCleaned;
       default:
-        return Icons.notifications_outlined;
+        return AppIcons.notifications;
     }
   }
 
@@ -273,7 +274,7 @@ class _InfoBanner extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: cs.onSecondaryContainer, size: 22),
+            Icon(AppIcons.info, color: cs.onSecondaryContainer, size: 22),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -302,7 +303,7 @@ class _EmptyState extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 48, 32, 48),
       child: Column(
         children: [
-          Icon(Icons.notifications_off_outlined, size: 56, color: cs.outline),
+          Icon(AppIcons.notificationsOff, size: 56, color: cs.outline),
           const SizedBox(height: 16),
           Text(
             'Nessuna notifica',
