@@ -96,13 +96,15 @@ tutto ok                  → App (Mappa / Classifica / Profilo)
 - Dopo il login rilegge il flag di onboarding prima di decidere la destinazione.
 
 ### 2.4 Onboarding
-**Schermata:** `onboarding_screen.dart`, mostrato **una sola volta** agli account nuovi.
+**Schermata:** `onboarding_screen.dart`, mostrato **una sola volta** agli account nuovi. Usa sempre il tema chiaro, perché le illustrazioni flat vector (`assets/onboarding/`) sono disegnate su fondo chiaro.
 
-1. **Benvenuto:** spiega lo scopo dell'app.
-2. **Completa il profilo:**
-   - foto profilo (fotocamera o galleria);
-   - username, già compilato se inserito alla registrazione;
-   - "Completa" oppure "Salta per ora".
+1. **Segnala:** "Hai visto dei rifiuti? Segnalali in 10 secondi".
+2. **Pulisci:** "Ripuliamo insieme".
+3. **Classifica:** "Ogni gesto conta (e fa punti)".
+4. **Posizione:** "Ci serve la tua posizione". Spiega perché serve il GPS **prima** del popup di Android, che parte solo premendo "Consenti la posizione". Una richiesta senza spiegazione viene rifiutata molto più spesso.
+5. **Profilo:** "Come ti chiamiamo?", con foto (fotocamera o galleria) e username già compilato se inserito alla registrazione. Poi "Inizia" oppure "Salta per ora".
+
+**Navigazione:** le prime tre pagine si scorrono anche con lo swipe. "Salta" porta alla pagina della posizione, non oltre. Puntini di avanzamento arancioni.
 
 Il flag `onboardingComplete: true` impedisce che l'onboarding si ripresenti.
 

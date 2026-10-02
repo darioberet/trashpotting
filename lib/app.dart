@@ -56,7 +56,11 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
     _themeController.addListener(_onThemeChanged);
     _themeController.load();
     _router = GoRouter(
-      initialLocation: AppRoutes.login,
+      // Utente già loggato all'avvio: si parte dalla Mappa (il redirect lo
+      // porta a verifica email o onboarding se servono).
+      initialLocation: _session.currentUserId != null
+          ? AppRoutes.mappa
+          : AppRoutes.login,
       refreshListenable: _session,
       // Solo tracking automatico delle schermate per ora, nessun evento
       // custom (a differenza di Crashlytics, Analytics supporta anche web).
@@ -77,10 +81,13 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
         final onboarded = _session.onboardingComplete;
 
         if (!isSignedIn && !isPublicRoute) return AppRoutes.login;
-        if (isSignedIn && isAuthRoute) {
-          if (!emailVerified) return AppRoutes.emailVerification;
-          return onboarded ? AppRoutes.mappa : AppRoutes.onboarding;
-        }
+        // Durante login e registrazione è la schermata stessa a navigare,
+        // dopo aver letto da Firestore il flag di onboarding. Redirigere qui
+        // userebbe il valore ottimistico (true) e mostrerebbe per un istante
+        // la Mappa, che chiede subito il permesso di posizione, prima
+        // dell'onboarding. All'avvio con utente già loggato ci pensa
+        // initialLocation.
+        if (isSignedIn && isAuthRoute) return null;
         if (isSignedIn && !emailVerified && !isVerifyRoute) {
           return AppRoutes.emailVerification;
         }
