@@ -11,6 +11,7 @@ import 'screens/impostazioni_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/mie_segnalazioni_screen.dart';
+import 'screens/moderazione_screen.dart';
 import 'screens/notifiche_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/register_screen.dart';
@@ -20,6 +21,7 @@ import 'state/app_session.dart';
 import 'state/theme_controller.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
+import 'widgets/blocked_gate.dart';
 import 'widgets/location_gate.dart';
 
 class TrashpottingApp extends StatefulWidget {
@@ -151,6 +153,14 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
           path: AppRoutes.aiutoFeedback,
           builder: (context, state) => const AiutoFeedbackScreen(),
         ),
+        GoRoute(
+          path: AppRoutes.moderazione,
+          // Solo admin: chi non lo è torna al Profilo (le regole Firestore
+          // impedirebbero comunque di leggere la coda).
+          redirect: (context, state) =>
+              _session.isAdmin ? null : AppRoutes.profilo,
+          builder: (context, state) => ModerazioneScreen(),
+        ),
       ],
       errorBuilder: (context, state) => Scaffold(
         body: Center(
@@ -251,7 +261,11 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
                   _session.emailVerified &&
                   _session.onboardingComplete,
               onSignOut: () => AuthService().signOut(),
-              child: child ?? const SizedBox.shrink(),
+              child: BlockedGate(
+                blocked: _session.currentUserId != null && _session.blocked,
+                onSignOut: () => AuthService().signOut(),
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         ),

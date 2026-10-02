@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// Regole di sicurezza Storage di Trashpotting.
+// Percorsi (lib/services/photo_upload_service.dart):
+//   report_photos/{uid}/{file}
+//   profile_photos/{uid}/{file}
+//   cleanup_photos/{reportId}/{uid}/{file}
+// Ognuno carica solo nella propria cartella, solo immagini fino a 5 MB.
+// Gli admin possono eliminare qualsiasi foto (rimozione di contenuti).
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.get('admin', false) == true;
+    }
+
+    function isImageUpload() {
+      return request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /report_photos/{uid}/{file} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && isImageUpload();
+      allow delete: if (request.auth != null && request.auth.uid == uid)
+        || isAdmin();
+    }
+
+    match /profile_photos/{uid}/{file} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && isImageUpload();
+      allow delete: if (request.auth != null && request.auth.uid == uid)
+        || isAdmin();
+    }
+
+    match /cleanup_photos/{reportId}/{uid}/{file} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && isImageUpload();
+      allow delete: if (request.auth != null && request.auth.uid == uid)
+        || isAdmin();
+    }
+  }
+}

@@ -1,0 +1,172 @@
+rules_version = '2';
+
+// Regole di sicurezza Firestore di Trashpotting.
+//
+// Principi:
+// - Si legge solo da autenticati; si scrive solo i campi che l'app tocca
+//   davvero, per ogni operazione (vedi lib/repositories/*).
+// - Gli admin sono riconosciuti dalla custom claim `admin: true` sul token
+//   (impostata con tool/set_admin.js).
+// - Un utente bloccato (`users/{uid}.blocked == true`) può ancora leggere
+//   ma non creare né modificare contenuti.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    function verified() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBlocked() {
+      let profile = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(profile) && get(profile).data.get('blocked', false) == true;
+    }
+
+    // Utente che può creare/modificare contenuti.
+    function canContribute() {
+      return verified() && !isBlocked();
+    }
+
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // Profilo pubblico incorporato nei report (evento, partecipanti, chi
+    // pulisce): mai l'email.
+    function isOwnProfile(p) {
+      return p is map
+        && p.keys().hasOnly(['uid', 'username'])
+        && p.uid == request.auth.uid;
+    }
+
+    // ── Profili ────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if signedIn();
+
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(
+             ['username', 'updatedAt', 'createdAt', 'onboardingComplete']);
+
+      // Il proprietario aggiorna il proprio profilo ma non lo stato di
+      // blocco; l'admin aggiorna solo lo stato di blocco.
+      allow update: if
+        (signedIn() && request.auth.uid == uid
+          && !changed().hasAny(['blocked', 'blockedAt', 'blockedBy'])
+          && request.resource.data.keys().hasOnly(
+               ['username', 'updatedAt', 'createdAt', 'onboardingComplete',
+                'blocked', 'blockedAt', 'blockedBy']))
+        || (isAdmin()
+          && changed().hasOnly(['blocked', 'blockedAt', 'blockedBy']));
+
+      allow delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+      match /notifications/{notificationId} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow update: if signedIn() && request.auth.uid == uid
+          && changed().hasOnly(['read']);
+      }
+    }
+
+    // ── Segnalazioni ───────────────────────────────────────────────────────
+    match /reports/{reportId} {
+      allow read: if signedIn();
+
+      allow create: if canContribute()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'segnalata'
+        && request.resource.data.latitude is number
+        && request.resource.data.longitude is number
+        && request.resource.data.keys().hasOnly(
+             ['note', 'photoUrl', 'latitude', 'longitude', 'geohash', 'uid',
+              'status', 'type', 'address', 'createdAt']);
+
+      allow update: if canContribute() && (
+        // "Voglio pulire questa zona" / "Passa a pulizia in corso".
+        (changed().hasOnly(['status', 'cleaningOwner', 'cleaningStartedAt'])
+          && request.resource.data.status == 'puliziaInCorso'
+          && isOwnProfile(request.resource.data.cleaningOwner)
+          && resource.data.get('cleaningOwner', null) == null
+          && (resource.data.get('event', null) == null
+              || resource.data.event.creator.uid == request.auth.uid))
+        // Pulizia completata con foto finale.
+        || (changed().hasOnly(['status', 'cleanupPhotoUrl', 'cleanedAt'])
+          && request.resource.data.status == 'ripulita'
+          && resource.data.get('cleaningOwner', null) != null
+          && resource.data.cleaningOwner.uid == request.auth.uid)
+        // Creazione evento di pulizia.
+        || (changed().hasOnly(['status', 'event'])
+          && request.resource.data.status == 'eventoCreato'
+          && resource.data.get('event', null) == null
+          && isOwnProfile(request.resource.data.event.creator))
+        // Partecipazione: cambia solo l'elenco partecipanti, aggiungendo sé
+        // stessi.
+        || (changed().hasOnly(['event'])
+          && resource.data.get('event', null) != null
+          && request.resource.data.event.creator == resource.data.event.creator
+          && request.resource.data.event.scheduledAt == resource.data.event.scheduledAt
+          && request.resource.data.event.participants.size()
+               == resource.data.event.participants.size() + 1)
+      )
+      // Eliminazione account: l'autore anonimizza le proprie segnalazioni
+      // (consentito anche se bloccato).
+      || (signedIn()
+          && changed().hasOnly(['uid'])
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.uid == null);
+
+      allow delete: if isAdmin();
+    }
+
+    // Archivio delle segnalazioni rimosse dagli admin.
+    match /removedReports/{reportId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Classifica ─────────────────────────────────────────────────────────
+    // Ognuno scrive solo la propria riga, aumentando i punti di 1 o 2 per
+    // volta (segnalazione / pulizia). Il limite è sulla singola scrittura:
+    // impedire ripetizioni abusive richiederebbe una Cloud Function.
+    match /leaderboard/{uid} {
+      allow read: if signedIn();
+
+      allow create: if canContribute() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['username', 'points'])
+        && request.resource.data.points in [1, 2];
+
+      allow update: if canContribute() && request.auth.uid == uid
+        && changed().hasOnly(['username', 'points'])
+        && request.resource.data.points - resource.data.get('points', 0)
+             in [0, 1, 2];
+
+      allow delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
+    }
+
+    // ── Contenuti segnalati dagli utenti (moderazione) ─────────────────────
+    // Id = `{reportId}_{uid}`: una sola segnalazione per utente e report.
+    match /flags/{flagId} {
+      // Leggere la propria segnalazione (o verificare che non esista ancora)
+      // serve all'app per non far segnalare due volte lo stesso contenuto.
+      allow get: if isAdmin()
+        || (signedIn() && (resource == null
+              || resource.data.reporterUid == request.auth.uid));
+      allow list, update, delete: if isAdmin();
+
+      allow create: if canContribute()
+        && flagId == request.resource.data.reportId + '_' + request.auth.uid
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 300
+        && request.resource.data.keys().hasOnly(
+             ['reportId', 'reporterUid', 'reportAuthorUid', 'reason',
+              'status', 'createdAt']);
+    }
+  }
+}

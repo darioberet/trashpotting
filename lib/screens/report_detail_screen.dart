@@ -10,6 +10,7 @@ import '../core/marker_icons.dart';
 import '../models/app_user_profile.dart';
 import '../models/trashpot_report.dart';
 import '../repositories/leaderboard_repository.dart';
+import '../repositories/moderation_repository.dart';
 import '../repositories/report_repository.dart';
 import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
@@ -20,6 +21,7 @@ import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
 import '../widgets/image_source_bottom_sheet.dart';
+import '../widgets/moderation_actions.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   ReportDetailScreen({
@@ -49,6 +51,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   bool _busy = false;
   GpsPosition? _userPosition;
   final _userProfileRepository = UserProfileRepository();
+  final _moderation = ModerationRepository();
   String? _reporterLabel;
   String? _loadedReporterForUid;
 
@@ -335,6 +338,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 icon: const Icon(Icons.ios_share_outlined),
                 tooltip: 'Condividi',
                 onPressed: () => _share(report),
+              ),
+              _ReportMenu(
+                report: report,
+                isAdmin: session.isAdmin,
+                isOwn: report.reporterUid == session.currentUserId,
+                moderation: _moderation,
               ),
             ],
           ),
@@ -685,6 +694,90 @@ class _TypeDistanceChip extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+enum _ReportMenuAction { flag, remove, blockAuthor }
+
+/// Menu ⋮ del dettaglio: "Segnala contenuto" per tutti (non sulle proprie
+/// segnalazioni), azioni di moderazione per gli admin.
+class _ReportMenu extends StatelessWidget {
+  const _ReportMenu({
+    required this.report,
+    required this.isAdmin,
+    required this.isOwn,
+    required this.moderation,
+  });
+
+  final TrashpotReport report;
+  final bool isAdmin;
+  final bool isOwn;
+  final ModerationRepository moderation;
+
+  @override
+  Widget build(BuildContext context) {
+    final error = Theme.of(context).colorScheme.error;
+    final authorUid = report.reporterUid;
+    final items = <PopupMenuEntry<_ReportMenuAction>>[
+      if (!isOwn)
+        const PopupMenuItem(
+          value: _ReportMenuAction.flag,
+          child: ListTile(
+            leading: Icon(Icons.flag_outlined),
+            title: Text('Segnala contenuto'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (isAdmin) ...[
+        if (!isOwn) const PopupMenuDivider(),
+        PopupMenuItem(
+          value: _ReportMenuAction.remove,
+          child: ListTile(
+            leading: Icon(Icons.delete_outline, color: error),
+            title: Text('Rimuovi segnalazione', style: TextStyle(color: error)),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        if (authorUid != null && !isOwn)
+          PopupMenuItem(
+            value: _ReportMenuAction.blockAuthor,
+            child: ListTile(
+              leading: Icon(Icons.block, color: error),
+              title: Text('Blocca autore', style: TextStyle(color: error)),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+      ],
+    ];
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return PopupMenuButton<_ReportMenuAction>(
+      tooltip: 'Altre azioni',
+      itemBuilder: (_) => items,
+      onSelected: (action) async {
+        switch (action) {
+          case _ReportMenuAction.flag:
+            await showFlagReportDialog(
+              context,
+              moderation: moderation,
+              report: report,
+            );
+          case _ReportMenuAction.remove:
+            final removed = await confirmRemoveReport(
+              context,
+              moderation: moderation,
+              reportId: report.id,
+            );
+            if (removed && context.mounted && context.canPop()) context.pop();
+          case _ReportMenuAction.blockAuthor:
+            await confirmBlockUser(
+              context,
+              moderation: moderation,
+              uid: authorUid!,
+            );
+        }
+      },
     );
   }
 }

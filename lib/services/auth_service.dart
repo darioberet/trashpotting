@@ -42,7 +42,22 @@ class AuthService {
   }
 
   Future<void> reloadCurrentUser() async {
-    await _auth.currentUser?.reload();
+    final user = _auth.currentUser;
+    if (user == null) return;
+    await user.reload();
+    // Le regole Firestore leggono `email_verified` dal token: senza
+    // rinnovarlo, subito dopo la verifica le scritture verrebbero rifiutate
+    // fino alla scadenza del token (1 ora).
+    if (user.emailVerified) await user.getIdToken(true);
+  }
+
+  /// Custom claim `admin` (impostata con tool/set_admin.js). Rinnova il
+  /// token per vedere subito una claim appena aggiunta o rimossa.
+  Future<bool> currentUserIsAdmin({bool forceRefresh = false}) async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    final result = await user.getIdTokenResult(forceRefresh);
+    return result.claims?['admin'] == true;
   }
 
   bool get currentUserEmailVerified =>

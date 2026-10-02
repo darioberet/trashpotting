@@ -46,3 +46,10 @@ app.*.map.json
 
 # Machine-specific; put GOOGLE_MAPS_API_KEY here (do not commit real keys).
 /android/local.properties
+
+# Tool Node (test regole) ed emulatori Firebase
+node_modules/
+firebase-debug.log
+firestore-debug.log
+storage-debug.log
+ui-debug.log

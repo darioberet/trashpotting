@@ -323,6 +323,12 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
             label: 'Le mie segnalazioni',
             onTap: () => context.push(AppRoutes.mieSegnalazioni),
           ),
+        if (firebaseReady && userId != null && session.isAdmin)
+          _MenuTile(
+            icon: Icons.shield_outlined,
+            label: 'Moderazione',
+            onTap: () => context.push(AppRoutes.moderazione),
+          ),
         // Notifiche, Debug Firebase e Logout non sono nel mockup: nascoste
         // per fedeltà visiva, non rimosse — restano raggiungibili altrove
         // (Notifiche dalla campanella nelle altre tab) finché non si decide

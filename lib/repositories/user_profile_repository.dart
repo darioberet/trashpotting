@@ -40,6 +40,19 @@ class UserProfileRepository {
     }, SetOptions(merge: true));
   }
 
+  /// Username e stato di blocco dell'account, aggiornati in tempo reale:
+  /// un blocco deciso da un admin deve arrivare senza riavviare l'app.
+  Stream<({String? username, bool blocked})> watchAccount(String uid) {
+    return _firestore.collection('users').doc(uid).snapshots().map((doc) {
+      final data = doc.data() ?? const <String, dynamic>{};
+      final username = data['username'];
+      return (
+        username: username is String ? username : null,
+        blocked: data['blocked'] == true,
+      );
+    });
+  }
+
   Future<void> setUsername(String uid, String username) {
     return _firestore.collection('users').doc(uid).set({
       'username': username,

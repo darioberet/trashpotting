@@ -54,6 +54,13 @@ class AppSession extends ChangeNotifier {
   // Username dell'utente corrente, letto da `users/{uid}` su Firestore
   // (unica fonte del nome: non si usa User.displayName di Firebase Auth).
   String? _username;
+  // Moderazione: ruolo dalla custom claim `admin` del token, blocco da
+  // `users/{uid}.blocked`. La sicurezza vera è nelle regole Firestore:
+  // qui servono solo a mostrare o nascondere UI.
+  bool _isAdmin = false;
+  bool _blocked = false;
+  StreamSubscription<({String? username, bool blocked})>? _accountSub;
+  String? _watchedUid;
 
   bool get firebaseReady => _firebaseReady;
   Object? get firebaseError => _firebaseError;
@@ -62,7 +69,48 @@ class AppSession extends ChangeNotifier {
   bool get emailVerified => _currentUser?.emailVerified ?? false;
   bool get onboardingComplete => _onboardingComplete;
   String? get username => _username;
+  bool get isAdmin => _isAdmin;
+  bool get blocked => _blocked;
   AppUiMessage? get message => _message;
+
+  /// Rilegge la claim admin forzando il rinnovo del token: una claim
+  /// aggiunta da tool/set_admin.js altrimenti arriva solo dopo ~1 ora.
+  Future<void> refreshAdminClaim() async {
+    final user = (_auth ?? FirebaseAuth.instance).currentUser;
+    var admin = false;
+    if (user != null) {
+      try {
+        final token = await user.getIdTokenResult(true);
+        admin = token.claims?['admin'] == true;
+      } catch (_) {
+        admin = _isAdmin; // rete assente: resta il valore noto
+      }
+    }
+    if (admin != _isAdmin) {
+      _isAdmin = admin;
+      notifyListeners();
+    }
+  }
+
+  void _watchAccount(String? uid) {
+    if (uid == _watchedUid) return;
+    _watchedUid = uid;
+    _accountSub?.cancel();
+    _accountSub = null;
+    if (uid == null) return;
+    _accountSub = _userProfileRepository.watchAccount(uid).listen(
+      (account) {
+        if (account.username == _username && account.blocked == _blocked) {
+          return;
+        }
+        _username = account.username ?? _username;
+        _blocked = account.blocked;
+        notifyListeners();
+      },
+      // Permessi/rete: non bloccare l'utente per un errore di lettura.
+      onError: (_) {},
+    );
+  }
 
   /// Profilo pubblico dell'utente corrente, da incorporare nei report
   /// (evento, partecipanti, chi pulisce) o da passare alla classifica.
@@ -180,6 +228,8 @@ class AppSession extends ChangeNotifier {
     _currentUserId = _currentUser?.uid;
     if (_currentUserId != null) {
       unawaited(_refreshOnboardingStatus(_currentUserId!));
+      unawaited(refreshAdminClaim());
+      _watchAccount(_currentUserId);
     }
     _authSub = auth.authStateChanges().listen((user) {
       _currentUser = user;
@@ -187,9 +237,13 @@ class AppSession extends ChangeNotifier {
       if (user == null) {
         _onboardingComplete = true; // reset all'uscita
         _username = null;
+        _isAdmin = false;
+        _blocked = false;
       } else {
         unawaited(_refreshOnboardingStatus(user.uid));
+        unawaited(refreshAdminClaim());
       }
+      _watchAccount(user?.uid);
       notifyListeners();
     });
   }
@@ -197,6 +251,7 @@ class AppSession extends ChangeNotifier {
   @override
   void dispose() {
     _authSub?.cancel();
+    _accountSub?.cancel();
     super.dispose();
   }
 }

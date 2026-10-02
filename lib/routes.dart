@@ -13,5 +13,6 @@ abstract final class AppRoutes {
   static const mieSegnalazioni = '/app/mie-segnalazioni';
   static const aiutoFeedback = '/app/aiuto-feedback';
   static const reportDetail = '/app/report';
+  static const moderazione = '/app/moderazione';
   static const debugFirebase = '/debug/firebase';
 }
