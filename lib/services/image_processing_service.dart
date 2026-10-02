@@ -2,6 +2,15 @@ import 'dart:io';
 
 import 'package:image/image.dart' as img;
 
+/// La foto non è un'immagine leggibile: non si carica, perché caricare il
+/// file originale ne pubblicherebbe i metadati (GPS, modello del telefono).
+class ImageProcessingException implements Exception {
+  const ImageProcessingException();
+
+  @override
+  String toString() => 'Foto non valida o danneggiata. Scegline un\'altra.';
+}
+
 class ImageProcessingService {
   const ImageProcessingService({
     this.maxWidth = 1600,
@@ -21,9 +30,13 @@ class ImageProcessingService {
     return outputBytes.length;
   }
 
+  /// Ridimensiona, comprime e **rimuove tutti i metadati EXIF** (coordinate
+  /// GPS, modello del telefono, data): le foto sono visibili a tutti gli
+  /// utenti e il GPS di una foto profilo può rivelare dove abita qualcuno.
+  /// Lancia [ImageProcessingException] se la foto non è leggibile.
   Future<String> resizeAndCompress(String localPath) async {
     final processed = await _prepareImage(localPath);
-    if (processed == null) return localPath;
+    if (processed == null) throw const ImageProcessingException();
 
     final outputBytes = img.encodeJpg(processed, quality: jpegQuality);
 
@@ -41,10 +54,19 @@ class ImageProcessingService {
     if (!await source.exists()) return null;
 
     final sourceBytes = await source.readAsBytes();
-    final decoded = img.decodeImage(sourceBytes);
+    img.Image? decoded;
+    try {
+      decoded = img.decodeImage(sourceBytes);
+    } catch (_) {
+      // File troncato o non immagine: alcuni decoder lanciano invece di
+      // restituire null.
+      return null;
+    }
     if (decoded == null) return null;
 
-    final oriented = img.bakeOrientation(decoded);
+    // bakeOrientation applica la rotazione ai pixel ma lascia il resto
+    // dell'EXIF, che encodeJpg riscriverebbe nel file finale.
+    final oriented = img.bakeOrientation(decoded)..exif = img.ExifData();
     return _resizeIfNeeded(oriented);
   }
 

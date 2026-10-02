@@ -67,6 +67,16 @@ class _NoopReportRepository implements ReportRepository {
   Future<void> anonymizeUserReports(String uid) async {}
 
   @override
+  Future<List<TrashpotReport>> findActiveNearby({
+    required double latitude,
+    required double longitude,
+    double radiusMeters = duplicateRadiusMeters,
+  }) async => const [];
+
+  @override
+  Future<int> remainingReportsToday(String uid) async => maxReportsPerDay;
+
+  @override
   Future<int> countByUser(String uid) async => 0;
 }
 

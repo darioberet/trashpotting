@@ -18,6 +18,7 @@ import {
   increment,
   deleteField,
   Timestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { ref, uploadBytes, deleteObject } from 'firebase/storage';
 
@@ -43,6 +44,16 @@ const newReport = (uid) => ({
   address: 'Via Roma',
   createdAt: serverTimestamp(),
 });
+
+const today = () => Math.floor(Date.now() / 86400000);
+
+/** Crea una segnalazione come fa l'app: report + contatore nello stesso batch. */
+function createReport(db, id, data, quota) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, `reports/${id}`), data);
+  batch.update(doc(db, `users/${data.uid}`), { reportQuota: quota });
+  return batch.commit();
+}
 
 async function seed(path, data) {
   await env.withSecurityRulesDisabled(async (ctx) => {
@@ -106,19 +117,43 @@ describe('profili', () => {
 });
 
 describe('segnalazioni', () => {
-  test('un utente verificato crea una segnalazione propria', async () => {
-    await assertSucceeds(setDoc(doc(fs('bruno'), 'reports/r2'), newReport('bruno')));
+  test('un utente verificato crea una segnalazione propria (con contatore)', async () => {
+    await assertSucceeds(createReport(fs('bruno'), 'r2', newReport('bruno'), { day: today(), count: 1 }));
+  });
+
+  test('senza aggiornare il contatore la segnalazione è rifiutata', async () => {
+    await assertFails(setDoc(doc(fs('bruno'), 'reports/r2'), newReport('bruno')));
   });
 
   test('non può crearla a nome di altri, già pulita o con campi extra', async () => {
-    await assertFails(setDoc(doc(fs('bruno'), 'reports/r2'), newReport('alice')));
-    await assertFails(setDoc(doc(fs('bruno'), 'reports/r2'), { ...newReport('bruno'), status: 'ripulita' }));
-    await assertFails(setDoc(doc(fs('bruno'), 'reports/r2'), { ...newReport('bruno'), points: 99 }));
+    const q = { day: today(), count: 1 };
+    await assertFails(createReport(fs('bruno'), 'r2', newReport('alice'), q));
+    await assertFails(createReport(fs('bruno'), 'r2', { ...newReport('bruno'), status: 'ripulita' }, q));
+    await assertFails(createReport(fs('bruno'), 'r2', { ...newReport('bruno'), points: 99 }, q));
   });
 
   test('email non verificata o utente bloccato non possono creare', async () => {
-    await assertFails(setDoc(doc(fs('bruno', { email_verified: false }), 'reports/r2'), newReport('bruno')));
-    await assertFails(setDoc(doc(fs('mallory'), 'reports/r2'), newReport('mallory')));
+    const q = { day: today(), count: 1 };
+    await assertFails(createReport(fs('bruno', { email_verified: false }), 'r2', newReport('bruno'), q));
+    await assertFails(createReport(fs('mallory'), 'r2', newReport('mallory'), q));
+  });
+
+  test("limite giornaliero: l'11ª segnalazione è rifiutata", async () => {
+    await seed('users/bruno', { username: 'Bruno', reportQuota: { day: today(), count: 9 } });
+    await assertSucceeds(createReport(fs('bruno'), 'r10', newReport('bruno'), { day: today(), count: 10 }));
+    await assertFails(createReport(fs('bruno'), 'r11', newReport('bruno'), { day: today(), count: 11 }));
+  });
+
+  test('il contatore non si può azzerare né spostare in avanti', async () => {
+    await seed('users/bruno', { username: 'Bruno', reportQuota: { day: today(), count: 10 } });
+    await assertFails(updateDoc(doc(fs('bruno'), 'users/bruno'), { reportQuota: { day: today(), count: 0 } }));
+    await assertFails(createReport(fs('bruno'), 'r2', newReport('bruno'), { day: today(), count: 1 }));
+    await assertFails(createReport(fs('bruno'), 'r2', newReport('bruno'), { day: today() + 1, count: 1 }));
+  });
+
+  test('il giorno dopo il contatore riparte da 1', async () => {
+    await seed('users/bruno', { username: 'Bruno', reportQuota: { day: today() - 1, count: 10 } });
+    await assertSucceeds(createReport(fs('bruno'), 'r2', newReport('bruno'), { day: today(), count: 1 }));
   });
 
   test('flusso pulizia: presa in carico e completamento', async () => {

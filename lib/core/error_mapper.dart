@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../repositories/report_repository.dart';
+import '../services/image_processing_service.dart';
+
 String mapAppError(
   Object error, {
   String fallback = 'Si e verificato un errore.',
@@ -66,6 +69,11 @@ String mapAppError(
   // messaggio è già scritto per l'utente.
   if (error is ArgumentError && error.message is String) {
     return error.message as String;
+  }
+
+  if (error is ImageProcessingException ||
+      error is ReportQuotaExceededException) {
+    return error.toString();
   }
 
   if (error is TimeoutException) {

@@ -51,6 +51,16 @@ class _FakeReportRepository implements ReportRepository {
   final Map<String, int> countsByUid;
 
   @override
+  Future<List<TrashpotReport>> findActiveNearby({
+    required double latitude,
+    required double longitude,
+    double radiusMeters = duplicateRadiusMeters,
+  }) async => const [];
+
+  @override
+  Future<int> remainingReportsToday(String uid) async => maxReportsPerDay;
+
+  @override
   Future<int> countByUser(String uid) async => countsByUid[uid] ?? 0;
 
   @override

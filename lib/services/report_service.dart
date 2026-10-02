@@ -31,6 +31,12 @@ class ReportService {
     if (cleaned.length < 10) {
       throw ArgumentError.value(note, 'note', 'Inserisci almeno 10 caratteri.');
     }
+    // Prima della foto: se il limite giornaliero è raggiunto, la foto
+    // resterebbe caricata ma orfana. Il controllo vincolante è comunque
+    // quello delle regole Firestore al momento dell'invio.
+    if (uid != null && await _repository.remainingReportsToday(uid) <= 0) {
+      throw const ReportQuotaExceededException();
+    }
 
     String? photoUrl;
     if (photoPath != null && photoPath.trim().isNotEmpty) {

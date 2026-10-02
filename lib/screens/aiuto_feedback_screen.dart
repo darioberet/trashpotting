@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/legal.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
@@ -70,10 +71,30 @@ class AiutoFeedbackScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Aiuto e feedback')),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: FilledButton.icon(
-          onPressed: () => _writeToUs(context),
-          icon: const Icon(Icons.mail_outline),
-          label: const Text('Scrivici'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: () => LegalLinks.open(LegalLinks.privacy),
+                  child: const Text('Informativa privacy'),
+                ),
+                TextButton(
+                  onPressed: () => LegalLinks.open(LegalLinks.terms),
+                  child: const Text('Termini d\'uso'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            FilledButton.icon(
+              onPressed: () => _writeToUs(context),
+              icon: const Icon(Icons.mail_outline),
+              label: const Text('Scrivici'),
+            ),
+          ],
         ),
       ),
       body: ListView.separated(

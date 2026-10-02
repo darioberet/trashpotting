@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
 import '../core/form_validators.dart';
+import '../core/legal.dart';
 import '../repositories/user_profile_repository.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
@@ -36,6 +37,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmFocus = FocusNode();
 
   bool _busy = false;
+  bool _termsAccepted = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
@@ -73,6 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         await widget._userProfileRepository.ensureProfile(
           user.uid,
           username: username.isEmpty ? null : username,
+          acceptedTermsVersion: _termsAccepted ? LegalLinks.version : null,
         );
         if (username.isNotEmpty) session.setUsername(username);
         // Solo qui il flag viene esplicitamente impostato a false: è
@@ -213,6 +216,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         validator: _validateConfirm,
                       ),
+                      const SizedBox(height: 8),
+                      // Obbligatorio (GDPR e Google Play): senza accettazione
+                      // il form non è valido e la registrazione non parte.
+                      FormField<bool>(
+                        initialValue: false,
+                        validator: (v) => v == true
+                            ? null
+                            : 'Per registrarti devi accettare termini e privacy',
+                        builder: (field) => _TermsCheckbox(
+                          value: field.value ?? false,
+                          errorText: field.errorText,
+                          onChanged: (v) {
+                            field.didChange(v);
+                            _termsAccepted = v;
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -242,6 +262,85 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// "Ho letto e accetto i Termini d'uso e l'Informativa privacy", con i due
+/// link apribili.
+class _TermsCheckbox extends StatelessWidget {
+  const _TermsCheckbox({
+    required this.value,
+    required this.onChanged,
+    this.errorText,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final style = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant, fontSize: 13);
+    final linkStyle = style?.copyWith(
+      color: cs.primary,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+    );
+
+    WidgetSpan link(String label, Uri uri) => WidgetSpan(
+      alignment: PlaceholderAlignment.baseline,
+      baseline: TextBaseline.alphabetic,
+      child: InkWell(
+        onTap: () => LegalLinks.open(uri),
+        child: Text(label, style: linkStyle),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: value,
+              onChanged: (v) => onChanged(v ?? false),
+              isError: errorText != null,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text.rich(
+                  TextSpan(
+                    style: style,
+                    children: [
+                      const TextSpan(
+                        text: 'Ho almeno 14 anni, ho letto e accetto i ',
+                      ),
+                      link('Termini d\'uso', LegalLinks.terms),
+                      const TextSpan(text: ' e l\''),
+                      link('Informativa privacy', LegalLinks.privacy),
+                      const TextSpan(text: '.'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              errorText!,
+              style: TextStyle(color: cs.error, fontSize: 12),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -7,7 +7,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 
+import '../core/geo_utils.dart';
+import '../models/trashpot_report.dart';
+import '../repositories/report_repository.dart';
+import '../routes.dart';
 import '../services/location_service.dart';
 import '../services/media_picker_service.dart';
 import '../services/report_service.dart';
@@ -25,12 +30,15 @@ class SegnalaScreen extends StatefulWidget {
     MediaPickerService? mediaPickerService,
     LocationService? locationService,
     ImageProcessingService? imageProcessingService,
-  }) : _reportService = reportService ?? ReportService(),
+    ReportRepository? reportRepository,
+  }) : _reportRepository = reportRepository ?? FirestoreReportRepository(),
+       _reportService = reportService ?? ReportService(),
        _mediaPickerService = mediaPickerService ?? MediaPickerService(),
        _locationService = locationService ?? LocationService(),
        _imageProcessingService =
            imageProcessingService ?? const ImageProcessingService();
 
+  final ReportRepository _reportRepository;
   final ReportService _reportService;
   final MediaPickerService _mediaPickerService;
   final LocationService _locationService;
@@ -56,12 +64,72 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
     });
   }
 
+  /// Avvisa se entro [duplicateRadiusMeters] c'è già una segnalazione attiva.
+  /// Restituisce true se si può procedere con l'invio.
+  Future<bool> _confirmNotDuplicate() async {
+    final lat = _viewModel.latitude;
+    final lng = _viewModel.longitude;
+    if (lat == null || lng == null) return true;
+
+    List<TrashpotReport> nearby;
+    try {
+      nearby = await widget._reportRepository.findActiveNearby(
+        latitude: lat,
+        longitude: lng,
+      );
+    } catch (_) {
+      return true; // il controllo è un aiuto, non deve bloccare l'invio
+    }
+    if (nearby.isEmpty || !mounted) return true;
+
+    final closest = nearby.reduce(
+      (a, b) =>
+          haversineKm(lat, lng, a.lat, a.lng) <=
+              haversineKm(lat, lng, b.lat, b.lng)
+          ? a
+          : b,
+    );
+    final meters = (haversineKm(lat, lng, closest.lat, closest.lng) * 1000)
+        .round();
+
+    final choice = await showDialog<_DuplicateChoice>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Forse è già stato segnalato'),
+        content: Text(
+          'A $meters m da qui c\'è già una segnalazione ancora da pulire:\n\n'
+          '«${closest.title}»'
+          '${nearby.length > 1 ? '\n\n(e altre ${nearby.length - 1} vicine)' : ''}'
+          '\n\nSe è lo stesso rifiuto, aprila invece di crearne una nuova.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(_DuplicateChoice.sendAnyway),
+            child: const Text('È un altro, invia'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(_DuplicateChoice.open),
+            child: const Text('Apri quella'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return false;
+    if (choice == _DuplicateChoice.open) {
+      context.push('${AppRoutes.reportDetail}/${closest.id}');
+      return false;
+    }
+    return choice == _DuplicateChoice.sendAnyway;
+  }
+
   Future<void> _send() async {
     if (_viewModel.sending) return;
     final session = AppSessionScope.of(context);
 
     final hasLocation = await _resolvePosition(forceRefresh: true);
     if (!hasLocation || !mounted) return;
+
+    if (!await _confirmNotDuplicate() || !mounted) return;
 
     await _viewModel.submit(
       firebaseReady: session.firebaseReady,
@@ -411,7 +479,9 @@ class _PhotoUploadArea extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'La foto aiuta la verifica',
+                'La foto aiuta la verifica.\n'
+                'Inquadra solo i rifiuti: niente volti né targhe.',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
                   color: context.palette.textSecondary,
@@ -670,3 +740,5 @@ class _TypeSelector extends StatelessWidget {
     );
   }
 }
+
+enum _DuplicateChoice { open, sendAnyway }

@@ -8,7 +8,8 @@ import '../models/trashpot_report.dart';
 const flagReasons = [
   'Foto o testo inappropriati',
   'Spam o segnalazione falsa',
-  'Dati personali visibili',
+  'Persone o targhe riconoscibili',
+  'Altri dati personali visibili',
   'Altro',
 ];
 

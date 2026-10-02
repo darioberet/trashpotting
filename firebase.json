@@ -27,6 +27,11 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "hosting": {
+    "public": "hosting",
+    "cleanUrls": true,
+    "ignore": ["firebase.json", "**/.*"]
+  },
   "emulators": {
     "firestore": { "port": 8080 },
     "storage": { "port": 9199 },

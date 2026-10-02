@@ -29,12 +29,23 @@ class UserProfileRepository {
   /// `users/{uid}` è leggibile dagli altri utenti (nome in segnalazioni e
   /// classifica), quindi non contiene mai l'email: quella resta in
   /// Firebase Auth.
-  Future<void> ensureProfile(String uid, {String? username}) async {
+  ///
+  /// [acceptedTermsVersion] registra quale versione di termini e privacy
+  /// l'utente ha accettato e quando (prova del consenso, GDPR).
+  Future<void> ensureProfile(
+    String uid, {
+    String? username,
+    int? acceptedTermsVersion,
+  }) async {
     final ref = _firestore.collection('users').doc(uid);
     final snap = await ref.get();
     final name = username?.trim();
     return ref.set({
       if (name != null && name.isNotEmpty) 'username': name,
+      if (acceptedTermsVersion != null) ...{
+        'termsVersion': acceptedTermsVersion,
+        'termsAcceptedAt': FieldValue.serverTimestamp(),
+      },
       'updatedAt': FieldValue.serverTimestamp(),
       if (!snap.exists) 'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

@@ -9,8 +9,37 @@ import '../models/report_filter.dart';
 import '../models/report_draft.dart';
 import '../models/trashpot_report.dart';
 
+/// Segnalazioni consentite per utente al giorno (giorno UTC). Va tenuto
+/// allineato a maxReportsPerDay() in firestore.rules.
+const maxReportsPerDay = 10;
+
+/// Entro questa distanza una segnalazione attiva è probabilmente lo stesso
+/// rifiuto: il GPS del telefono sbaglia facilmente di 10-20 m.
+const duplicateRadiusMeters = 30.0;
+
+class ReportQuotaExceededException implements Exception {
+  const ReportQuotaExceededException();
+
+  @override
+  String toString() =>
+      'Hai raggiunto il limite di $maxReportsPerDay segnalazioni per oggi. '
+      'Grazie per l\'impegno: riprova domani!';
+}
+
 abstract class ReportRepository {
   Future<void> submitReport({required ReportDraft draft, String? uid});
+
+  /// Segnalazioni ancora da pulire o in corso entro [radiusMeters]: usate per
+  /// avvisare di un possibile doppione prima dell'invio.
+  Future<List<TrashpotReport>> findActiveNearby({
+    required double latitude,
+    required double longitude,
+    double radiusMeters = duplicateRadiusMeters,
+  });
+
+  /// Segnalazioni ancora disponibili oggi per [uid]: controllato prima di
+  /// caricare la foto, per non lasciare file orfani su Storage.
+  Future<int> remainingReportsToday(String uid);
   Future<void> anonymizeUserReports(String uid);
   Future<int> countByUser(String uid);
   Stream<List<TrashpotReport>> watchReports({int limit = 50});
@@ -258,19 +287,88 @@ class FirestoreReportRepository implements ReportRepository {
   }
 
   @override
-  Future<void> submitReport({required ReportDraft draft, String? uid}) {
-    return _firestore.collection('reports').add({
-      'note': draft.note,
-      'photoUrl': draft.photoUrl,
-      'latitude': draft.latitude,
-      'longitude': draft.longitude,
-      if (draft.latitude != null && draft.longitude != null)
-        'geohash': geohashForLocation(draft.latitude!, draft.longitude!),
-      'uid': uid,
-      'status': 'segnalata',
-      'type': draft.type,
-      'address': draft.address,
-      'createdAt': FieldValue.serverTimestamp(),
+  Future<List<TrashpotReport>> findActiveNearby({
+    required double latitude,
+    required double longitude,
+    double radiusMeters = duplicateRadiusMeters,
+  }) async {
+    final active = [
+      ...ReportStatusGroup.daPulire.firestoreStatuses,
+      ...ReportStatusGroup.inCorso.firestoreStatuses,
+    ];
+    // Stesso indice status + geohash della mappa; a 30 m i range sono pochi
+    // e piccoli, quindi le letture sono una manciata.
+    final snaps = await Future.wait([
+      for (final (start, end) in geohashQueryBounds(
+        latitude,
+        longitude,
+        radiusMeters,
+      ))
+        _firestore
+            .collection('reports')
+            .where('status', whereIn: active)
+            .orderBy('geohash')
+            .startAt([start])
+            .endAt([end])
+            .limit(20)
+            .get(),
+    ]);
+    final byId = <String, TrashpotReport>{};
+    for (final report in snaps.expand(_parseDocs)) {
+      final meters =
+          haversineKm(latitude, longitude, report.lat, report.lng) * 1000;
+      if (meters <= radiusMeters) byId[report.id] = report;
+    }
+    return byId.values.toList();
+  }
+
+  static int _todayUtc() =>
+      DateTime.now().toUtc().millisecondsSinceEpoch ~/
+      Duration.millisecondsPerDay;
+
+  static int _usedToday(Map<String, dynamic>? userData, int today) {
+    final quota = userData?['reportQuota'];
+    if (quota is! Map || quota['day'] != today) return 0;
+    return (quota['count'] as num?)?.toInt() ?? 0;
+  }
+
+  @override
+  Future<int> remainingReportsToday(String uid) async {
+    final user = await _firestore.collection('users').doc(uid).get();
+    return maxReportsPerDay - _usedToday(user.data(), _todayUtc());
+  }
+
+  @override
+  Future<void> submitReport({required ReportDraft draft, String? uid}) async {
+    if (uid == null) throw StateError('Devi effettuare il login.');
+    final reportRef = _firestore.collection('reports').doc();
+    final userRef = _firestore.collection('users').doc(uid);
+
+    // Segnalazione e contatore giornaliero nella stessa transazione: le
+    // regole Firestore rifiutano una segnalazione che non incrementa il
+    // contatore (limite anti-spam, vedi firestore.rules).
+    await _firestore.runTransaction((tx) async {
+      final user = await tx.get(userRef);
+      final today = _todayUtc();
+      final count = _usedToday(user.data(), today);
+      if (count >= maxReportsPerDay) throw const ReportQuotaExceededException();
+
+      tx.set(reportRef, {
+        'note': draft.note,
+        'photoUrl': draft.photoUrl,
+        'latitude': draft.latitude,
+        'longitude': draft.longitude,
+        if (draft.latitude != null && draft.longitude != null)
+          'geohash': geohashForLocation(draft.latitude!, draft.longitude!),
+        'uid': uid,
+        'status': 'segnalata',
+        'type': draft.type,
+        'address': draft.address,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      tx.update(userRef, {
+        'reportQuota': {'day': today, 'count': count + 1},
+      });
     });
   }
 

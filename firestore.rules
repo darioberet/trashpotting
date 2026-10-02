@@ -38,6 +38,37 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
+    // ── Limite anti-spam: max 10 segnalazioni al giorno (giorno UTC) ────────
+    // Ogni nuova segnalazione aggiorna, nello stesso batch, il contatore
+    // `users/{uid}.reportQuota = {day, count}`. Le regole su `users`
+    // impediscono di azzerarlo; quelle su `reports` esigono che sia stato
+    // incrementato. Va tenuto allineato a maxReportsPerDay in
+    // lib/repositories/report_repository.dart.
+    function maxReportsPerDay() {
+      return 10;
+    }
+
+    function today() {
+      return math.floor(request.time.toMillis() / 86400000);
+    }
+
+    function validQuota(before, after) {
+      return after is map
+        && after.keys().hasOnly(['day', 'count'])
+        && after.day == today()
+        && after.count <= maxReportsPerDay()
+        && ((before != null && before.day == today()
+              && after.count == before.count + 1)
+            || ((before == null || before.day < today()) && after.count == 1));
+    }
+
+    function quotaBumpedInThisWrite() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path)
+        && getAfter(path).data.get('reportQuota', null)
+             != get(path).data.get('reportQuota', null);
+    }
+
     // Profilo pubblico incorporato nei report (evento, partecipanti, chi
     // pulisce): mai l'email.
     function isOwnProfile(p) {
@@ -52,7 +83,8 @@ service cloud.firestore {
 
       allow create: if signedIn() && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(
-             ['username', 'updatedAt', 'createdAt', 'onboardingComplete']);
+             ['username', 'updatedAt', 'createdAt', 'onboardingComplete',
+              'termsAcceptedAt', 'termsVersion']);
 
       // Il proprietario aggiorna il proprio profilo ma non lo stato di
       // blocco; l'admin aggiorna solo lo stato di blocco.
@@ -61,7 +93,11 @@ service cloud.firestore {
           && !changed().hasAny(['blocked', 'blockedAt', 'blockedBy'])
           && request.resource.data.keys().hasOnly(
                ['username', 'updatedAt', 'createdAt', 'onboardingComplete',
-                'blocked', 'blockedAt', 'blockedBy']))
+                'blocked', 'blockedAt', 'blockedBy', 'reportQuota',
+                'termsAcceptedAt', 'termsVersion'])
+          && (!changed().hasAny(['reportQuota'])
+              || validQuota(resource.data.get('reportQuota', null),
+                            request.resource.data.reportQuota)))
         || (isAdmin()
           && changed().hasOnly(['blocked', 'blockedAt', 'blockedBy']));
 
@@ -79,6 +115,7 @@ service cloud.firestore {
       allow read: if signedIn();
 
       allow create: if canContribute()
+        && quotaBumpedInThisWrite()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'segnalata'
         && request.resource.data.latitude is number

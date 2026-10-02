@@ -63,7 +63,7 @@ tutto ok                  → App (Mappa / Classifica / Profilo)
 ### 2.1 Registrazione
 **Schermata:** `register_screen.dart`
 
-- **Campi:** username (facoltativo), email, password, conferma password.
+- **Campi:** username (facoltativo), email, password, conferma password e la casella obbligatoria "Ho almeno 14 anni, ho letto e accetto i Termini d'uso e l'Informativa privacy", con i link alle due pagine. Versione accettata e data vengono salvate su `users/{uid}` (`termsVersion`, `termsAcceptedAt`).
 - **Validazioni** (`core/form_validators.dart`):
   - email in formato valido;
   - password di almeno 6 caratteri;
@@ -177,11 +177,13 @@ C'è sempre anche "Esci dall'account". Il blocco sparisce da solo appena GPS e p
 
 **Schermata:** `segnala_screen.dart` (pulsante centrale della barra in basso)
 
-1. **Foto** (facoltativa): fotocamera o galleria. Prima del caricamento viene ridimensionata a massimo 1600 px e compressa in JPEG qualità 78 (`services/image_processing_service.dart`), per circa 140 KB in media.
+1. **Foto** (facoltativa): fotocamera o galleria. Prima del caricamento viene ridimensionata a massimo 1600 px, compressa in JPEG qualità 78 (circa 140 KB in media) e **ripulita da tutti i metadati EXIF**: coordinate GPS, modello del telefono, data (`services/image_processing_service.dart`). Una foto illeggibile viene rifiutata, mai caricata così com'è. Un avviso ricorda di non inquadrare volti e targhe.
 2. **Posizione:** acquisita automaticamente dal GPS, con indirizzo ricavato dal geocoder di Android e precisione in metri.
 3. **Tipo di rifiuto:** Discarica abusiva, Rifiuti abbandonati, Rifiuti pericolosi.
 4. **Descrizione:** almeno 10 caratteri.
-5. **Invio:**
+5. **Controllo doppioni:** se entro 30 m c'è già una segnalazione ancora da pulire o in corso, l'app chiede "Forse è già stato segnalato" e propone di aprire quella esistente ("Apri quella") o di inviare comunque ("È un altro, invia").
+6. **Limite giornaliero:** massimo **10 segnalazioni al giorno** per utente. Il limite è garantito dalle regole di Firestore: ogni segnalazione incrementa, nella stessa transazione, il contatore `users/{uid}.reportQuota`, che non si può azzerare.
+7. **Invio:**
    - la foto va su Storage in `report_photos/{uid}/`;
    - la segnalazione va su `reports` con stato `segnalata`, coordinate, geohash e indirizzo;
    - l'autore riceve **1 punto**.
@@ -294,6 +296,7 @@ Mostra le notifiche in `users/{uid}/notifications`. Toccandone una viene segnata
 **Schermata:** `aiuto_feedback_screen.dart`
 
 - **FAQ** espandibili: verifica di una segnalazione, significato degli stati, come si guadagnano punti, eliminazione delle proprie segnalazioni.
+- **Link** all'Informativa privacy e ai Termini d'uso.
 - **"Scrivici":** apre l'app di posta con destinatario `dario.berettini.eco@gmail.com`, oggetto "Feedback Trashpotting" e, in fondo, versione dell'app e ID utente.
 
 ---
@@ -356,7 +359,7 @@ Le regole (`firestore.rules`, `storage.rules`) sono valutate **dai server di Goo
 
 | Collezione | Campi principali |
 |---|---|
-| `users/{uid}` | `username`, `onboardingComplete`, `blocked`, `blockedAt`, `blockedBy`, `createdAt`, `updatedAt` |
+| `users/{uid}` | `username`, `onboardingComplete`, `blocked`, `blockedAt`, `blockedBy`, `reportQuota {day, count}`, `termsVersion`, `termsAcceptedAt`, `createdAt`, `updatedAt` |
 | `reports/{id}` | `note`, `photoUrl`, `latitude`, `longitude`, `geohash`, `address`, `type`, `uid` (autore), `status`, `createdAt`, `cleaningOwner`, `cleaningStartedAt`, `cleanupPhotoUrl`, `cleanedAt`, `event {creator, scheduledAt, participants[]}` |
 | `leaderboard/{uid}` | `username`, `points` |
 | `flags/{reportId_uid}` | `reportId`, `reporterUid`, `reportAuthorUid`, `reason`, `status` (`open` / `dismissed` / `removed`), `createdAt` |
@@ -392,6 +395,12 @@ Stima con 100 utenti e 2-4 segnalazioni a settimana ciascuno: **0-1 € al mese*
 | `firebase deploy --only firestore:rules,firestore:indexes,storage` | pubblicazione di regole e indici |
 | `android/key.properties` + keystore di upload | firma delle build di release (file esclusi da git) |
 | Branch `develop` | sviluppo; `main` per i rilasci |
+
+---
+
+## 18bis. Pagine legali
+
+In `hosting/` (Firebase Hosting, `https://trashpotting-app.web.app`): `privacy`, `termini`, `eliminazione-account`. Sono i link da inserire nella scheda di Google Play. Pubblicazione: `firebase deploy --only hosting`. Gli URL usati dall'app sono in `lib/core/legal.dart`; aumentare `LegalLinks.version` quando i testi cambiano in modo rilevante.
 
 ---
 
