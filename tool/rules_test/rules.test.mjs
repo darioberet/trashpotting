@@ -213,6 +213,68 @@ describe('segnalazioni', () => {
   });
 });
 
+describe('voti della community', () => {
+  const near = { latitude: 43.9005, longitude: 12.8005 }; // ~70 m da r1
+  const far = { latitude: 43.95, longitude: 12.8 }; // ~5.5 km
+
+  function vote(db, uid, kind, pos, reportUpdate) {
+    const batch = writeBatch(db);
+    batch.set(doc(db, `reports/r1/votes/${uid}`), { vote: kind, ...pos, createdAt: serverTimestamp() });
+    if (reportUpdate) batch.update(doc(db, 'reports/r1'), reportUpdate);
+    return batch.commit();
+  }
+
+  beforeEach(async () => {
+    await seed('users/carla', { username: 'Carla' });
+  });
+
+  test('"C\'è ancora" vicino al punto rende la segnalazione aperta', async () => {
+    await assertSucceeds(vote(fs('bruno'), 'bruno', 'present', near, { confirmations: 1, status: 'aperta' }));
+  });
+
+  test('un solo voto per utente', async () => {
+    await assertSucceeds(vote(fs('bruno'), 'bruno', 'present', near, { confirmations: 1, status: 'aperta' }));
+    await assertFails(vote(fs('bruno'), 'bruno', 'gone', near, { goneVotes: 1 }));
+  });
+
+  test("l'autore non vota sulla propria segnalazione", async () => {
+    await assertFails(vote(fs('alice'), 'alice', 'present', near, { confirmations: 1, status: 'aperta' }));
+  });
+
+  test('non si vota da lontano', async () => {
+    await assertFails(vote(fs('bruno'), 'bruno', 'present', far, { confirmations: 1, status: 'aperta' }));
+  });
+
+  test('voto e contatori devono andare insieme', async () => {
+    await assertFails(vote(fs('bruno'), 'bruno', 'present', near, null));
+    await assertFails(updateDoc(doc(fs('bruno'), 'reports/r1'), { confirmations: 1, status: 'aperta' }));
+    await assertFails(vote(fs('bruno'), 'bruno', 'present', near, { confirmations: 5, status: 'aperta' }));
+  });
+
+  test('due "Non c\'è più" rendono la segnalazione sparita', async () => {
+    // Primo voto: lo stato non cambia (e non può già diventare sparita).
+    await assertFails(vote(fs('bruno'), 'bruno', 'gone', near, { goneVotes: 1, status: 'sparita' }));
+    await assertSucceeds(vote(fs('bruno'), 'bruno', 'gone', near, { goneVotes: 1 }));
+    // Secondo voto: diventa sparita, obbligatoriamente.
+    await assertFails(vote(fs('carla'), 'carla', 'gone', near, { goneVotes: 2 }));
+    await assertSucceeds(vote(fs('carla'), 'carla', 'gone', near, { goneVotes: 2, status: 'sparita' }));
+    // Non si vota più su una segnalazione sparita.
+    await assertFails(vote(fs('mallory'), 'mallory', 'present', near, { confirmations: 1, status: 'aperta' }));
+  });
+
+  test("solo l'admin ripristina una segnalazione sparita", async () => {
+    await seed('reports/r1', { ...newReport('alice'), createdAt: Timestamp.now(), status: 'sparita', goneVotes: 2 });
+    await assertFails(updateDoc(doc(fs('bruno'), 'reports/r1'), { status: 'segnalata', goneVotes: 0 }));
+    await assertSucceeds(updateDoc(doc(admin(), 'reports/r1'), { status: 'segnalata', goneVotes: 0 }));
+  });
+
+  test('il proprio voto si legge, quelli altrui no', async () => {
+    await assertSucceeds(vote(fs('bruno'), 'bruno', 'present', near, { confirmations: 1, status: 'aperta' }));
+    await assertSucceeds(getDoc(doc(fs('bruno'), 'reports/r1/votes/bruno')));
+    await assertFails(getDoc(doc(fs('carla'), 'reports/r1/votes/bruno')));
+  });
+});
+
 describe('classifica', () => {
   test('ognuno aumenta solo i propri punti, di 1 o 2', async () => {
     const db = fs('bruno');

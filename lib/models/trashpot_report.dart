@@ -11,6 +11,10 @@ enum TrashpotStatus {
   eventoCreato,
   puliziaInCorso,
   ripulita,
+
+  /// Almeno 2 utenti sul posto hanno indicato che il rifiuto non c'è più: la
+  /// segnalazione esce dalla mappa, gli admin possono ripristinarla.
+  sparita,
 }
 
 class CleanupEvent {
@@ -77,6 +81,8 @@ class TrashpotReport {
     this.distanceLabel,
     this.dateLabel,
     this.typeLabel,
+    this.confirmations = 0,
+    this.goneVotes = 0,
   });
 
   final String id;
@@ -95,6 +101,10 @@ class TrashpotReport {
   final String? distanceLabel;
   final String? dateLabel;
   final String? typeLabel;
+
+  /// Voti della community "C'è ancora" / "Non c'è più" (reports/{id}/votes).
+  final int confirmations;
+  final int goneVotes;
 
   factory TrashpotReport.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? <String, dynamic>{};
@@ -138,6 +148,8 @@ class TrashpotReport {
           ? null
           : '${createdDate.day.toString().padLeft(2, '0')}/${createdDate.month.toString().padLeft(2, '0')}/${createdDate.year}',
       typeLabel: data['typeLabel'] as String? ?? data['type'] as String?,
+      confirmations: (data['confirmations'] as num?)?.toInt() ?? 0,
+      goneVotes: (data['goneVotes'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -150,6 +162,7 @@ TrashpotStatus trashpotStatusFromString(String? raw) {
     'eventoCreato' || 'evento_creato' => TrashpotStatus.eventoCreato,
     'puliziaInCorso' || 'pulizia_in_corso' => TrashpotStatus.puliziaInCorso,
     'ripulita' => TrashpotStatus.ripulita,
+    'sparita' => TrashpotStatus.sparita,
     'segnalata' || null => TrashpotStatus.segnalata,
     _ => TrashpotStatus.segnalata,
   };
@@ -164,5 +177,6 @@ String trashpotStatusLabel(TrashpotStatus s) {
     TrashpotStatus.eventoCreato => 'Evento creato',
     TrashpotStatus.puliziaInCorso => 'Pulizia in corso',
     TrashpotStatus.ripulita => 'Ripulita',
+    TrashpotStatus.sparita => 'Sparita',
   };
 }

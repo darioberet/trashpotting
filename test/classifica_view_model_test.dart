@@ -58,6 +58,21 @@ class _FakeReportRepository implements ReportRepository {
   }) async => const [];
 
   @override
+  Future<CommunityVote?> myVote({
+    required String reportId,
+    required String uid,
+  }) async => null;
+
+  @override
+  Future<void> vote({
+    required String reportId,
+    required AppUserProfile voter,
+    required CommunityVote vote,
+    required double latitude,
+    required double longitude,
+  }) async {}
+
+  @override
   Future<int> remainingReportsToday(String uid) async => maxReportsPerDay;
 
   @override

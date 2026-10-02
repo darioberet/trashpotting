@@ -23,13 +23,16 @@ enum ReportStatusGroup {
     pulite => const ['ripulita', 'pulita'],
   };
 
-  static ReportStatusGroup of(TrashpotStatus status) {
+  /// Null per le segnalazioni "sparite", che non appartengono a nessun
+  /// gruppo e quindi non compaiono mai sulla mappa.
+  static ReportStatusGroup? of(TrashpotStatus status) {
     return switch (status) {
       TrashpotStatus.segnalata || TrashpotStatus.aperta => daPulire,
       TrashpotStatus.inLavorazione ||
       TrashpotStatus.eventoCreato ||
       TrashpotStatus.puliziaInCorso => inCorso,
       TrashpotStatus.pulita || TrashpotStatus.ripulita => pulite,
+      TrashpotStatus.sparita => null,
     };
   }
 }

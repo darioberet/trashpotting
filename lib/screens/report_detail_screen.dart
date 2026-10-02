@@ -80,6 +80,49 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         .catchError((_) {});
   }
 
+  CommunityVote? _myVote;
+  bool _voteLoaded = false;
+  bool _voting = false;
+
+  void _maybeLoadMyVote(String? uid) {
+    if (uid == null || _voteLoaded) return;
+    _voteLoaded = true;
+    widget._repository
+        .myVote(reportId: widget.reportId, uid: uid)
+        .then((v) {
+          if (mounted) setState(() => _myVote = v);
+        })
+        .catchError((_) {});
+  }
+
+  Future<void> _vote(CommunityVote vote, AppSession session) async {
+    final profile = session.currentProfile;
+    final pos = _userPosition;
+    if (profile == null || pos == null || _voting) return;
+    setState(() => _voting = true);
+    try {
+      await widget._repository.vote(
+        reportId: widget.reportId,
+        voter: profile,
+        vote: vote,
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+      );
+      if (!mounted) return;
+      setState(() => _myVote = vote);
+      session.publishInfo(
+        vote == CommunityVote.present
+            ? 'Grazie! Hai confermato la segnalazione (+$pointsPerVote punto).'
+            : 'Grazie per l\'aggiornamento (+$pointsPerVote punto).',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      session.publishError(e, fallback: 'Voto non registrato.');
+    } finally {
+      if (mounted) setState(() => _voting = false);
+    }
+  }
+
   void _maybeLoadReporter(String? uid) {
     if (uid == null || _loadedReporterForUid == uid) return;
     _loadedReporterForUid = uid;
@@ -303,6 +346,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         }
 
         _maybeLoadReporter(report.reporterUid);
+        _maybeLoadMyVote(currentUser?.uid);
+        final distanceMeters = _userPosition == null
+            ? null
+            : haversineKm(
+                    _userPosition!.latitude,
+                    _userPosition!.longitude,
+                    report.lat,
+                    report.lng,
+                  ) *
+                  1000;
 
         final event = report.event;
         final currentUid = currentUser?.uid;
@@ -446,6 +499,29 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                   height: 1,
                                 ),
                                 const SizedBox(height: 12),
+                              ],
+
+                              if ((report.status == TrashpotStatus.segnalata ||
+                                      report.status == TrashpotStatus.aperta) &&
+                                  currentUser != null &&
+                                  report.reporterUid != currentUser.uid) ...[
+                                _CommunityVoteCard(
+                                  report: report,
+                                  myVote: _myVote,
+                                  distanceMeters: distanceMeters,
+                                  busy: _voting,
+                                  onVote: (v) => _vote(v, session),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                              if (report.status == TrashpotStatus.sparita) ...[
+                                const _InfoRow(
+                                  icon: Icons.help_outline,
+                                  text:
+                                      'Più persone sul posto hanno indicato '
+                                      'che questo rifiuto non c\'è più.',
+                                ),
+                                const SizedBox(height: 16),
                               ],
 
                               // Cleanup photo
@@ -699,6 +775,111 @@ class _TypeDistanceChip extends StatelessWidget {
   }
 }
 
+/// "È ancora lì?": chi passa vicino conferma o smentisce la segnalazione.
+class _CommunityVoteCard extends StatelessWidget {
+  const _CommunityVoteCard({
+    required this.report,
+    required this.myVote,
+    required this.distanceMeters,
+    required this.busy,
+    required this.onVote,
+  });
+
+  final TrashpotReport report;
+  final CommunityVote? myVote;
+  final double? distanceMeters;
+  final bool busy;
+  final ValueChanged<CommunityVote> onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final theme = Theme.of(context);
+    final near = distanceMeters != null && distanceMeters! <= voteRadiusMeters;
+    final confirmations = report.confirmations;
+
+    final String subtitle;
+    if (myVote == CommunityVote.present) {
+      subtitle = 'Hai confermato che il rifiuto è ancora lì. Grazie!';
+    } else if (myVote == CommunityVote.gone) {
+      subtitle = 'Hai indicato che il rifiuto non c\'è più. Grazie!';
+    } else if (distanceMeters == null) {
+      subtitle = 'Attendi la posizione GPS per poter rispondere.';
+    } else if (!near) {
+      subtitle =
+          'Avvicinati per rispondere: devi essere entro '
+          '${voteRadiusMeters.round()} m (ora sei a '
+          '${distanceLabel(distanceMeters! / 1000)}).';
+    } else {
+      subtitle = 'Sei qui vicino: aiuta gli altri a sapere se c\'è ancora.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.surfaceWarm,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.how_to_vote_outlined, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'È ancora lì?',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: palette.textPrimary,
+                  ),
+                ),
+              ),
+              if (confirmations > 0)
+                Text(
+                  confirmations == 1
+                      ? 'Confermata da 1 persona'
+                      : 'Confermata da $confirmations persone',
+                  style: TextStyle(fontSize: 12, color: palette.textSecondary),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 13, color: palette.textSecondary),
+          ),
+          if (myVote == null && near) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: busy
+                        ? null
+                        : () => onVote(CommunityVote.present),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('C\'è ancora'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: busy ? null : () => onVote(CommunityVote.gone),
+                    icon: const Icon(Icons.close, size: 18),
+                    label: const Text('Non c\'è più'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 enum _ReportMenuAction { flag, remove, blockAuthor }
 
 /// Menu ⋮ del dettaglio: "Segnala contenuto" per tutti (non sulle proprie
@@ -874,6 +1055,7 @@ class _StatusStepper extends StatelessWidget {
     TrashpotStatus.puliziaInCorso ||
     TrashpotStatus.eventoCreato => 2,
     TrashpotStatus.pulita || TrashpotStatus.ripulita => 3,
+    TrashpotStatus.sparita => 0,
   };
 
   @override

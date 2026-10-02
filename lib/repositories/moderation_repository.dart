@@ -168,6 +168,36 @@ class ModerationRepository {
     }
   }
 
+  /// Segnalazioni che la community ha indicato come "non c'è più".
+  Stream<List<TrashpotReport>> watchGoneReports() {
+    return _firestore
+        .collection('reports')
+        .where('status', isEqualTo: 'sparita')
+        .limit(200)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((doc) {
+                try {
+                  return TrashpotReport.fromDoc(doc);
+                } catch (_) {
+                  return null;
+                }
+              })
+              .whereType<TrashpotReport>()
+              .toList(),
+        );
+  }
+
+  /// Rimette sulla mappa una segnalazione "sparita" per errore. I voti già
+  /// espressi restano: chi aveva votato non può votare di nuovo.
+  Future<void> restoreReport(TrashpotReport report) {
+    return _firestore.collection('reports').doc(report.id).update({
+      'status': report.confirmations > 0 ? 'aperta' : 'segnalata',
+      'goneVotes': 0,
+    });
+  }
+
   Future<void> setBlocked({
     required String uid,
     required bool blocked,

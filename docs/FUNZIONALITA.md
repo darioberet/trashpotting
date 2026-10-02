@@ -209,6 +209,21 @@ Gli errori, per esempio una descrizione troppo corta o il GPS non disponibile, s
 
 ---
 
+## 6bis. "È ancora lì?" (conferma della community)
+
+Nel dettaglio di una segnalazione *segnalata* o *aperta* di un altro utente compare la card **"È ancora lì?"**, con i pulsanti **"C'è ancora"** e **"Non c'è più"**.
+
+- **Distanza:** si risponde solo **entro 200 m** dal punto. L'app controlla la distanza esatta, le regole un riquadro di circa 200 m.
+- **Un voto per persona:** salvato in `reports/{id}/votes/{uid}`. Non si vota mai sulle proprie segnalazioni.
+- **Punti:** ogni voto vale **+1 punto**.
+- **"C'è ancora":** la segnalazione diventa **Aperta** e mostra "Confermata da N persone".
+- **"Non c'è più" (2 voti):** la segnalazione diventa **Sparita** ed esce dalla mappa. L'autore non perde punti.
+- **Moderazione → Sparite:** gli admin possono **ripristinarla** (torna *aperta* o *segnalata*) o **rimuoverla**.
+
+Contatori sul report: `confirmations`, `goneVotes`. Voto, contatori, stato e punti vengono scritti in un'unica transazione, e le regole verificano che vadano insieme.
+
+---
+
 ## 7. Pulizia ed eventi
 
 Il ciclo di vita di una segnalazione:
@@ -409,7 +424,6 @@ In `hosting/` (Firebase Hosting, `https://trashpotting-app.web.app`): `privacy`,
 ## 19. Limiti noti
 
 - **Notifiche:** la schermata esiste, ma nessuno le genera (servirebbe una Cloud Function).
-- **Stato "Aperta":** previsto nella timeline e nei filtri, ma oggi nessuna azione lo imposta. Le segnalazioni passano da *segnalata* direttamente a *in corso*.
 - **Punti:** le regole limitano ogni incremento a +1 o +2, ma non impediscono incrementi ripetuti fatti chiamando Firestore direttamente. Per chiuderlo servirebbe una Cloud Function.
 - **Utente bloccato:** può ancora fare login e leggere. Per disabilitare l'accesso servirebbe sospendere l'account in Firebase Auth.
 - **Ripulite recenti:** la query prende le 100 più recenti in tutto il database e filtra per distanza. Con molti utenti in città diverse andrà fatta per zona.

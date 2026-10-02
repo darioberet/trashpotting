@@ -20,14 +20,17 @@ class AiutoFeedbackScreen extends StatelessWidget {
     (
       question: 'Cosa significano gli stati di una segnalazione?',
       answer:
-          '"Segnalata" è il primo passo. "Aperta" significa che è visibile e verificata. '
-          '"In lavorazione" indica che qualcuno se ne sta occupando o ha organizzato un evento. '
-          '"Pulita" significa che il rifiuto è stato rimosso.',
+          '"Segnalata": appena inviata. "Aperta": almeno una persona sul posto '
+          'ha confermato che il rifiuto c\'è ancora. "In corso": qualcuno se ne '
+          'sta occupando o ha organizzato un evento. "Ripulita": rimossa, con la '
+          'foto finale. Se più persone indicano che non c\'è più, la '
+          'segnalazione sparisce dalla mappa.',
     ),
     (
       question: 'Come guadagno punti in classifica?',
       answer:
-          'Ogni segnalazione inviata vale 1 punto, ogni pulizia completata (con la foto finale) vale 2 punti.',
+          'Segnalazione inviata: 1 punto. Pulizia completata (con la foto finale): 2 punti. '
+          'Rispondere a "È ancora lì?" su una segnalazione vicina: 1 punto.',
     ),
     (
       question: 'Posso eliminare una mia segnalazione?',

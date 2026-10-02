@@ -77,6 +77,57 @@ service cloud.firestore {
         && p.uid == request.auth.uid;
     }
 
+    // ── Voti della community ("C'è ancora" / "Non c'è più") ────────────────
+    // Soglie, da tenere allineate a lib/repositories/report_repository.dart.
+    function goneVotesToHide() {
+      return 2;
+    }
+
+    function reportPath(reportId) {
+      return /databases/$(database)/documents/reports/$(reportId);
+    }
+
+    function votePath(reportId) {
+      return /databases/$(database)/documents/reports/$(reportId)/votes/$(request.auth.uid);
+    }
+
+    // Si vota solo sulle segnalazioni ancora da pulire, non sulle proprie.
+    function votableReport(report) {
+      return report.status in ['segnalata', 'aperta']
+        && report.get('uid', null) != request.auth.uid;
+    }
+
+    // Entro ~200 m: riquadro di 0.0018° di latitudine (~200 m) e 0.0026° di
+    // longitudine (~200 m alle latitudini italiane). L'app controlla la
+    // distanza esatta; qui si blocca il voto "dal divano".
+    function nearReport(report, vote) {
+      return vote.latitude is number && vote.longitude is number
+        && math.abs(vote.latitude - report.latitude) <= 0.0018
+        && math.abs(vote.longitude - report.longitude) <= 0.0026;
+    }
+
+    function communityVote(reportId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let vote = getAfter(votePath(reportId)).data.vote;
+      let confirmations = before.get('confirmations', 0);
+      let gone = before.get('goneVotes', 0);
+      return changed().hasOnly(['confirmations', 'goneVotes', 'status'])
+        && votableReport(before)
+        && !exists(votePath(reportId))
+        && existsAfter(votePath(reportId))
+        && ((vote == 'present'
+              && after.get('confirmations', 0) == confirmations + 1
+              && after.get('goneVotes', 0) == gone
+              && after.status == 'aperta')
+            || (vote == 'gone'
+              && after.get('goneVotes', 0) == gone + 1
+              && after.get('confirmations', 0) == confirmations
+              && ((gone + 1 >= goneVotesToHide() && after.status == 'sparita')
+                  || (gone + 1 < goneVotesToHide()
+                      && after.status == before.status))));
+    }
+
     // ── Profili ────────────────────────────────────────────────────────────
     match /users/{uid} {
       allow read: if signedIn();
@@ -150,7 +201,16 @@ service cloud.firestore {
           && request.resource.data.event.scheduledAt == resource.data.event.scheduledAt
           && request.resource.data.event.participants.size()
                == resource.data.event.participants.size() + 1)
+        // Voto della community: aggiorna contatori e stato insieme al
+        // documento votes/{uid} creato nella stessa scrittura.
+        || communityVote(reportId)
       )
+      // Admin: ripristina una segnalazione "sparita".
+      || (isAdmin()
+          && resource.data.status == 'sparita'
+          && changed().hasOnly(['status', 'goneVotes'])
+          && request.resource.data.status in ['segnalata', 'aperta']
+          && request.resource.data.goneVotes == 0)
       // Eliminazione account: l'autore anonimizza le proprie segnalazioni
       // (consentito anche se bloccato).
       || (signedIn()
@@ -159,6 +219,24 @@ service cloud.firestore {
           && request.resource.data.uid == null);
 
       allow delete: if isAdmin();
+
+      // Un voto per utente e segnalazione, solo vicino al punto e mai sulle
+      // proprie. Id del documento = uid di chi vota.
+      match /votes/{uid} {
+        allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+        allow list: if isAdmin();
+        allow create: if canContribute()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(
+               ['vote', 'latitude', 'longitude', 'createdAt'])
+          && request.resource.data.vote in ['present', 'gone']
+          && votableReport(get(reportPath(reportId)).data)
+          && nearReport(get(reportPath(reportId)).data, request.resource.data)
+          && getAfter(reportPath(reportId)).data.get('confirmations', 0)
+               + getAfter(reportPath(reportId)).data.get('goneVotes', 0)
+             == get(reportPath(reportId)).data.get('confirmations', 0)
+               + get(reportPath(reportId)).data.get('goneVotes', 0) + 1;
+      }
     }
 
     // Archivio delle segnalazioni rimosse dagli admin.

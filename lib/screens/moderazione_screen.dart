@@ -26,20 +26,22 @@ class ModerazioneScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Moderazione'),
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'Contenuti segnalati'),
-              Tab(text: 'Utenti bloccati'),
+              Tab(text: 'Segnalati'),
+              Tab(text: 'Sparite'),
+              Tab(text: 'Bloccati'),
             ],
           ),
         ),
         body: TabBarView(
           children: [
             _FlagsTab(moderation: _moderation, reports: _reports),
+            _GoneTab(moderation: _moderation),
             _BlockedTab(moderation: _moderation),
           ],
         ),
@@ -243,6 +245,102 @@ class _AuthorLine extends StatelessWidget {
       future: UserProfileRepository().fetchProfile(uid!),
       builder: (context, snap) =>
           Text('Autore: ${snap.data?.label ?? '…'}', style: style),
+    );
+  }
+}
+
+/// Segnalazioni nascoste perché la community ha indicato "non c'è più".
+class _GoneTab extends StatelessWidget {
+  const _GoneTab({required this.moderation});
+
+  final ModerationRepository moderation;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<TrashpotReport>>(
+      stream: moderation.watchGoneReports(),
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return const _Message('Impossibile caricare le segnalazioni.');
+        }
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final reports = snap.data!;
+        if (reports.isEmpty) {
+          return const _Message(
+            'Nessuna segnalazione sparita.',
+            icon: Icons.check_circle_outline,
+          );
+        }
+        final theme = Theme.of(context);
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: reports.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, i) {
+            final r = reports[i];
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      r.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _AuthorLine(uid: r.reporterUid),
+                    Text(
+                      '${r.goneVotes} "non c\'è più" · '
+                      '${r.confirmations} conferme',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: context.palette.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              context.push('${AppRoutes.reportDetail}/${r.id}'),
+                          icon: const Icon(Icons.open_in_new, size: 18),
+                          label: const Text('Apri'),
+                        ),
+                        FilledButton.icon(
+                          onPressed: () => runModerationAction(
+                            context,
+                            () => moderation.restoreReport(r),
+                            success: 'Segnalazione rimessa sulla mappa.',
+                          ),
+                          icon: const Icon(Icons.restore, size: 18),
+                          label: const Text('Ripristina'),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => confirmRemoveReport(
+                            context,
+                            moderation: moderation,
+                            reportId: r.id,
+                          ),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('Rimuovi'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -17,6 +17,19 @@ const maxReportsPerDay = 10;
 /// rifiuto: il GPS del telefono sbaglia facilmente di 10-20 m.
 const duplicateRadiusMeters = 30.0;
 
+/// Voti della community: da tenere allineati a firestore.rules.
+const voteRadiusMeters = 200.0;
+const goneVotesToHide = 2;
+const pointsPerVote = 1;
+
+enum CommunityVote {
+  /// "C'è ancora": conferma la segnalazione (diventa Aperta).
+  present,
+
+  /// "Non c'è più": dopo [goneVotesToHide] voti diventa Sparita.
+  gone,
+}
+
 class ReportQuotaExceededException implements Exception {
   const ReportQuotaExceededException();
 
@@ -40,6 +53,22 @@ abstract class ReportRepository {
   /// Segnalazioni ancora disponibili oggi per [uid]: controllato prima di
   /// caricare la foto, per non lasciare file orfani su Storage.
   Future<int> remainingReportsToday(String uid);
+
+  /// Voto già espresso da [uid] su questa segnalazione, o null.
+  Future<CommunityVote?> myVote({
+    required String reportId,
+    required String uid,
+  });
+
+  /// Registra il voto (e aggiorna contatori, stato e punti in classifica)
+  /// in un'unica transazione.
+  Future<void> vote({
+    required String reportId,
+    required AppUserProfile voter,
+    required CommunityVote vote,
+    required double latitude,
+    required double longitude,
+  });
   Future<void> anonymizeUserReports(String uid);
   Future<int> countByUser(String uid);
   Stream<List<TrashpotReport>> watchReports({int limit = 50});
@@ -320,6 +349,79 @@ class FirestoreReportRepository implements ReportRepository {
       if (meters <= radiusMeters) byId[report.id] = report;
     }
     return byId.values.toList();
+  }
+
+  @override
+  Future<CommunityVote?> myVote({
+    required String reportId,
+    required String uid,
+  }) async {
+    final doc = await _firestore
+        .collection('reports')
+        .doc(reportId)
+        .collection('votes')
+        .doc(uid)
+        .get();
+    return switch (doc.data()?['vote']) {
+      'present' => CommunityVote.present,
+      'gone' => CommunityVote.gone,
+      _ => null,
+    };
+  }
+
+  @override
+  Future<void> vote({
+    required String reportId,
+    required AppUserProfile voter,
+    required CommunityVote vote,
+    required double latitude,
+    required double longitude,
+  }) async {
+    final reportRef = _firestore.collection('reports').doc(reportId);
+    final voteRef = reportRef.collection('votes').doc(voter.uid);
+    final leaderboardRef = _firestore.collection('leaderboard').doc(voter.uid);
+
+    await _firestore.runTransaction((tx) async {
+      final snap = await tx.get(reportRef);
+      if (!snap.exists) throw StateError('Segnalazione non trovata.');
+      if ((await tx.get(voteRef)).exists) {
+        throw StateError('Hai già votato questa segnalazione.');
+      }
+      final report = TrashpotReport.fromDoc(snap);
+      if (report.status != TrashpotStatus.segnalata &&
+          report.status != TrashpotStatus.aperta) {
+        throw StateError('Questa segnalazione non si può più votare.');
+      }
+      if (report.reporterUid == voter.uid) {
+        throw StateError('Non puoi votare una tua segnalazione.');
+      }
+
+      final Map<String, Object> update;
+      if (vote == CommunityVote.present) {
+        update = {
+          'confirmations': report.confirmations + 1,
+          'status': 'aperta',
+        };
+      } else {
+        final gone = report.goneVotes + 1;
+        update = {
+          'goneVotes': gone,
+          if (gone >= goneVotesToHide) 'status': 'sparita',
+        };
+      }
+
+      tx.set(voteRef, {
+        'vote': vote.name,
+        'latitude': latitude,
+        'longitude': longitude,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      tx.update(reportRef, update);
+      tx.set(leaderboardRef, {
+        'username': voter.label,
+        'points': FieldValue.increment(pointsPerVote),
+      }, SetOptions(merge: true));
+    });
   }
 
   static int _todayUtc() =>

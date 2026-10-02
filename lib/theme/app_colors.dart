@@ -51,6 +51,7 @@ abstract final class AppColors {
       TrashpotStatus.eventoCreato => (bg: blueLight, fg: blueText),
       TrashpotStatus.pulita ||
       TrashpotStatus.ripulita => (bg: greenLight, fg: greenDark),
+      TrashpotStatus.sparita => (bg: surfaceWarm, fg: textSecondary),
     };
   }
 }

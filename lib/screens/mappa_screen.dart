@@ -178,6 +178,7 @@ class _MappaScreenState extends State<MappaScreen> {
       TrashpotStatus.puliziaInCorso => context.palette.textSecondary,
       TrashpotStatus.eventoCreato => AppColors.blueText,
       TrashpotStatus.pulita || TrashpotStatus.ripulita => AppColors.greenBrand,
+      TrashpotStatus.sparita => AppColors.textDisabled,
     };
   }
 
@@ -190,6 +191,7 @@ class _MappaScreenState extends State<MappaScreen> {
       TrashpotStatus.eventoCreato => Icons.event_outlined,
       TrashpotStatus.pulita ||
       TrashpotStatus.ripulita => Icons.check_circle_outline,
+      TrashpotStatus.sparita => Icons.help_outline,
     };
   }
 
