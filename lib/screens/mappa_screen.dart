@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -54,9 +55,12 @@ class _MappaScreenState extends State<MappaScreen> {
   String? _reportsStreamKey;
 
   Stream<List<TrashpotReport>> _reportsStreamFor(LatLng? center) {
+    // Gli stati fanno parte della chiave: cambiando filtro si riapre la
+    // query, perché è Firestore a filtrare (gli stati esclusi non si leggono).
+    final groups = (_statusGroups.map((g) => g.name).toList()..sort()).join();
     final key = center == null
         ? 'recent'
-        : '${center.latitude},${center.longitude},$_radiusKm';
+        : '${center.latitude},${center.longitude},$_radiusKm,$groups';
     if (key != _reportsStreamKey || _reportsStream == null) {
       _reportsStreamKey = key;
       _reportsStream = center == null
@@ -65,6 +69,7 @@ class _MappaScreenState extends State<MappaScreen> {
               latitude: center.latitude,
               longitude: center.longitude,
               radiusKm: _radiusKm.toDouble(),
+              statusGroups: _statusGroups,
             );
     }
     return _reportsStream!;
@@ -981,7 +986,8 @@ class _StatusFilterSheetState extends State<_StatusFilterSheet> {
     ReportStatusGroup.daPulire => 'Segnalate e aperte',
     ReportStatusGroup.inCorso =>
       'In lavorazione, evento creato, pulizia in corso',
-    ReportStatusGroup.pulite => 'Già ripulite',
+    ReportStatusGroup.pulite =>
+      'Ripulite negli ultimi $cleanedVisibleDays giorni',
   };
 
   void _update(Set<ReportStatusGroup> next) {
@@ -1096,8 +1102,8 @@ class _ReportCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: report.photoUrl != null
-                        ? Image.network(
-                            report.photoUrl!,
+                        ? Image(
+                            image: CachedNetworkImageProvider(report.photoUrl!),
                             width: 64,
                             height: 64,
                             fit: BoxFit.cover,

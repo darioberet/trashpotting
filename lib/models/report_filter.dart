@@ -15,6 +15,14 @@ enum ReportStatusGroup {
 
   final String label;
 
+  /// Valori del campo `status` su Firestore per questo gruppo: la query della
+  /// mappa filtra su questi, così gli stati esclusi non vengono letti.
+  List<String> get firestoreStatuses => switch (this) {
+    daPulire => const ['segnalata', 'aperta'],
+    inCorso => const ['inLavorazione', 'eventoCreato', 'puliziaInCorso'],
+    pulite => const ['ripulita', 'pulita'],
+  };
+
   static ReportStatusGroup of(TrashpotStatus status) {
     return switch (status) {
       TrashpotStatus.segnalata || TrashpotStatus.aperta => daPulire,
@@ -25,6 +33,14 @@ enum ReportStatusGroup {
     };
   }
 }
+
+/// Le segnalazioni ripulite restano sulla mappa solo per questo periodo:
+/// dopo non servono più a chi cerca rifiuti da pulire e, accumulandosi,
+/// sarebbero la maggior parte delle letture (e del costo) di Firestore.
+const cleanedVisibleDays = 30;
+
+/// Tetto alle ripulite recenti lette per ogni apertura della mappa.
+const cleanedQueryLimit = 100;
 
 const defaultReportStatusGroups = {
   ReportStatusGroup.daPulire,

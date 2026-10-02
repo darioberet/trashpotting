@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/geo_utils.dart';
 import '../core/geohash.dart';
 import '../models/app_user_profile.dart';
+import '../models/report_filter.dart';
 import '../models/report_draft.dart';
 import '../models/trashpot_report.dart';
 
@@ -16,10 +17,14 @@ abstract class ReportRepository {
 
   /// Segnalazioni entro [radiusKm] dal punto indicato, ordinate dalla più
   /// vicina.
+  ///
+  /// Legge da Firestore solo gli stati di [statusGroups]; le ripulite solo se
+  /// ripulite negli ultimi [cleanedVisibleDays] giorni.
   Stream<List<TrashpotReport>> watchReportsNear({
     required double latitude,
     required double longitude,
     required double radiusKm,
+    required Set<ReportStatusGroup> statusGroups,
   });
   Stream<List<TrashpotReport>> watchReportsByUser(String uid, {int limit = 50});
   Stream<TrashpotReport?> watchReport(String reportId);
@@ -71,22 +76,53 @@ class FirestoreReportRepository implements ReportRepository {
     required double latitude,
     required double longitude,
     required double radiusKm,
+    required Set<ReportStatusGroup> statusGroups,
   }) {
     final reports = _firestore.collection('reports');
+    final activeStatuses = [
+      for (final group in statusGroups)
+        if (group != ReportStatusGroup.pulite) ...group.firestoreStatuses,
+    ];
     final queries = [
-      for (final (start, end) in geohashQueryBounds(
-        latitude,
-        longitude,
-        radiusKm * 1000,
-      ))
+      // Segnalazioni ancora attive, per zona (indice status + geohash).
+      if (activeStatuses.isNotEmpty)
+        for (final (start, end) in geohashQueryBounds(
+          latitude,
+          longitude,
+          radiusKm * 1000,
+        ))
+          reports
+              .where('status', whereIn: activeStatuses)
+              .orderBy('geohash')
+              .startAt([start])
+              .endAt([end])
+              .limit(_nearQueryLimit)
+              .snapshots()
+              .map(_parseDocs),
+      // Ripulite di recente (indice status + cleanedAt). Firestore non
+      // combina il range sul geohash con quello sulla data senza costi di
+      // indice maggiori: si prendono le più recenti e si filtra la distanza
+      // qui sotto, come per le altre.
+      if (statusGroups.contains(ReportStatusGroup.pulite))
         reports
-            .orderBy('geohash')
-            .startAt([start])
-            .endAt([end])
-            .limit(_nearQueryLimit)
+            .where(
+              'status',
+              whereIn: ReportStatusGroup.pulite.firestoreStatuses,
+            )
+            .where(
+              'cleanedAt',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(
+                DateTime.now().subtract(
+                  const Duration(days: cleanedVisibleDays),
+                ),
+              ),
+            )
+            .orderBy('cleanedAt', descending: true)
+            .limit(cleanedQueryLimit)
             .snapshots()
             .map(_parseDocs),
     ];
+    if (queries.isEmpty) return Stream.value(const []);
 
     return _combineLatest(queries).map((lists) {
       final byId = <String, TrashpotReport>{};

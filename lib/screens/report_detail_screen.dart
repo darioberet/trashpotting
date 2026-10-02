@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -574,8 +575,8 @@ class _PhotoHeader extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
-                imageUrl,
+              Image(
+                image: CachedNetworkImageProvider(imageUrl),
                 fit: BoxFit.cover,
                 loadingBuilder: (_, child, progress) {
                   if (progress == null) return child;
@@ -1062,8 +1063,8 @@ class _PhotoSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: Image.network(
-            imageUrl,
+          child: Image(
+            image: CachedNetworkImageProvider(imageUrl),
             fit: BoxFit.cover,
             loadingBuilder: (_, child, progress) {
               if (progress == null) return child;
@@ -1171,8 +1172,8 @@ class _FullscreenPhotoPage extends StatelessWidget {
       ),
       body: Center(
         child: InteractiveViewer(
-          child: Image.network(
-            imageUrl,
+          child: Image(
+            image: CachedNetworkImageProvider(imageUrl),
             fit: BoxFit.contain,
             loadingBuilder: (_, child, progress) {
               if (progress == null) return child;

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trashpotting_v3/models/app_user_profile.dart';
 import 'package:trashpotting_v3/models/leaderboard_entry.dart';
+import 'package:trashpotting_v3/models/report_filter.dart';
 import 'package:trashpotting_v3/models/report_draft.dart';
 import 'package:trashpotting_v3/models/trashpot_report.dart';
 import 'package:trashpotting_v3/repositories/leaderboard_repository.dart';
@@ -87,6 +88,7 @@ class _FakeReportRepository implements ReportRepository {
     required double latitude,
     required double longitude,
     required double radiusKm,
+    required Set<ReportStatusGroup> statusGroups,
   }) => const Stream<List<TrashpotReport>>.empty();
 
   @override
