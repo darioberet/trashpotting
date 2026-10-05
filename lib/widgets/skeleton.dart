@@ -15,10 +15,19 @@ class SkeletonPulse extends StatefulWidget {
 
 class _SkeletonPulseState extends State<SkeletonPulse>
     with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat(reverse: true);
+  // Creato in initState e non "late" al primo uso: con le animazioni
+  // disattivate build non lo tocca mai, e crearlo per la prima volta in
+  // dispose (a widget già staccato) fa fallire la ricerca del TickerMode.
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+  }
 
   @override
   void dispose() {
@@ -29,7 +38,11 @@ class _SkeletonPulseState extends State<SkeletonPulse>
   @override
   Widget build(BuildContext context) {
     // Rispetta "Rimuovi animazioni" dell'accessibilità di Android.
-    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    if (MediaQuery.of(context).disableAnimations) {
+      if (_controller.isAnimating) _controller.stop();
+      return widget.child;
+    }
+    if (!_controller.isAnimating) _controller.repeat(reverse: true);
     return FadeTransition(
       opacity: Tween(
         begin: 0.45,
