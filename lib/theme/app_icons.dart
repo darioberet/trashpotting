@@ -20,6 +20,7 @@ abstract final class AppIcons {
   static const IconData openExternal = PhosphorIconsRegular.arrowSquareOut;
   static const IconData close = PhosphorIconsRegular.x;
   static const IconData back = PhosphorIconsBold.caretLeft;
+  static const IconData arrowRight = PhosphorIconsBold.arrowRight;
   static const IconData more = PhosphorIconsBold.dotsThreeVertical;
   static const IconData share = PhosphorIconsRegular.export;
 
@@ -78,6 +79,7 @@ abstract final class AppIcons {
   static const IconData start = PhosphorIconsRegular.play;
   static const IconData joinGroup = PhosphorIconsRegular.userPlus;
   static const IconData vote = PhosphorIconsRegular.handPointing;
+  static const IconData hand = PhosphorIconsRegular.handPalm;
   static const IconData check = PhosphorIconsRegular.check;
   static const IconData dot = PhosphorIconsFill.circle;
   static const IconData circle = PhosphorIconsRegular.circle;

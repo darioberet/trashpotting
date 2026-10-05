@@ -1,11 +1,16 @@
 import 'dart:io';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
+import '../repositories/leaderboard_repository.dart'
+    show pointsPerCleanup, pointsPerReport;
 import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../services/auth_service.dart';
@@ -15,18 +20,12 @@ import '../services/username_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_button.dart';
+import '../widgets/app_text_field.dart';
 import '../widgets/image_source_bottom_sheet.dart';
+import '../widgets/tab_header.dart';
+import '../widgets/user_avatar.dart';
 import '../theme/app_icons.dart';
-
-/// Colori delle illustrazioni dell'onboarding (assets/onboarding/): lo
-/// sfondo coincide con il loro, così le immagini si fondono con la pagina.
-abstract final class _OnbColors {
-  static const background = Color(0xFFFDFDFB);
-  static const navy = Color(0xFF021552);
-  static const orange = Color(0xFFFC5022);
-  static const text = Color(0xFF4A4F6A);
-  static const dotInactive = Color(0xFFE3E1DA);
-}
 
 /// Pagina illustrata dell'introduzione.
 class _IntroPage {
@@ -221,80 +220,112 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     return Theme(
       data: AppTheme.light,
-      child: Scaffold(
-        backgroundColor: _OnbColors.background,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // "Salta" porta al permesso di posizione, non oltre: la
-              // posizione serve comunque per usare l'app.
-              SizedBox(
-                height: 48,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: AnimatedOpacity(
-                    opacity: isIntro ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: TextButton(
-                      onPressed: isIntro ? () => _goTo(_locationPage) : null,
-                      style: TextButton.styleFrom(
-                        foregroundColor: _OnbColors.text,
-                      ),
-                      child: const Text('Salta'),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark.copyWith(
+          statusBarColor: Colors.transparent,
+        ),
+        child: Scaffold(
+          backgroundColor: AppColors.bgAlt,
+          body: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+                  child: SizedBox(
+                    height: 48,
+                    child: Row(
+                      children: [
+                        AnimatedOpacity(
+                          opacity: _page > 0 ? 1 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: IgnorePointer(
+                            ignoring: _page == 0,
+                            child: HeaderCircleButton(
+                              icon: AppIcons.back,
+                              tooltip: 'Indietro',
+                              onPressed: () => _goTo(_page - 1),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        // "Salta" porta al permesso di posizione, non oltre:
+                        // la posizione serve comunque per usare l'app.
+                        AnimatedOpacity(
+                          opacity: isIntro ? 1 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: TextButton(
+                            onPressed: isIntro
+                                ? () => _goTo(_locationPage)
+                                : null,
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.greenDark,
+                            ),
+                            child: const Text('Salta'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  // Avanti solo con i pulsanti dal permesso in poi: lo swipe
-                  // salterebbe la richiesta di posizione.
-                  physics: _page >= _locationPage
-                      ? const NeverScrollableScrollPhysics()
-                      : const PageScrollPhysics(),
-                  onPageChanged: (p) => setState(() => _page = p),
-                  children: [
-                    for (final page in _introPages)
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    // Avanti solo con i pulsanti dal permesso in poi: lo
+                    // swipe salterebbe la richiesta di posizione.
+                    physics: _page >= _locationPage
+                        ? const NeverScrollableScrollPhysics()
+                        : const PageScrollPhysics(),
+                    onPageChanged: (p) => setState(() => _page = p),
+                    children: [
+                      for (final (i, page) in _introPages.indexed)
+                        _IllustratedPage(
+                          illustration: SvgPicture.asset(page.asset),
+                          title: page.title,
+                          body: page.body,
+                          dots: _PageDots(count: _pageCount, current: i),
+                          extra: switch (i) {
+                            1 => const _CleanupModes(),
+                            2 => const _PointsTiles(),
+                            _ => null,
+                          },
+                        ),
                       _IllustratedPage(
-                        illustration: SvgPicture.asset(page.asset),
-                        title: page.title,
-                        body: page.body,
+                        illustration: const _MultiplyImage(
+                          asset: 'assets/onboarding/posizione.png',
+                        ),
+                        title: 'Ci serve la tua posizione',
+                        body:
+                            'Per mostrarti i rifiuti vicino a te e registrare '
+                            'dove si trovano quelli che segnali. La usiamo '
+                            'solo mentre usi l\'app, e gli altri utenti non '
+                            'vedono dove sei.',
+                        dots: const _PageDots(
+                          count: _pageCount,
+                          current: _locationPage,
+                        ),
                       ),
-                    _IllustratedPage(
-                      illustration: Image.asset(
-                        'assets/onboarding/posizione.png',
+                      _ProfilePage(
+                        nameController: _nameController,
+                        photoPath: _photoPath,
+                        busy: _busy,
+                        onPickPhoto: _pickPhoto,
                       ),
-                      title: 'Ci serve la tua posizione',
-                      body:
-                          'Per mostrarti i rifiuti vicino a te e registrare '
-                          'dove si trovano quelli che segnali. La usiamo solo '
-                          'mentre usi l\'app, e gli altri utenti non vedono '
-                          'dove sei.',
-                    ),
-                    _ProfilePage(
-                      nameController: _nameController,
-                      photoPath: _photoPath,
-                      busy: _busy,
-                      onPickPhoto: _pickPhoto,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              _PageDots(count: _pageCount, current: _page),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                child: _BottomActions(
-                  page: _page,
-                  busy: _busy,
-                  requestingLocation: _requestingLocation,
-                  onNext: _next,
-                  onRequestLocation: _requestLocation,
-                  onFinish: _finish,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: _BottomActions(
+                    page: _page,
+                    busy: _busy,
+                    requestingLocation: _requestingLocation,
+                    onNext: _next,
+                    onRequestLocation: _requestLocation,
+                    onFinish: _finish,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -302,57 +333,303 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
+/// Illustrazione su un cerchio verde chiaro, con qualche foglia sparsa.
+class _IllustrationCircle extends StatelessWidget {
+  const _IllustrationCircle({required this.size, required this.child});
+
+  final double size;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget leaf(double x, double y, double s, double turns, Color c) =>
+        Positioned(
+          left: x * size,
+          top: y * size,
+          child: Transform.rotate(
+            angle: turns * 2 * math.pi,
+            child: Icon(AppIcons.leaf, size: s * size, color: c),
+          ),
+        );
+    return ExcludeSemantics(
+      child: SizedBox.square(
+        dimension: size,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              left: size * 0.04,
+              right: size * 0.04,
+              top: size * 0.04,
+              bottom: size * 0.04,
+              child: const DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.greenLight,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned.fill(
+              left: size * 0.08,
+              right: size * 0.08,
+              top: size * 0.06,
+              bottom: size * 0.1,
+              child: child,
+            ),
+            leaf(-0.04, 0.12, 0.1, 0.1, const Color(0xFF8ED9C0)),
+            leaf(0.9, 0.04, 0.08, -0.2, AppColors.yellow),
+            leaf(0.92, 0.66, 0.11, 0.3, const Color(0xFF8ED9C0)),
+            leaf(0.02, 0.78, 0.07, 0.45, AppColors.yellow),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Disegna un'immagine dal fondo bianco "moltiplicandola" sul cerchio
+/// verde: il bianco prende il colore del cerchio, come nel mockup.
+class _MultiplyImage extends StatefulWidget {
+  const _MultiplyImage({required this.asset});
+
+  final String asset;
+
+  @override
+  State<_MultiplyImage> createState() => _MultiplyImageState();
+}
+
+class _MultiplyImageState extends State<_MultiplyImage> {
+  ui.Image? _image;
+  ImageStream? _stream;
+  late final _listener = ImageStreamListener((info, _) {
+    if (mounted) setState(() => _image = info.image);
+  });
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _stream?.removeListener(_listener);
+    _stream = AssetImage(
+      widget.asset,
+    ).resolve(createLocalImageConfiguration(context));
+    _stream!.addListener(_listener);
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: _MultiplyPainter(_image));
+  }
+}
+
+class _MultiplyPainter extends CustomPainter {
+  const _MultiplyPainter(this.image);
+
+  final ui.Image? image;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final img = image;
+    if (img == null) return;
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      img.width.toDouble(),
+      img.height.toDouble(),
+    );
+    final dst = Alignment.center.inscribe(
+      applyBoxFit(BoxFit.contain, src.size, size).destination,
+      Offset.zero & size,
+    );
+    canvas.drawImageRect(
+      img,
+      src,
+      dst,
+      Paint()
+        ..blendMode = BlendMode.multiply
+        ..filterQuality = FilterQuality.medium,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_MultiplyPainter oldDelegate) =>
+      oldDelegate.image != image;
+}
+
 class _IllustratedPage extends StatelessWidget {
   const _IllustratedPage({
     required this.illustration,
     required this.title,
     required this.body,
+    required this.dots,
+    this.extra,
   });
 
   final Widget illustration;
   final String title;
   final String body;
+  final Widget dots;
+  final Widget? extra;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Su schermi bassi l'illustrazione si riduce, il testo resta intero.
-        final size = (constraints.maxHeight * 0.58).clamp(160.0, 360.0);
+        final size = math.min(
+          (constraints.maxHeight * 0.5).clamp(150.0, 320.0),
+          constraints.maxWidth - 48,
+        );
         return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox.square(dimension: size, child: illustration),
-                const SizedBox(height: 24),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    height: 1.2,
-                    fontWeight: FontWeight.w800,
-                    color: _OnbColors.navy,
+                _IllustrationCircle(size: size, child: illustration),
+                const SizedBox(height: 20),
+                dots,
+                const SizedBox(height: 20),
+                Semantics(
+                  header: true,
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      height: 34 / 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   body,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 15,
-                    height: 1.5,
-                    color: _OnbColors.text,
+                    height: 22 / 15,
+                    color: AppColors.textSecondary,
                   ),
                 ),
+                if (extra != null) ...[const SizedBox(height: 18), extra!],
+                const SizedBox(height: 12),
               ],
             ),
           ),
         );
       },
+    );
+  }
+}
+
+/// "Me ne occupo io" e "Evento di gruppo": i due modi di pulire.
+class _CleanupModes extends StatelessWidget {
+  const _CleanupModes();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget chip(IconData icon, String label, Color bg, Color fg) => Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: fg),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: [
+        chip(
+          AppIcons.hand,
+          'Me ne occupo io',
+          AppColors.greenLight,
+          AppColors.greenDark,
+        ),
+        chip(
+          AppIcons.calendar,
+          'Evento di gruppo',
+          AppColors.purpleLight,
+          AppColors.purpleDark,
+        ),
+      ],
+    );
+  }
+}
+
+/// "+1 segnalazione" e "+2 pulizia".
+class _PointsTiles extends StatelessWidget {
+  const _PointsTiles();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget tile(int points, String label, {required bool strong}) => Container(
+      constraints: const BoxConstraints(minWidth: 70),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: strong ? AppColors.yellow : AppColors.yellowLight,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: strong
+            ? const [
+                BoxShadow(color: AppColors.yellowEdge, offset: Offset(0, 4)),
+              ]
+            : null,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '+$points',
+            style: TextStyle(
+              fontSize: 24,
+              height: 1.15,
+              fontWeight: FontWeight.w900,
+              color: strong ? AppColors.onYellow : AppColors.yellowText,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: strong ? AppColors.onYellow : AppColors.yellowText,
+            ),
+          ),
+        ],
+      ),
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        tile(pointsPerReport, 'segnalazione', strong: false),
+        const SizedBox(width: 10),
+        tile(pointsPerCleanup, 'pulizia', strong: true),
+      ],
     );
   }
 }
@@ -373,102 +650,237 @@ class _ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasPhoto = photoPath != null && !kIsWeb;
+    final uid = AppSessionScope.of(context).currentUserId ?? 'nuovo';
 
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Semantics(
-                label: 'Aggiungi foto profilo',
+                label: hasPhoto
+                    ? 'Cambia foto profilo'
+                    : 'Aggiungi foto profilo',
                 button: true,
+                excludeSemantics: true,
                 child: GestureDetector(
                   onTap: busy ? null : onPickPhoto,
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 128,
-                        height: 128,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.greenLight,
-                          border: Border.all(
-                            color: _OnbColors.orange.withAlpha(90),
-                            width: 3,
-                          ),
-                          image: hasPhoto
-                              ? DecorationImage(
-                                  image: FileImage(File(photoPath!)),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: !hasPhoto
-                            ? const Icon(
-                                AppIcons.userFilled,
-                                size: 56,
-                                color: AppColors.greenBrand,
-                              )
-                            : null,
-                      ),
-                      Positioned(
-                        right: 2,
-                        bottom: 2,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: _OnbColors.orange,
-                            shape: BoxShape.circle,
-                            border: Border.fromBorderSide(
-                              BorderSide(color: Colors.white, width: 2),
+                  child: SizedBox(
+                    width: 160,
+                    height: 160,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: AppColors.greenLight,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                          child: const Icon(
-                            AppIcons.cameraFilled,
-                            size: 18,
-                            color: Colors.white,
+                        ),
+                        Center(
+                          child: ListenableBuilder(
+                            listenable: nameController,
+                            builder: (context, _) => Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.white,
+                                    spreadRadius: 6,
+                                  ),
+                                ],
+                                image: hasPhoto
+                                    ? DecorationImage(
+                                        image: FileImage(File(photoPath!)),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                              ),
+                              child: hasPhoto
+                                  ? null
+                                  : UserAvatar(
+                                      name: nameController.text.trim().isEmpty
+                                          ? '?'
+                                          : nameController.text,
+                                      seed: uid,
+                                      size: 120,
+                                    ),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppColors.yellow,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.bgAlt,
+                                width: 3,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: AppColors.yellowEdge,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              AppIcons.cameraFilled,
+                              size: 20,
+                              color: AppColors.onYellow,
+                            ),
+                          ),
+                        ),
+                        const Positioned(
+                          right: -2,
+                          top: 4,
+                          child: Icon(
+                            AppIcons.starFilled,
+                            size: 26,
+                            color: AppColors.yellow,
+                          ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          top: 22,
+                          child: Transform.rotate(
+                            angle: -0.6,
+                            child: const Icon(
+                              AppIcons.leaf,
+                              size: 22,
+                              color: Color(0xFF8ED9C0),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 28),
-              const Text(
-                'Come ti chiamiamo?',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: _OnbColors.navy,
+              const SizedBox(height: 20),
+              const _PageDots(count: _pageCount, current: _profilePage),
+              const SizedBox(height: 20),
+              Semantics(
+                header: true,
+                child: const Text(
+                  'Come ti chiamiamo?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 28,
+                    height: 34 / 28,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -1,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
               const Text(
-                'Scegli un username e, se vuoi, una foto. È quello che vedranno '
-                'gli altri in classifica. Puoi cambiarli quando vuoi.',
+                'Scegli un username e, se vuoi, una foto. È quello che '
+                'vedranno gli altri in classifica. Puoi cambiarli quando '
+                'vuoi.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
-                  height: 1.5,
-                  color: _OnbColors.text,
+                  height: 22 / 15,
+                  color: AppColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 24),
-              TextField(
+              const SizedBox(height: 20),
+              AppTextField(
+                label: 'Username',
+                icon: AppIcons.username,
                 controller: nameController,
-                enabled: !busy,
+                hintText: 'Es. Carletto',
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Username',
-                  prefixIcon: Icon(AppIcons.username),
-                ),
               ),
+              const SizedBox(height: 12),
+              // Anteprima della riga in classifica.
+              ListenableBuilder(
+                listenable: nameController,
+                builder: (context, _) {
+                  final name = nameController.text.trim();
+                  return Container(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.mintBorder,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'In classifica',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textDisabled,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        UserAvatar(
+                          name: name.isEmpty ? '?' : name,
+                          seed: uid,
+                          size: 36,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            name.isEmpty ? 'Utente' : name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '0',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.greenBrand,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' pt',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textDisabled,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -477,7 +889,8 @@ class _ProfilePage extends StatelessWidget {
   }
 }
 
-/// Puntini di avanzamento: quello della pagina corrente si allunga.
+/// Puntini di avanzamento: pagine fatte verdi, quella corrente una pillola
+/// gialla, le successive verde chiaro.
 class _PageDots extends StatelessWidget {
   const _PageDots({required this.count, required this.current});
 
@@ -488,21 +901,30 @@ class _PageDots extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       label: 'Pagina ${current + 1} di $count',
+      excludeSemantics: true,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           for (var i = 0; i < count; i++)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOut,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: i == current ? 24 : 8,
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: i == current ? 28 : 8,
               height: 8,
               decoration: BoxDecoration(
                 color: i == current
-                    ? _OnbColors.orange
-                    : _OnbColors.dotInactive,
+                    ? AppColors.yellow
+                    : i < current
+                    ? AppColors.greenBrand
+                    : AppColors.mintBorder,
                 borderRadius: BorderRadius.circular(4),
+                boxShadow: i == current
+                    ? const [
+                        BoxShadow(
+                          color: AppColors.yellowEdge,
+                          offset: Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
             ),
         ],
@@ -530,44 +952,35 @@ class _BottomActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, onPressed, loading) = switch (page) {
+    final (label, icon, onPressed, loading) = switch (page) {
       _locationPage => (
         'Consenti la posizione',
-        requestingLocation ? null : onRequestLocation,
+        AppIcons.place,
+        onRequestLocation,
         requestingLocation,
       ),
-      _profilePage => ('Inizia', busy ? null : onFinish, busy),
-      _ => ('Avanti', onNext, false),
+      _profilePage => ('Inizia', AppIcons.arrowRight, onFinish, busy),
+      _ => ('Avanti', AppIcons.arrowRight, onNext, false),
     };
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: FilledButton(
-            onPressed: onPressed,
-            child: loading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Text(label, style: const TextStyle(fontSize: 16)),
-          ),
+        AppButton(
+          label: label,
+          icon: icon,
+          loading: loading,
+          onPressed: onPressed,
         ),
-        // Seconda azione solo sull'ultima pagina, a parità di altezza
-        // per non far "saltare" il layout tra una pagina e l'altra.
+        // Seconda azione solo sull'ultima pagina, a parità di altezza per
+        // non far "saltare" il layout tra una pagina e l'altra.
         SizedBox(
           height: 44,
           child: page == _profilePage
               ? TextButton(
                   onPressed: busy ? null : onFinish,
                   style: TextButton.styleFrom(
-                    foregroundColor: _OnbColors.text,
+                    foregroundColor: AppColors.greenDark,
                   ),
                   child: const Text('Salta per ora'),
                 )
