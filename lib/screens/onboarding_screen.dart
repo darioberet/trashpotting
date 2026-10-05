@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +21,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_text_field.dart';
+import '../widgets/illustration.dart';
 import '../widgets/image_source_bottom_sheet.dart';
 import '../widgets/tab_header.dart';
 import '../widgets/user_avatar.dart';
@@ -290,7 +290,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           },
                         ),
                       _IllustratedPage(
-                        illustration: const _MultiplyImage(
+                        illustration: const MultiplyImage(
                           asset: 'assets/onboarding/posizione.png',
                         ),
                         title: 'Ci serve la tua posizione',
@@ -333,134 +333,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-/// Illustrazione su un cerchio verde chiaro, con qualche foglia sparsa.
-class _IllustrationCircle extends StatelessWidget {
-  const _IllustrationCircle({required this.size, required this.child});
-
-  final double size;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget leaf(double x, double y, double s, double turns, Color c) =>
-        Positioned(
-          left: x * size,
-          top: y * size,
-          child: Transform.rotate(
-            angle: turns * 2 * math.pi,
-            child: Icon(AppIcons.leaf, size: s * size, color: c),
-          ),
-        );
-    return ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: size,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              left: size * 0.04,
-              right: size * 0.04,
-              top: size * 0.04,
-              bottom: size * 0.04,
-              child: const DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.greenLight,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Positioned.fill(
-              left: size * 0.08,
-              right: size * 0.08,
-              top: size * 0.06,
-              bottom: size * 0.1,
-              child: child,
-            ),
-            leaf(-0.04, 0.12, 0.1, 0.1, const Color(0xFF8ED9C0)),
-            leaf(0.9, 0.04, 0.08, -0.2, AppColors.yellow),
-            leaf(0.92, 0.66, 0.11, 0.3, const Color(0xFF8ED9C0)),
-            leaf(0.02, 0.78, 0.07, 0.45, AppColors.yellow),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Disegna un'immagine dal fondo bianco "moltiplicandola" sul cerchio
-/// verde: il bianco prende il colore del cerchio, come nel mockup.
-class _MultiplyImage extends StatefulWidget {
-  const _MultiplyImage({required this.asset});
-
-  final String asset;
-
-  @override
-  State<_MultiplyImage> createState() => _MultiplyImageState();
-}
-
-class _MultiplyImageState extends State<_MultiplyImage> {
-  ui.Image? _image;
-  ImageStream? _stream;
-  late final _listener = ImageStreamListener((info, _) {
-    if (mounted) setState(() => _image = info.image);
-  });
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _stream?.removeListener(_listener);
-    _stream = AssetImage(
-      widget.asset,
-    ).resolve(createLocalImageConfiguration(context));
-    _stream!.addListener(_listener);
-  }
-
-  @override
-  void dispose() {
-    _stream?.removeListener(_listener);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(painter: _MultiplyPainter(_image));
-  }
-}
-
-class _MultiplyPainter extends CustomPainter {
-  const _MultiplyPainter(this.image);
-
-  final ui.Image? image;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final img = image;
-    if (img == null) return;
-    final src = Rect.fromLTWH(
-      0,
-      0,
-      img.width.toDouble(),
-      img.height.toDouble(),
-    );
-    final dst = Alignment.center.inscribe(
-      applyBoxFit(BoxFit.contain, src.size, size).destination,
-      Offset.zero & size,
-    );
-    canvas.drawImageRect(
-      img,
-      src,
-      dst,
-      Paint()
-        ..blendMode = BlendMode.multiply
-        ..filterQuality = FilterQuality.medium,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_MultiplyPainter oldDelegate) =>
-      oldDelegate.image != image;
-}
-
 class _IllustratedPage extends StatelessWidget {
   const _IllustratedPage({
     required this.illustration,
@@ -492,7 +364,7 @@ class _IllustratedPage extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _IllustrationCircle(size: size, child: illustration),
+                IllustrationCircle(size: size, child: illustration),
                 const SizedBox(height: 20),
                 dots,
                 const SizedBox(height: 20),

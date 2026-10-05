@@ -1,208 +1,161 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/trashpot_report.dart';
 import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../state/app_session.dart';
-import '../widgets/skeleton.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
 import '../theme/app_icons.dart';
+import '../widgets/app_button.dart';
+import '../widgets/illustration.dart';
+import '../widgets/report_card.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/tab_header.dart';
 
-class MieSegnalazioniScreen extends StatelessWidget {
+class MieSegnalazioniScreen extends StatefulWidget {
   MieSegnalazioniScreen({super.key, ReportRepository? repository})
     : _repository = repository ?? FirestoreReportRepository();
 
   final ReportRepository _repository;
 
   @override
+  State<MieSegnalazioniScreen> createState() => _MieSegnalazioniScreenState();
+}
+
+class _MieSegnalazioniScreenState extends State<MieSegnalazioniScreen> {
+  // Memorizzato: ricrearlo a ogni build riaprirebbe la query.
+  String? _uid;
+  Stream<List<TrashpotReport>>? _stream;
+
+  @override
   Widget build(BuildContext context) {
     final uid = AppSessionScope.of(context).currentUserId;
+    if (uid != _uid) {
+      _uid = uid;
+      _stream = uid == null ? null : widget._repository.watchReportsByUser(uid);
+    }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Le mie segnalazioni')),
-      body: uid == null
-          ? Center(
-              child: Text(
-                'Accedi per vedere le tue segnalazioni.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: context.palette.textSecondary,
-                ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const BackHeader(title: 'Le mie segnalazioni'),
+              Expanded(
+                child: uid == null
+                    ? const Center(
+                        child: Text(
+                          'Accedi per vedere le tue segnalazioni.',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      )
+                    : StreamBuilder<List<TrashpotReport>>(
+                        stream: _stream,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                                  ConnectionState.waiting &&
+                              !snapshot.hasData) {
+                            return const SkeletonList(
+                              padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+                              thumbSize: 72,
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            return const _ErrorMessage();
+                          }
+                          final reports =
+                              snapshot.data ?? const <TrashpotReport>[];
+                          if (reports.isEmpty) return const _EmptyMessage();
+                          return ListView.separated(
+                            padding: EdgeInsets.fromLTRB(
+                              16,
+                              8,
+                              16,
+                              16 + MediaQuery.of(context).padding.bottom,
+                            ),
+                            itemCount: reports.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, i) {
+                              final r = reports[i];
+                              return ReportCard(
+                                report: r,
+                                onTap: () => context.push(
+                                  '${AppRoutes.reportDetail}/${r.id}',
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
               ),
-            )
-          : StreamBuilder<List<TrashpotReport>>(
-              stream: _repository.watchReportsByUser(uid),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return const SkeletonList(
-                    padding: EdgeInsets.all(16),
-                    thumbSize: 52,
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(AppIcons.offline, size: 48),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Errore di rete. Riprova più tardi.',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                final reports = snapshot.data ?? const <TrashpotReport>[];
-                if (reports.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            AppIcons.myReports,
-                            size: 56,
-                            color: context.palette.divider,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Non hai ancora inviato segnalazioni.',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: reports.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) {
-                    final r = reports[i];
-                    return _MyReportCard(
-                      report: r,
-                      onTap: () =>
-                          context.push('${AppRoutes.reportDetail}/${r.id}'),
-                    );
-                  },
-                );
-              },
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _MyReportCard extends StatelessWidget {
-  const _MyReportCard({required this.report, required this.onTap});
-
-  final TrashpotReport report;
-  final VoidCallback onTap;
+class _EmptyMessage extends StatelessWidget {
+  const _EmptyMessage();
 
   @override
   Widget build(BuildContext context) {
-    final (:bg, :fg) = AppColors.statusChip(report.status);
+    return MediaQuery.removePadding(
+      context: context,
+      removeTop: true,
+      child: IllustratedMessage(
+        illustration: SvgPicture.asset('assets/onboarding/segnala.svg'),
+        title: 'Non hai ancora inviato segnalazioni.',
+        message:
+            'Hai visto dei rifiuti in giro? Una foto e la posizione: '
+            'bastano 10 secondi.',
+        note: const IllustratedNote(
+          icon: AppIcons.starFilled,
+          boldLead: 'La prima vale 1 punto',
+          text: 'e ti fa entrare in classifica',
+          bg: AppColors.greenLight,
+          fg: AppColors.greenDark,
+          iconBg: AppColors.yellow,
+          iconFg: AppColors.onYellow,
+        ),
+        primary: AppButton(
+          label: 'Fai la prima segnalazione',
+          icon: AppIcons.addPlace,
+          onPressed: () => context.push(AppRoutes.segnala),
+        ),
+      ),
+    );
+  }
+}
 
-    return Material(
-      color: context.palette.surfaceWarm,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: report.photoUrl != null
-                    ? Image(
-                        image: CachedNetworkImageProvider(report.photoUrl!),
-                        width: 52,
-                        height: 52,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          width: 52,
-                          height: 52,
-                          color: context.palette.divider,
-                          child: Icon(
-                            AppIcons.image,
-                            size: 20,
-                            color: context.palette.textDisabled,
-                          ),
-                        ),
-                      )
-                    : Container(
-                        width: 52,
-                        height: 52,
-                        color: context.palette.divider,
-                        child: Icon(
-                          AppIcons.image,
-                          size: 20,
-                          color: context.palette.textDisabled,
-                        ),
-                      ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      report.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: context.palette.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      report.address,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: context.palette.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  trashpotStatusLabel(report.status).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: fg,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ),
-            ],
-          ),
+class _ErrorMessage extends StatelessWidget {
+  const _ErrorMessage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.offline, size: 48, color: AppColors.textSecondary),
+            SizedBox(height: 12),
+            Text(
+              'Errore di rete. Riprova più tardi.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
         ),
       ),
     );

@@ -5,8 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
 import '../theme/app_icons.dart';
+import 'app_button.dart';
+import 'illustration.dart';
 
 enum _LocationStatus { checking, ok, serviceOff, denied, deniedForever }
 
@@ -129,6 +130,7 @@ class _LocationGateState extends State<LocationGate>
               status: _status,
               busy: _requesting,
               onFix: _fix,
+              onRetry: _check,
               onSignOut: widget.onSignOut,
             ),
           ),
@@ -142,98 +144,84 @@ class _BlockedView extends StatelessWidget {
     required this.status,
     required this.busy,
     required this.onFix,
+    required this.onRetry,
     required this.onSignOut,
   });
 
   final _LocationStatus status;
   final bool busy;
   final VoidCallback onFix;
+  final VoidCallback onRetry;
   final Future<void> Function() onSignOut;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    final theme = Theme.of(context);
-
-    final (title, message, action) = switch (status) {
+    final (badge, title, message, action) = switch (status) {
       _LocationStatus.serviceOff => (
+        'Posizione disattivata',
         'Attiva la posizione',
-        'Trashpotting usa il GPS per mostrarti le segnalazioni vicine e per '
-            'registrare dove si trovano i rifiuti. Attiva la localizzazione '
-            'per continuare.',
-        'Attiva GPS',
+        'Ci serve per mostrarti i rifiuti vicino a te e per registrare dove '
+            'si trovano quelli che segnali.',
+        'Apri le impostazioni',
       ),
       _LocationStatus.denied => (
-        'Consenti l\'accesso alla posizione',
+        'Permesso mancante',
+        'Consenti la posizione',
         'Per segnalare rifiuti e vedere quelli vicino a te, Trashpotting ha '
             'bisogno del permesso di accedere alla tua posizione.',
         'Consenti accesso',
       ),
       _ => (
-        'Permesso di posizione negato',
-        'Hai negato il permesso di posizione. Aprendo le impostazioni '
-            'dell\'app, vai su Autorizzazioni → Posizione e scegli '
-            '"Consenti solo mentre usi l\'app".',
-        'Apri impostazioni',
+        'Permesso negato',
+        'Riattiva il permesso',
+        'Nelle impostazioni dell\'app vai su Autorizzazioni → Posizione e '
+            'scegli "Consenti solo mentre usi l\'app".',
+        'Apri le impostazioni',
       ),
     };
 
     return Material(
-      color: theme.scaffoldBackgroundColor,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Spacer(),
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: palette.greenLight,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  AppIcons.locationOff,
-                  size: 44,
-                  color: AppColors.greenBrand,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: palette.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: palette.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: busy ? null : onFix,
-                  icon: const Icon(AppIcons.myLocation),
-                  label: Text(action),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: busy ? null : onSignOut,
-                child: const Text('Esci dall\'account'),
-              ),
-            ],
-          ),
+      color: AppColors.bgAlt,
+      child: IllustratedMessage(
+        illustration: const MultiplyImage(
+          asset: 'assets/onboarding/posizione.png',
         ),
+        badge: (
+          icon: AppIcons.myLocation,
+          label: badge,
+          bg: AppColors.yellowLight,
+          fg: AppColors.yellowText,
+        ),
+        title: title,
+        message: message,
+        note: const IllustratedNote(
+          icon: AppIcons.lock,
+          text:
+              'La usiamo solo mentre usi l\'app. Gli altri non vedono mai '
+              'dove sei.',
+          bg: AppColors.purpleLight,
+          fg: AppColors.purpleDark,
+        ),
+        primary: AppButton(
+          label: action,
+          icon: AppIcons.settings,
+          loading: busy,
+          onPressed: onFix,
+        ),
+        secondary: [
+          TextButton(
+            onPressed: busy ? null : onRetry,
+            style: TextButton.styleFrom(foregroundColor: AppColors.greenDark),
+            child: const Text('Riprova'),
+          ),
+          TextButton(
+            onPressed: busy ? null : onSignOut,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+            ),
+            child: const Text('Esci dall\'account'),
+          ),
+        ],
       ),
     );
   }

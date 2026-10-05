@@ -279,3 +279,49 @@ class _PointsPillState extends State<PointsPill> {
     );
   }
 }
+
+/// Header delle pagine secondarie: pulsante tondo "indietro" e titolo.
+class BackHeader extends StatelessWidget {
+  const BackHeader({super.key, required this.title, this.actions = const []});
+
+  final String title;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          children: [
+            HeaderCircleButton(
+              icon: AppIcons.back,
+              tooltip: 'Indietro',
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Semantics(
+                header: true,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    height: 30 / 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.7,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+            for (final action in actions) ...[const SizedBox(width: 8), action],
+          ],
+        ),
+      ),
+    );
+  }
+}

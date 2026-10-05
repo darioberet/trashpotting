@@ -1,14 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routes.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
 import '../theme/app_icons.dart';
+import '../widgets/app_button.dart';
+import '../widgets/illustration.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   EmailVerificationScreen({super.key, AuthService? authService})
@@ -99,92 +101,66 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     final session = AppSessionScope.watch(context);
     final email = session.currentUser?.email ?? '';
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        body: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: AppColors.greenLight,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      AppIcons.emailUnread,
-                      size: 36,
-                      color: AppColors.greenBrand,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Verifica la tua email',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Abbiamo inviato un link di verifica a\n$email\n\nClicca il link nell\'email per attivare il tuo account.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: context.palette.textSecondary,
-                      height: 1.6,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  FilledButton.icon(
-                    onPressed: _checking ? null : () => _checkVerified(),
-                    icon: _checking
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(AppIcons.statusCleaned, size: 18),
-                    label: Text(
-                      _checking
-                          ? 'Verifica in corso...'
-                          : 'Ho verificato la mia email',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _resending ? null : _resend,
-                    icon: _resending
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(AppIcons.refresh, size: 18),
-                    label: Text(
-                      _resending ? 'Invio in corso...' : 'Reinvia email',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  TextButton(
-                    onPressed: _signOut,
-                    child: Text(
-                      'Torna al login',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: context.palette.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: IllustratedMessage(
+              illustration: const Center(
+                child: Icon(
+                  AppIcons.emailUnread,
+                  size: 96,
+                  color: AppColors.greenBrand,
+                ),
               ),
+              badge: (
+                icon: AppIcons.email,
+                label: 'Ultimo passo',
+                bg: AppColors.yellowLight,
+                fg: AppColors.yellowText,
+              ),
+              title: 'Verifica la tua email',
+              message: email.isEmpty
+                  ? 'Ti abbiamo inviato un link di verifica. Aprilo per '
+                        'attivare il tuo account.'
+                  : 'Abbiamo inviato un link di verifica a $email. Aprilo '
+                        'per attivare il tuo account.',
+              note: const IllustratedNote(
+                icon: AppIcons.info,
+                text:
+                    'Non la trovi? Controlla anche la cartella spam o '
+                    'promozioni.',
+                bg: AppColors.purpleLight,
+                fg: AppColors.purpleDark,
+              ),
+              primary: AppButton(
+                label: _checking
+                    ? 'Verifica in corso…'
+                    : 'Ho verificato la mia email',
+                icon: AppIcons.check,
+                loading: _checking,
+                onPressed: () => _checkVerified(),
+              ),
+              secondary: [
+                TextButton(
+                  onPressed: _resending ? null : _resend,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.greenDark,
+                  ),
+                  child: Text(_resending ? 'Invio in corso…' : 'Reinvia email'),
+                ),
+                TextButton(
+                  onPressed: _signOut,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary,
+                  ),
+                  child: const Text('Torna al login'),
+                ),
+              ],
             ),
           ),
         ),
