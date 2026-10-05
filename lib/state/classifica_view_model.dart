@@ -19,6 +19,7 @@ class ClassificaViewModel extends ChangeNotifier with NotifierMessageMixin {
   Map<String, int> _reportCounts = const {};
   bool _loading = false;
   bool _loaded = false;
+  ({int points, int rank, int? reports})? _me;
 
   @override
   String get lastErrorFallback =>
@@ -31,7 +32,11 @@ class ClassificaViewModel extends ChangeNotifier with NotifierMessageMixin {
   /// Numero di segnalazioni dell'utente [uid], o null se non ancora caricato.
   int? reportCountFor(String uid) => _reportCounts[uid];
 
-  Future<void> load() async {
+  /// Punti, posizione e segnalazioni dell'utente corrente, anche se è fuori
+  /// dai primi della classifica. Null finché non è caricato.
+  ({int points, int rank, int? reports})? get me => _me;
+
+  Future<void> load({String? uid}) async {
     _loading = true;
     notifyListeners();
 
@@ -39,12 +44,28 @@ class ClassificaViewModel extends ChangeNotifier with NotifierMessageMixin {
       _entries = await _repository.fetchTop();
       _loaded = true;
       notifyListeners();
-      await _loadReportCounts();
+      await Future.wait([_loadReportCounts(), if (uid != null) _loadMe(uid)]);
     } catch (e) {
       setError(e);
     } finally {
       _loading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _loadMe(String uid) async {
+    try {
+      final listed = _entries.where((e) => e.uid == uid).firstOrNull;
+      final points = listed?.points ?? await _repository.fetchUserPoints(uid);
+      final rank = listed?.rank ?? await _repository.fetchRankForPoints(points);
+      int? reports = _reportCounts[uid];
+      try {
+        reports ??= await _reportRepository.countByUser(uid);
+      } catch (_) {}
+      _me = (points: points, rank: rank, reports: reports);
+      notifyListeners();
+    } catch (_) {
+      // Senza la propria riga la classifica resta comunque consultabile.
     }
   }
 

@@ -16,6 +16,10 @@ abstract class LeaderboardRepository {
   });
   Future<int> fetchUserPoints(String uid);
 
+  /// Posizione in classifica di chi ha [points] punti: 1 + quanti ne hanno
+  /// di più (a pari punti si condivide la posizione).
+  Future<int> fetchRankForPoints(int points);
+
   /// Allinea il nome mostrato in classifica quando l'utente cambia
   /// username (registrazione, onboarding).
   Future<void> updateUsername({required String uid, required String username});
@@ -63,6 +67,17 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
   Future<int> fetchUserPoints(String uid) async {
     final doc = await _firestore.collection('leaderboard').doc(uid).get();
     return doc.data()?['points'] as int? ?? 0;
+  }
+
+  @override
+  Future<int> fetchRankForPoints(int points) async {
+    // Query di conteggio: costa una lettura ogni 1000 documenti contati.
+    final snap = await _firestore
+        .collection('leaderboard')
+        .where('points', isGreaterThan: points)
+        .count()
+        .get();
+    return (snap.count ?? 0) + 1;
   }
 
   /// Punti dell'utente aggiornati in tempo reale (pillola nell'header).

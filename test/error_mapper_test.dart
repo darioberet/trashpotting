@@ -19,7 +19,11 @@ void main() {
   });
 
   test('mapAppError shows validation messages instead of the raw error', () {
-    final error = ArgumentError.value('', 'note', 'Inserisci almeno 10 caratteri.');
+    final error = ArgumentError.value(
+      '',
+      'note',
+      'Inserisci almeno 10 caratteri.',
+    );
 
     expect(mapAppError(error), 'Inserisci almeno 10 caratteri.');
   });

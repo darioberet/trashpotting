@@ -14,7 +14,10 @@ class _FakeNotificationRepository implements NotificationRepository {
   final Stream<List<AppNotification>> _stream;
 
   @override
-  Future<void> markRead({required String uid, required String notificationId}) async {}
+  Future<void> markRead({
+    required String uid,
+    required String notificationId,
+  }) async {}
 
   @override
   Stream<List<AppNotification>> watchUserNotifications(String uid) => _stream;
@@ -51,7 +54,9 @@ Widget _buildHost({
 }
 
 void main() {
-  testWidgets('Notifiche shows loading while waiting stream data', (tester) async {
+  testWidgets('Notifiche shows loading while waiting stream data', (
+    tester,
+  ) async {
     final controller = StreamController<List<AppNotification>>();
     addTearDown(controller.close);
 
@@ -68,7 +73,9 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('Notifiche shows empty state when stream emits empty list', (tester) async {
+  testWidgets('Notifiche shows empty state when stream emits empty list', (
+    tester,
+  ) async {
     final controller = StreamController<List<AppNotification>>();
     addTearDown(controller.close);
 
@@ -105,6 +112,9 @@ void main() {
     controller.addError(StateError('boom'));
     await tester.pump();
 
-    expect(find.textContaining('Impossibile caricare le notifiche'), findsOneWidget);
+    expect(
+      find.textContaining('Impossibile caricare le notifiche'),
+      findsOneWidget,
+    );
   });
 }

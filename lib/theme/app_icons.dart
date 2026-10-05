@@ -106,6 +106,7 @@ abstract final class AppIcons {
   // ── Classifica ───────────────────────────────────────────────────────────
   static const IconData trophy = PhosphorIconsRegular.trophy;
   static const IconData star = PhosphorIconsRegular.star;
+  static const IconData crown = PhosphorIconsFill.crownSimple;
   static const IconData starFilled = PhosphorIconsFill.star;
 
   // ── Moderazione ──────────────────────────────────────────────────────────

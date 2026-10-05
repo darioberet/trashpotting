@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
 
 import '../models/leaderboard_entry.dart';
 import '../repositories/leaderboard_repository.dart';
 import '../state/app_session.dart';
 import '../state/classifica_view_model.dart';
-import '../widgets/skeleton.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
 import '../theme/app_icons.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/tab_header.dart';
+import '../widgets/user_avatar.dart';
 
 class ClassificaScreen extends StatefulWidget {
   ClassificaScreen({super.key, LeaderboardRepository? repository})
@@ -23,17 +24,25 @@ class ClassificaScreen extends StatefulWidget {
 class _ClassificaScreenState extends State<ClassificaScreen> {
   late final ClassificaViewModel _viewModel;
   int _seenErrorToken = 0;
+  bool _started = false;
 
   @override
   void initState() {
     super.initState();
     _viewModel = ClassificaViewModel(repository: widget._repository);
-    _viewModel.load();
   }
 
-  Future<void> _reload() async {
-    await _viewModel.load();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_started) {
+      _started = true;
+      _viewModel.load(uid: AppSessionScope.of(context).currentUserId);
+    }
   }
+
+  Future<void> _reload() =>
+      _viewModel.load(uid: AppSessionScope.of(context).currentUserId);
 
   @override
   void dispose() {
@@ -43,292 +52,206 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final session = AppSessionScope.watch(context);
     final currentUid = session.currentUserId;
 
-    return AnimatedBuilder(
-      animation: _viewModel,
-      builder: (context, _) {
-        if (_viewModel.errorToken > _seenErrorToken &&
-            _viewModel.lastError != null) {
-          _seenErrorToken = _viewModel.errorToken;
-          session.publishError(
-            _viewModel.lastError!,
-            fallback: _viewModel.lastErrorFallback,
-          );
-        }
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: AnimatedBuilder(
+        animation: _viewModel,
+        builder: (context, _) {
+          if (_viewModel.errorToken > _seenErrorToken &&
+              _viewModel.lastError != null) {
+            _seenErrorToken = _viewModel.errorToken;
+            session.publishError(
+              _viewModel.lastError!,
+              fallback: _viewModel.lastErrorFallback,
+            );
+          }
 
-        final entries = _viewModel.entries;
-        final isLoading = _viewModel.loading && !_viewModel.loaded;
-        final isEmpty = _viewModel.loaded && entries.isEmpty;
-        final topEntries = (isLoading || isEmpty)
-            ? const <LeaderboardEntry>[]
-            : entries.take(3).toList();
-        final restEntries = (isLoading || isEmpty)
-            ? const <LeaderboardEntry>[]
-            : entries.skip(3).toList();
+          final entries = _viewModel.entries;
+          final isLoading = _viewModel.loading && !_viewModel.loaded;
+          final isEmpty = _viewModel.loaded && entries.isEmpty;
+          final top = entries.take(3).toList();
+          final rest = entries.skip(3).toList();
+          final me = _viewModel.me;
+          final myName = session.username?.trim().isNotEmpty == true
+              ? session.username!.trim()
+              : 'Tu';
+          final showMe = currentUid != null && me != null && !isEmpty;
 
-        Widget content;
-        if (isLoading) {
-          content = const SkeletonList(
-            padding: EdgeInsets.all(16),
-            thumbSize: 40,
-            circleThumb: true,
-          );
-        } else if (isEmpty) {
-          content = LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
+          Widget content;
+          if (isLoading) {
+            content = const SkeletonList(
+              padding: EdgeInsets.fromLTRB(16, 14, 16, 16),
+              thumbSize: 40,
+              circleThumb: true,
+            );
+          } else if (isEmpty || rest.isEmpty) {
+            content = _EmptyMessage(
+              icon: isEmpty ? AppIcons.trophy : AppIcons.usersGroup,
+              title: isEmpty
+                  ? 'Sii il primo a segnalare!'
+                  : entries.length < 3
+                  ? 'C\'è ancora posto sul podio!'
+                  : 'Il podio è al completo!',
+              message: isEmpty
+                  ? 'La classifica si aggiorna a ogni segnalazione.'
+                  : entries.length < 3
+                  ? 'Segnala o pulisci una zona per entrare in classifica.'
+                  : 'Non ci sono ancora altri utenti in classifica.',
+              bottomPadding: showMe ? 100 : 24,
+            );
+          } else {
+            content = ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
-              child: SizedBox(
-                height: constraints.maxHeight,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+              padding: EdgeInsets.fromLTRB(16, 14, 16, showMe ? 104 : 24),
+              itemCount: rest.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final r = rest[i];
+                return _RankRow(
+                  entry: r,
+                  reportCount: _viewModel.reportCountFor(r.uid),
+                  isCurrentUser: r.uid == currentUid,
+                );
+              },
+            );
+          }
+
+          return Column(
+            children: [
+              _HeroHeader(
+                loading: _viewModel.loading && top.isEmpty,
+                top: top,
+                viewModel: _viewModel,
+              ),
+              Expanded(
+                child: ColoredBox(
+                  color: AppColors.greenLight,
+                  child: Stack(
                     children: [
-                      Container(
-                        width: 96,
-                        height: 96,
-                        decoration: const BoxDecoration(
-                          color: AppColors.greenLight,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          AppIcons.trophy,
-                          size: 44,
-                          color: AppColors.greenBrand,
+                      Positioned.fill(
+                        child: RefreshIndicator(
+                          onRefresh: _reload,
+                          child: content,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Sii il primo a segnalare!',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                      if (showMe)
+                        Positioned(
+                          left: 12,
+                          right: 12,
+                          bottom: 12,
+                          child: _MyRow(
+                            uid: currentUid,
+                            name: myName,
+                            points: me.points,
+                            rank: me.rank,
+                            hint: _climbHint(entries, me.points, me.rank),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'La classifica si aggiorna ad ogni segnalazione.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
                     ],
                   ),
                 ),
               ),
-            ),
+            ],
           );
-        } else if (restEntries.isEmpty) {
-          // Il podio (primi 3) copre già tutti gli iscritti: niente riga
-          // sotto, ma uno spazio bianco vuoto sembra rotto — meglio un
-          // messaggio esplicito.
-          content = LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: SizedBox(
-                height: constraints.maxHeight,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 72,
-                          height: 72,
-                          decoration: const BoxDecoration(
-                            color: AppColors.greenLight,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            AppIcons.usersGroup,
-                            size: 34,
-                            color: AppColors.greenBrand,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          entries.length < 3
-                              ? 'C\'è ancora posto sul podio!'
-                              : 'Il podio è al completo!',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          entries.length < 3
-                              ? 'Segnala o pulisci una zona per entrare in classifica.'
-                              : 'Non ci sono ancora altri utenti in classifica.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        } else {
-          content = ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            itemCount: restEntries.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final r = restEntries[i];
-              return _RankRow(
-                entry: r,
-                reportCount: _viewModel.reportCountFor(r.uid),
-                isCurrentUser: currentUid != null && r.uid == currentUid,
-              );
-            },
-          );
-        }
-
-        return Column(
-          children: [
-            _ClassificaHeroHeader(
-              loading: _viewModel.loading,
-              topEntries: topEntries,
-              viewModel: _viewModel,
-            ),
-            Expanded(
-              child: RefreshIndicator(onRefresh: _reload, child: content),
-            ),
-          ],
-        );
-      },
+        },
+      ),
     );
+  }
+
+  /// Quanto manca per salire: "1 segnalazione e superi Giulia".
+  static String _climbHint(
+    List<LeaderboardEntry> entries,
+    int myPoints,
+    int myRank,
+  ) {
+    if (myRank == 1 && myPoints > 0) return 'Sei in testa, continua così!';
+    final above = entries.where((e) => e.points > myPoints).toList();
+    if (above.isEmpty) {
+      return myPoints == 0
+          ? 'Fai la prima segnalazione per entrare in classifica'
+          : 'Continua così!';
+    }
+    final next = above.last;
+    final missing = next.points - myPoints + 1;
+    final effort = missing == 1
+        ? '1 segnalazione'
+        : missing == pointsPerCleanup
+        ? '1 pulizia'
+        : '$missing punti';
+    return '$effort e superi ${next.name}';
   }
 }
 
-/// Header hero verde (gradiente) con titolo, sottotitolo, toggle periodo
-/// e podio dei primi 3 — riproduce l'header pieno del mockup Figma.
-class _ClassificaHeroHeader extends StatelessWidget {
-  const _ClassificaHeroHeader({
+/// Testata verde foresta: titolo, sottotitolo e podio dei primi tre.
+class _HeroHeader extends StatelessWidget {
+  const _HeroHeader({
     required this.loading,
-    required this.topEntries,
+    required this.top,
     required this.viewModel,
   });
 
   final bool loading;
-  final List<LeaderboardEntry> topEntries;
+  final List<LeaderboardEntry> top;
   final ClassificaViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
-    // Il titolo "Classifica" è già mostrato dall'AppBar verde condivisa
-    // (stessa meccanica di safe-area della tab Mappa): qui parte subito
-    // il contenuto sotto, non serve altro spazio manuale in alto.
+    final topInset = MediaQuery.of(context).padding.top;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      clipBehavior: Clip.antiAlias,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.greenBrand, AppColors.greenDark],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        color: AppColors.forest,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          Text(
-            'Top contributor del territorio',
-            style: TextStyle(fontSize: 14, color: Colors.white.withAlpha(190)),
-          ),
-          if (loading) ...[
-            const SizedBox(height: 12),
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
+          Positioned(
+            right: -40,
+            top: topInset + 40,
+            child: Icon(
+              AppIcons.leaf,
+              size: 220,
+              color: Colors.white.withAlpha(20),
             ),
-          ],
-          if (topEntries.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _Podium(entries: topEntries, viewModel: viewModel),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Colori/asset medaglia per i primi 3 classificati.
-class _MedalStyle {
-  const _MedalStyle(this.color, this.asset);
-  final Color color;
-  final String asset;
-
-  static const gold = _MedalStyle(
-    Color(0xFFE8B23D),
-    'assets/icons/medal_gold.svg',
-  );
-  static const silver = _MedalStyle(
-    Color(0xFFB9BDC4),
-    'assets/icons/medal_silver.svg',
-  );
-  static const bronze = _MedalStyle(
-    Color(0xFFCE8A4E),
-    'assets/icons/medal_bronze.svg',
-  );
-
-  static _MedalStyle forRank(int rank) => switch (rank) {
-    1 => gold,
-    2 => silver,
-    _ => bronze,
-  };
-}
-
-String _initialsOf(String name) {
-  final parts = name
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((p) => p.isNotEmpty)
-      .toList();
-  if (parts.isEmpty) return '?';
-  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-  return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
-      .toUpperCase();
-}
-
-class _InitialsAvatar extends StatelessWidget {
-  const _InitialsAvatar({required this.name, this.radius = 18, this.ringColor});
-
-  final String name;
-  final double radius;
-  final Color? ringColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: ringColor != null ? const EdgeInsets.all(3) : EdgeInsets.zero,
-      decoration: ringColor != null
-          ? BoxDecoration(color: ringColor, shape: BoxShape.circle)
-          : null,
-      child: CircleAvatar(
-        radius: radius,
-        backgroundColor: AppColors.greenLight,
-        foregroundColor: AppColors.greenDark,
-        child: Text(
-          _initialsOf(name),
-          style: TextStyle(
-            fontSize: radius * 0.55,
-            fontWeight: FontWeight.w700,
           ),
-        ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, topInset + 12, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const TabHeader(
+                  title: 'Classifica',
+                  onDark: true,
+                  actions: [NotificationsBell(onDark: true)],
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Chi ha fatto di più per il territorio',
+                  style: TextStyle(fontSize: 14, color: AppColors.mintText),
+                ),
+                if (loading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  )
+                else if (top.isEmpty)
+                  const SizedBox(height: 24)
+                else ...[
+                  const SizedBox(height: 28),
+                  _Podium(entries: top, viewModel: viewModel),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -340,44 +263,27 @@ class _Podium extends StatelessWidget {
   final List<LeaderboardEntry> entries;
   final ClassificaViewModel viewModel;
 
-  LeaderboardEntry? _at(int i) => i < entries.length ? entries[i] : null;
-
   @override
   Widget build(BuildContext context) {
-    final first = _at(0);
-    final second = _at(1);
-    final third = _at(2);
-
-    if (first == null) return const SizedBox.shrink();
-
+    LeaderboardEntry? at(int i) => i < entries.length ? entries[i] : null;
+    Widget slot(LeaderboardEntry? e, double barHeight) => Expanded(
+      child: e == null
+          ? const SizedBox.shrink()
+          : _PodiumSlot(
+              entry: e,
+              barHeight: barHeight,
+              reportCount: viewModel.reportCountFor(e.uid),
+            ),
+    );
+    // Secondo a sinistra, primo al centro (più alto), terzo a destra.
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (second != null) ...[
-          _PodiumSlot(
-            entry: second,
-            avatarRadius: 26,
-            topOffset: 20,
-            reportCount: viewModel.reportCountFor(second.uid),
-          ),
-          const SizedBox(width: 12),
-        ],
-        _PodiumSlot(
-          entry: first,
-          avatarRadius: 32,
-          topOffset: 0,
-          reportCount: viewModel.reportCountFor(first.uid),
-        ),
-        if (third != null) ...[
-          const SizedBox(width: 12),
-          _PodiumSlot(
-            entry: third,
-            avatarRadius: 26,
-            topOffset: 28,
-            reportCount: viewModel.reportCountFor(third.uid),
-          ),
-        ],
+        slot(at(1), 96),
+        const SizedBox(width: 10),
+        slot(at(0), 136),
+        const SizedBox(width: 10),
+        slot(at(2), 76),
       ],
     );
   }
@@ -386,22 +292,23 @@ class _Podium extends StatelessWidget {
 class _PodiumSlot extends StatelessWidget {
   const _PodiumSlot({
     required this.entry,
-    required this.avatarRadius,
-    required this.topOffset,
+    required this.barHeight,
     required this.reportCount,
   });
 
   final LeaderboardEntry entry;
-  final double avatarRadius;
-  final double topOffset;
+  final double barHeight;
   final int? reportCount;
 
   @override
   Widget build(BuildContext context) {
-    final medal = _MedalStyle.forRank(entry.rank);
-
-    return Padding(
-      padding: EdgeInsets.only(top: topOffset),
+    final first = entry.rank == 1;
+    final fg = first ? AppColors.onYellow : Colors.white;
+    return Semantics(
+      label:
+          '${entry.rank}° posto, ${entry.name}, ${entry.points} punti'
+          '${reportCount == null ? '' : ', ${_reportsLabel(reportCount!)}'}',
+      excludeSemantics: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -410,67 +317,103 @@ class _PodiumSlot extends StatelessWidget {
             alignment: Alignment.topCenter,
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: 11),
-                child: _InitialsAvatar(
+                padding: EdgeInsets.only(top: first ? 22 : 0),
+                child: UserAvatar(
                   name: entry.name,
-                  radius: avatarRadius,
-                  ringColor: medal.color,
+                  seed: entry.uid,
+                  size: first ? 76 : 60,
+                  tint: first
+                      ? (bg: const Color(0xFFFFE3A3), fg: AppColors.yellowText)
+                      : null,
+                  ring: first
+                      ? (color: AppColors.yellow, width: 4)
+                      : (color: Colors.white.withAlpha(64), width: 4),
                 ),
               ),
-              SvgPicture.asset(medal.asset, width: 24, height: 24),
+              if (first)
+                const Icon(AppIcons.crown, size: 24, color: AppColors.yellow),
             ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            entry.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 15,
+              height: 20 / 15,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          Text(
+            reportCount == null ? '' : _reportsLabel(reportCount!),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 16 / 12,
+              color: AppColors.mintText,
+            ),
           ),
           const SizedBox(height: 8),
           Container(
-            width: avatarRadius * 3.2,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+            height: barHeight,
+            width: double.infinity,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: context.palette.surfaceWhite,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: context.palette.cardShadow,
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: first ? AppColors.yellow : Colors.white.withAlpha(31),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Stack(
               children: [
-                Text(
-                  entry.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: context.palette.textPrimary,
+                if (first)
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 6,
+                    child: ColoredBox(color: AppColors.yellowEdge),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 14),
+                  child: Column(
+                    children: [
+                      Text(
+                        '${entry.points}',
+                        style: TextStyle(
+                          fontSize: first ? 30 : 24,
+                          height: 32 / 30,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1,
+                          color: fg,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      Text(
+                        'punti',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: fg.withAlpha(204),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${entry.rank}°',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: fg.withAlpha(140),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  '${entry.points} pt',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.greenBrand,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (reportCount != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    reportCount == 1
-                        ? '1 segnalazione'
-                        : '$reportCount segnalazioni',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: context.palette.textSecondary,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -479,6 +422,8 @@ class _PodiumSlot extends StatelessWidget {
     );
   }
 }
+
+String _reportsLabel(int n) => n == 1 ? '1 segnalazione' : '$n segnalazioni';
 
 class _RankRow extends StatelessWidget {
   const _RankRow({
@@ -493,80 +438,271 @@ class _RankRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isCurrentUser
-            ? context.palette.greenLight
-            : context.palette.surfaceWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: isCurrentUser
-            ? const Border(
-                left: BorderSide(color: AppColors.greenBrand, width: 3),
-              )
-            : null,
-        boxShadow: isCurrentUser
-            ? null
-            : [
-                BoxShadow(
-                  color: context.palette.cardShadow,
-                  blurRadius: 12,
-                  offset: const Offset(0, 3),
+    return Semantics(
+      label:
+          '${entry.rank}° posto, ${isCurrentUser ? 'tu' : entry.name}, '
+          '${entry.points} punti',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: isCurrentUser
+              ? Border.all(color: AppColors.yellow, width: 2)
+              : null,
+          boxShadow: const [
+            BoxShadow(color: AppColors.mintBorder, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: Text(
+                '${entry.rank}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textDisabled,
+                  fontFeatures: [FontFeature.tabularFigures()],
                 ),
-              ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 22,
-            child: Text(
-              '${entry.rank}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: context.palette.textPrimary,
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          _InitialsAvatar(name: entry.name, radius: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isCurrentUser ? 'Tu' : entry.name,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: context.palette.textPrimary,
-                  ),
-                ),
-                if (reportCount != null)
+            const SizedBox(width: 12),
+            UserAvatar(name: entry.name, seed: entry.uid),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    reportCount == 1
-                        ? '1 segnalazione'
-                        : '$reportCount segnalazioni',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: context.palette.textSecondary,
+                    isCurrentUser ? 'Tu, ${entry.name}' : entry.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 20 / 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-              ],
+                  if (reportCount != null)
+                    Text(
+                      _reportsLabel(reportCount!),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 16 / 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            _Points(points: entry.points, color: AppColors.greenBrand),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Points extends StatelessWidget {
+  const _Points({required this.points, required this.color, this.unitColor});
+
+  final int points;
+  final Color color;
+  final Color? unitColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$points',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+              color: color,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          Text(
-            '${entry.points} pt',
-            style: const TextStyle(
-              fontSize: 14,
+          TextSpan(
+            text: ' pt',
+            style: TextStyle(
+              fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: AppColors.greenBrand,
+              color: unitColor ?? AppColors.textDisabled,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// La tua riga, gialla e sempre visibile in fondo, con quanto manca per
+/// salire.
+class _MyRow extends StatelessWidget {
+  const _MyRow({
+    required this.uid,
+    required this.name,
+    required this.points,
+    required this.rank,
+    required this.hint,
+  });
+
+  final String uid;
+  final String name;
+  final int points;
+  final int rank;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'La tua posizione: $rank°, $points punti. $hint',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: AppColors.yellow,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            const BoxShadow(color: AppColors.yellowEdge, offset: Offset(0, 4)),
+            BoxShadow(
+              color: AppColors.textPrimary.withAlpha(51),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: Text(
+                '$rank',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.onYellow,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            UserAvatar(
+              name: name,
+              seed: uid,
+              ring: (color: Colors.white, width: 4),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tu, $name',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 20 / 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.onYellow,
+                    ),
+                  ),
+                  Text(
+                    hint,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 16 / 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onYellow.withAlpha(204),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _Points(
+              points: points,
+              color: AppColors.onYellow,
+              unitColor: AppColors.onYellow.withAlpha(179),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyMessage extends StatelessWidget {
+  const _EmptyMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.bottomPadding,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(32, 24, 32, bottomPadding),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 34, color: AppColors.greenBrand),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.4,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

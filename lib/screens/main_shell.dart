@@ -99,27 +99,9 @@ class _MainShellState extends State<MainShell> {
     ),
   ];
 
-  /// La Mappa disegna il proprio header sopra la mappa: niente AppBar.
+  /// Mappa e Classifica disegnano il proprio header: niente AppBar.
   PreferredSizeWidget? _buildAppBar(BuildContext context) {
-    if (_index == 0) return null;
-    if (_index == 1) {
-      // AppBar verde brand: stessa meccanica di sicurezza/spaziatura della
-      // tab Mappa (Scaffold la posiziona già correttamente sotto la status
-      // bar), solo colorata per continuare nell'hero gradiente sotto.
-      return AppBar(
-        backgroundColor: AppColors.greenBrand,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Classifica',
-          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
-        ),
-        actions: [
-          NotificationsBell(onDark: _index == 1),
-          const SizedBox(width: 8),
-        ],
-      );
-    }
+    if (_index == 0 || _index == 1) return null;
     return AppBar(
       title: Text(_titles[_index]),
       actions: [
