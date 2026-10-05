@@ -1,5 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/form_validators.dart';
@@ -8,8 +10,9 @@ import '../routes.dart';
 import '../services/auth_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
 import '../theme/app_icons.dart';
+import '../widgets/app_button.dart';
+import '../widgets/app_text_field.dart';
 
 class LoginScreen extends StatefulWidget {
   LoginScreen({
@@ -148,326 +151,338 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final session = AppSessionScope.watch(context);
+    final topInset = MediaQuery.of(context).padding.top;
+    const headerHeight = 360.0;
 
-    return Scaffold(
-      body: Column(
-        children: [
-          _WaveHeader(topInset: MediaQuery.of(context).padding.top),
-          Expanded(
-            child: SafeArea(
-              top: false,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-                    children: [
-                      Text(
-                        'Bentornato',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: context.palette.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Accedi per continuare a fare la differenza',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontSize: 13,
-                          color: context.palette.textSecondary,
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      Form(
-                        key: _formKey,
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextFormField(
-                              controller: _emailController,
-                              focusNode: _emailFocus,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              onFieldSubmitted: (_) =>
-                                  _passwordFocus.requestFocus(),
-                              autofillHints: const [
-                                AutofillHints.username,
-                                AutofillHints.email,
-                              ],
-                              decoration: InputDecoration(
-                                hintText: 'Email',
-                                prefixIcon: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: const Icon(
-                                    AppIcons.email,
-                                    color: AppColors.greenBrand,
-                                  ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.forest,
+        body: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height,
+            ),
+            child: Stack(
+              children: [
+                SizedBox(
+                  height: headerHeight + topInset,
+                  child: _AuthHero(topInset: topInset),
+                ),
+                Container(
+                  margin: EdgeInsets.only(top: headerHeight + topInset - 44),
+                  constraints: BoxConstraints(
+                    minHeight:
+                        MediaQuery.of(context).size.height -
+                        headerHeight -
+                        topInset +
+                        44,
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    28,
+                    20,
+                    24 + MediaQuery.of(context).padding.bottom,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: AppColors.bgAlt,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(32),
+                    ),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: AutofillGroup(
+                        child: Form(
+                          key: _formKey,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Semantics(
+                                header: true,
+                                child: Text(
+                                  'Bentornato',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium,
                                 ),
                               ),
-                              validator: FormValidators.email,
-                            ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _passwordController,
-                              focusNode: _passwordFocus,
-                              obscureText: _obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              onFieldSubmitted: (_) => _submit(),
-                              autofillHints: const [AutofillHints.password],
-                              decoration: InputDecoration(
-                                hintText: 'Password',
-                                prefixIcon: const Icon(
-                                  AppIcons.lock,
-                                  size: 18,
-                                  color: AppColors.greenBrand,
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Accedi per continuare a fare la differenza',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  height: 21 / 15,
+                                  color: AppColors.textSecondary,
                                 ),
-                                suffixIcon: IconButton(
+                              ),
+                              const SizedBox(height: 20),
+                              AppTextField(
+                                label: 'Email',
+                                icon: AppIcons.email,
+                                controller: _emailController,
+                                focusNode: _emailFocus,
+                                hintText: 'nome@esempio.it',
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                onFieldSubmitted: (_) =>
+                                    _passwordFocus.requestFocus(),
+                                autofillHints: const [
+                                  AutofillHints.username,
+                                  AutofillHints.email,
+                                ],
+                                validator: FormValidators.email,
+                              ),
+                              const SizedBox(height: 14),
+                              AppTextField(
+                                label: 'Password',
+                                icon: AppIcons.lock,
+                                controller: _passwordController,
+                                focusNode: _passwordFocus,
+                                obscureText: _obscurePassword,
+                                textInputAction: TextInputAction.done,
+                                onFieldSubmitted: (_) => _submit(),
+                                autofillHints: const [AutofillHints.password],
+                                validator: FormValidators.password,
+                                suffix: IconButton(
+                                  tooltip: _obscurePassword
+                                      ? 'Mostra password'
+                                      : 'Nascondi password',
                                   icon: Icon(
                                     _obscurePassword
                                         ? AppIcons.hidden
                                         : AppIcons.visible,
-                                    size: 18,
-                                    color: context.palette.textDisabled,
+                                    size: 20,
                                   ),
                                   onPressed: () => setState(
                                     () => _obscurePassword = !_obscurePassword,
                                   ),
                                 ),
                               ),
-                              validator: FormValidators.password,
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: _busy
-                                    ? null
-                                    : () => _showPasswordReset(context),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 8,
-                                  ),
-                                  minimumSize: const Size(48, 48),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _showPasswordReset(context),
+                                  child: const Text('Password dimenticata?'),
                                 ),
-                                child: const Text(
-                                  'Password dimenticata?',
+                              ),
+                              if (!session.firebaseReady) ...[
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Firebase non disponibile. Controlla la '
+                                  'configurazione.',
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    decoration: TextDecoration.underline,
+                                    fontSize: 13,
+                                    color: AppColors.redText,
                                   ),
                                 ),
+                              ],
+                              const SizedBox(height: 14),
+                              AppButton(
+                                label: 'Accedi',
+                                icon: AppIcons.signIn,
+                                loading: _busy,
+                                onPressed: session.firebaseReady
+                                    ? _submit
+                                    : null,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 16),
+                              // Wrap: con testo ingrandito va a capo invece
+                              // di sforare.
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Non hai un account?',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () =>
+                                              context.push(AppRoutes.register),
+                                    style: TextButton.styleFrom(
+                                      textStyle: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    child: const Text('Registrati'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-
-                      if (!session.firebaseReady) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Firebase non disponibile. Controlla la configurazione.',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: cs.error),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-
-                      const SizedBox(height: 20),
-
-                      FilledButton(
-                        onPressed: _busy || !session.firebaseReady
-                            ? null
-                            : _submit,
-                        child: _busy
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('Accedi'),
-                      ),
-
-                      const SizedBox(height: 28),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Divider(color: context.palette.divider),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Icon(
-                              AppIcons.wasteType,
-                              size: 16,
-                              color: AppColors.greenBrand,
-                            ),
-                          ),
-                          Expanded(
-                            child: Divider(color: context.palette.divider),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Wrap invece di Row: con testo ingrandito
-                      // (accessibilità) o schermi stretti va a capo
-                      // invece di sforare.
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            'Non hai un account? ',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  fontSize: 13,
-                                  color: context.palette.textSecondary,
-                                ),
-                          ),
-                          TextButton(
-                            onPressed: _busy
-                                ? null
-                                : () => context.push(AppRoutes.register),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 8,
-                              ),
-                              minimumSize: const Size(48, 48),
-                            ),
-                            child: const Text(
-                              'Registrati',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-                    ],
+                    ),
                   ),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Testata verde foresta del Login: foglie decorative, logo e i tre
+/// "Segnala · Pulisci · Fai punti".
+class _AuthHero extends StatelessWidget {
+  const _AuthHero({required this.topInset});
+
+  final double topInset;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget leaf(
+      double left,
+      double top,
+      double size,
+      double turns,
+      Color color,
+      double opacity,
+    ) => Positioned(
+      left: left,
+      top: top,
+      child: Transform.rotate(
+        angle: turns * 2 * math.pi,
+        child: Icon(
+          AppIcons.leaf,
+          size: size,
+          color: color.withAlpha((opacity * 255).round()),
+        ),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        return Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            leaf(-30, topInset + 40, 120, 0.06, AppColors.mint, 0.18),
+            leaf(w - 90, topInset + 10, 110, -0.08, AppColors.mint, 0.14),
+            leaf(w - 70, topInset + 210, 60, 0.17, AppColors.yellow, 0.5),
+            leaf(24, topInset + 236, 34, -0.11, AppColors.yellow, 0.6),
+            leaf(w * 0.64, topInset + 70, 26, 0.04, Colors.white, 0.25),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: topInset + 64,
+              child: Column(
+                children: [
+                  Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      color: AppColors.greenBrand,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        const BoxShadow(
+                          color: AppColors.greenDark,
+                          offset: Offset(0, 6),
+                        ),
+                        BoxShadow(
+                          color: Colors.white.withAlpha(20),
+                          spreadRadius: 6,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      AppIcons.leaf,
+                      size: 44,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Semantics(
+                    header: true,
+                    child: const Text(
+                      'Trashpotting',
+                      style: TextStyle(
+                        fontSize: 34,
+                        height: 40 / 34,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _HeroChip(icon: AppIcons.place, label: 'Segnala'),
+                      _HeroChip(icon: AppIcons.clean, label: 'Pulisci'),
+                      _HeroChip(
+                        icon: AppIcons.starFilled,
+                        label: 'Fai punti',
+                        highlighted: true,
+                      ),
+                    ],
+                  ),
+                ],
               ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({
+    required this.icon,
+    required this.label,
+    this.highlighted = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = highlighted ? AppColors.onYellow : AppColors.mintText;
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: highlighted ? AppColors.yellow : Colors.white.withAlpha(26),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: highlighted ? FontWeight.w800 : FontWeight.w700,
+              color: fg,
             ),
           ),
         ],
       ),
     );
   }
-}
-
-class _WaveHeader extends StatelessWidget {
-  const _WaveHeader({required this.topInset});
-
-  final double topInset;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipPath(
-      clipper: _WaveBottomClipper(),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.fromLTRB(24, topInset + 28, 24, 56),
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/login_header_bg.png'),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 64,
-              height: 74,
-              child: Stack(
-                alignment: Alignment.topCenter,
-                children: [
-                  SvgPicture.asset(
-                    'assets/icons/logo_leaf_pin.svg',
-                    width: 56,
-                    height: 56,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 14),
-                    child: Icon(
-                      AppIcons.leaf,
-                      size: 22,
-                      color: AppColors.greenBrand,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    child: Container(
-                      width: 26,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withAlpha(30),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Trashpotting',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 26,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WaveBottomClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path()..lineTo(0, size.height - 36);
-    path.quadraticBezierTo(
-      size.width * 0.25,
-      size.height,
-      size.width * 0.5,
-      size.height - 18,
-    );
-    path.quadraticBezierTo(
-      size.width * 0.75,
-      size.height - 36,
-      size.width,
-      size.height - 8,
-    );
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

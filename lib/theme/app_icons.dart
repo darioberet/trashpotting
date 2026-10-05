@@ -37,6 +37,7 @@ abstract final class AppIcons {
   static const IconData hidden = PhosphorIconsRegular.eyeSlash;
   static const IconData verified = PhosphorIconsFill.sealCheck;
   static const IconData logout = PhosphorIconsRegular.signOut;
+  static const IconData signIn = PhosphorIconsBold.signIn;
   static const IconData delete = PhosphorIconsRegular.trash;
 
   // ── Segnalazioni e mappa ─────────────────────────────────────────────────

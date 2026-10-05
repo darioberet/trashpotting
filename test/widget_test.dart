@@ -26,16 +26,11 @@ void main() {
 
       expect(find.text('Bentornato'), findsOneWidget);
       expect(find.text('Accedi'), findsOneWidget);
-      // Il link è in fondo a una ListView lazy: va portato a schermo.
+      // Il link è in fondo alla pagina: va portato a schermo.
       await tester.scrollUntilVisible(
         find.text('Registrati'),
         200,
-        scrollable: find
-            .descendant(
-              of: find.byType(ListView),
-              matching: find.byType(Scrollable),
-            )
-            .first,
+        scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('Registrati'), findsOneWidget);
     } finally {
