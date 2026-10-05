@@ -359,8 +359,10 @@ class _PodiumSlot extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          // Altezza minima, non fissa: con il testo ingrandito
+          // (accessibilità) la colonna cresce invece di tagliare i numeri.
           Container(
-            height: barHeight,
+            constraints: BoxConstraints(minHeight: barHeight),
             width: double.infinity,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
@@ -369,52 +371,55 @@ class _PodiumSlot extends StatelessWidget {
                 top: Radius.circular(18),
               ),
             ),
-            child: Stack(
-              children: [
-                if (first)
-                  const Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 6,
-                    child: ColoredBox(color: AppColors.yellowEdge),
+            child: IntrinsicHeight(
+              child: Stack(
+                children: [
+                  if (first)
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 6,
+                      child: ColoredBox(color: AppColors.yellowEdge),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 14),
+                    child: Column(
+                      children: [
+                        Text(
+                          '${entry.points}',
+                          style: TextStyle(
+                            fontSize: first ? 30 : 24,
+                            height: 32 / 30,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -1,
+                            color: fg,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        Text(
+                          'punti',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: fg.withAlpha(204),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Spacer(),
+                        Text(
+                          '${entry.rank}°',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: fg.withAlpha(140),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 14),
-                  child: Column(
-                    children: [
-                      Text(
-                        '${entry.points}',
-                        style: TextStyle(
-                          fontSize: first ? 30 : 24,
-                          height: 32 / 30,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -1,
-                          color: fg,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                      Text(
-                        'punti',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: fg.withAlpha(204),
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${entry.rank}°',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: fg.withAlpha(140),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

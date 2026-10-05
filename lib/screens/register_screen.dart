@@ -418,8 +418,9 @@ class _PointsBanner extends StatelessWidget {
       color: AppColors.greenDark,
     );
 
+    // Altezza minima: con il testo ingrandito le pillole vanno a capo.
     return Container(
-      height: 76,
+      constraints: const BoxConstraints(minHeight: 76),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.greenLight,
@@ -434,6 +435,7 @@ class _PointsBanner extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 10),
                   const Text(
                     'Ogni gesto conta',
                     style: TextStyle(
@@ -455,6 +457,7 @@ class _PointsBanner extends StatelessWidget {
                       const Text('pulizia', style: caption),
                     ],
                   ),
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
