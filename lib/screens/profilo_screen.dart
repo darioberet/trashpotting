@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,23 +9,16 @@ import '../repositories/report_repository.dart';
 import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../services/auth_service.dart';
+import '../services/media_picker_service.dart';
+import '../services/photo_upload_service.dart';
 import '../services/push_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
 import '../theme/app_icons.dart';
-
-String _initialsFrom(String name) {
-  final parts = name
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((p) => p.isNotEmpty)
-      .toList();
-  if (parts.isEmpty) return '?';
-  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-  return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
-      .toUpperCase();
-}
+import '../widgets/app_button.dart';
+import '../widgets/image_source_bottom_sheet.dart';
+import '../widgets/tab_header.dart';
+import '../widgets/user_avatar.dart';
 
 class ProfiloScreen extends StatefulWidget {
   const ProfiloScreen({super.key});
@@ -39,8 +32,10 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
   final _reportRepository = FirestoreReportRepository();
   final _userProfileRepository = UserProfileRepository();
   final _leaderboardRepository = FirestoreLeaderboardRepository();
+  final _mediaPickerService = MediaPickerService();
+  final _photoUploadService = PhotoUploadService();
   bool _deletingAccount = false;
-  Future<({int reports, int points})>? _statsFuture;
+  Future<_ProfileStats>? _statsFuture;
 
   String? _loadedStatsForUid;
 
@@ -51,7 +46,8 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
       _statsFuture = Future.wait([
         _reportRepository.countByUser(uid),
         _leaderboardRepository.fetchUserPoints(uid),
-      ]).then((results) => (reports: results[0], points: results[1]));
+        _reportRepository.countCleanedBy(uid),
+      ]).then((r) => (reports: r[0], points: r[1], cleanups: r[2]));
     });
   }
 
@@ -105,290 +101,779 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     }
   }
 
+  bool _uploadingPhoto = false;
+
+  /// Cambia la foto profilo (visibile solo a te, nel Profilo).
+  Future<void> _changePhoto() async {
+    final session = AppSessionScope.of(context);
+    final uid = session.currentUserId;
+    if (uid == null || _uploadingPhoto) return;
+    final source = await showImageSourceBottomSheet(context);
+    if (source == null || !mounted) return;
+    final path = await _mediaPickerService.pickImagePath(source);
+    if (path == null || !mounted) return;
+    setState(() => _uploadingPhoto = true);
+    try {
+      final url = await _photoUploadService.uploadProfilePhoto(
+        localPath: path,
+        ownerId: uid,
+      );
+      await _authService.updateProfile(photoURL: url);
+      session.refreshCurrentUser();
+      if (!mounted) return;
+      session.publishInfo('Foto profilo aggiornata.');
+    } catch (e) {
+      if (!mounted) return;
+      session.publishError(e, fallback: 'Foto non aggiornata.');
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final session = AppSessionScope.watch(context);
     final firebaseReady = session.firebaseReady;
     final userId = session.currentUserId;
     final user = session.currentUser;
-    final username = session.username;
+    final username = session.username?.trim();
+    final name = username != null && username.isNotEmpty
+        ? username
+        : (userId != null ? 'Utente' : 'Ospite');
+    final topInset = MediaQuery.of(context).padding.top;
 
     if (userId != null) _maybeLoadStats(userId);
 
-    // Il brand "Trashpotting" è già mostrato dall'AppBar condivisa (stessa
-    // meccanica di safe-area della tab Mappa/Classifica): qui il contenuto
-    // parte subito, senza header custom manuale.
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      children: [
-        Center(
-          child: Container(
-            width: 104,
-            height: 104,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: context.palette.cardShadow,
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Container(
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.greenBrand, AppColors.greenDark],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: SingleChildScrollView(
+        child: Stack(
+          children: [
+            // Fascia verde chiaro dietro header e avatar; la card sotto ci
+            // sale sopra a metà.
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: topInset + 222,
+              child: const DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.greenLight,
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(32),
+                  ),
                 ),
               ),
-              child: user?.photoURL != null
-                  ? ClipOval(
-                      child: Image(
-                        image: CachedNetworkImageProvider(user!.photoURL!),
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(16, topInset + 12, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TabHeader(
+                    title: 'Profilo',
+                    actions: [
+                      HeaderCircleButton(
+                        icon: AppIcons.settings,
+                        tooltip: 'Impostazioni',
+                        onPressed: () => context.push(AppRoutes.impostazioni),
                       ),
-                    )
-                  : Center(
-                      child: username != null && username.trim().isNotEmpty
-                          ? Text(
-                              _initialsFrom(username),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _ProfileAvatar(
+                        name: name,
+                        seed: userId ?? 'guest',
+                        photoUrl: user?.photoURL,
+                        uploading: _uploadingPhoto,
+                        onChange: userId == null ? null : _changePhoto,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                fontSize: 26,
+                                height: 32 / 26,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.8,
+                                color: AppColors.textPrimary,
                               ),
-                            )
-                          : Icon(
-                              userId != null
-                                  ? AppIcons.userFilled
-                                  : AppIcons.user,
-                              size: 44,
+                            ),
+                            if (user?.email != null)
+                              Text(
+                                user!.email!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 18 / 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            if (user?.emailVerified == true) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                height: 24,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.greenBrand,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      AppIcons.check,
+                                      size: 13,
+                                      color: Colors.white,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Email verificata',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (user == null)
+                              Text(
+                                firebaseReady
+                                    ? 'Accedi per salvare segnalazioni e '
+                                          'notifiche.'
+                                    : 'Firebase non attivo: vedi strumenti '
+                                          'debug.',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  if (user != null && _statsFuture != null)
+                    FutureBuilder<_ProfileStats>(
+                      future: _statsFuture,
+                      builder: (context, snap) {
+                        if (snap.hasError) {
+                          return _StatsError(
+                            onRetry: () => setState(() {
+                              _loadedStatsForUid = null;
+                              _maybeLoadStats(userId!);
+                            }),
+                          );
+                        }
+                        final stats = snap.data;
+                        if (stats == null) {
+                          return const SizedBox(
+                            height: 120,
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final allDone = stats.reports > 0 && stats.cleanups > 0;
+                        return allDone
+                            ? _StatsCard(stats: stats)
+                            : _FirstStepsCard(
+                                stats: stats,
+                                emailVerified: user.emailVerified,
+                                onReport: () => context.push(AppRoutes.segnala),
+                              );
+                      },
+                    ),
+                  const SizedBox(height: 16),
+                  _MenuCard(
+                    children: [
+                      if (firebaseReady && userId != null)
+                        _MenuTile(
+                          icon: AppIcons.myReports,
+                          label: 'Le mie segnalazioni',
+                          bg: AppColors.greenLight,
+                          fg: AppColors.greenDark,
+                          onTap: () => context.push(AppRoutes.mieSegnalazioni),
+                        ),
+                      if (firebaseReady && userId != null && session.isAdmin)
+                        _MenuTile(
+                          icon: AppIcons.shield,
+                          label: 'Moderazione',
+                          bg: AppColors.blueLight,
+                          fg: AppColors.blueText,
+                          onTap: () => context.push(AppRoutes.moderazione),
+                        ),
+                      _MenuTile(
+                        icon: AppIcons.help,
+                        label: 'Aiuto e feedback',
+                        bg: AppColors.purpleLight,
+                        fg: AppColors.purpleDark,
+                        onTap: () => context.push(AppRoutes.aiutoFeedback),
+                      ),
+                      if (firebaseReady && userId != null)
+                        _MenuTile(
+                          icon: AppIcons.logout,
+                          label: 'Logout',
+                          bg: AppColors.yellowLight,
+                          fg: AppColors.yellowText,
+                          onTap: _deletingAccount ? null : _logout,
+                        ),
+                    ],
+                  ),
+                  if (firebaseReady && userId != null) ...[
+                    const SizedBox(height: 12),
+                    // Obbligatoria per Google Play: un'app che permette di
+                    // creare un account deve permettere di eliminarlo.
+                    _MenuCard(
+                      children: [
+                        _MenuTile(
+                          icon: AppIcons.delete,
+                          label: 'Elimina account',
+                          bg: AppColors.redLight,
+                          fg: AppColors.redText,
+                          labelColor: AppColors.redText,
+                          trailing: _deletingAccount
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : null,
+                          onTap: _deletingAccount
+                              ? null
+                              : _confirmDeleteAccount,
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+typedef _ProfileStats = ({int reports, int points, int cleanups});
+
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({
+    required this.name,
+    required this.seed,
+    required this.photoUrl,
+    required this.uploading,
+    required this.onChange,
+  });
+
+  final String name;
+  final String seed;
+  final String? photoUrl;
+  final bool uploading;
+  final VoidCallback? onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 88,
+      height: 88,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 4,
+            top: 4,
+            child: photoUrl != null
+                ? Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(color: Colors.white, spreadRadius: 4),
+                      ],
+                      image: DecorationImage(
+                        image: CachedNetworkImageProvider(photoUrl!),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  )
+                : UserAvatar(
+                    name: name,
+                    seed: seed,
+                    size: 80,
+                    ring: (color: Colors.white, width: 4),
+                  ),
+          ),
+          if (onChange != null)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Semantics(
+                button: true,
+                label: 'Cambia foto profilo',
+                excludeSemantics: true,
+                child: GestureDetector(
+                  onTap: uploading ? null : onChange,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.greenBrand,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.greenLight, width: 3),
+                    ),
+                    child: uploading
+                        ? const Padding(
+                            padding: EdgeInsets.all(6),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
                               color: Colors.white,
                             ),
-                    ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          username ?? (userId != null ? 'Utente' : 'Ospite'),
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (user != null) ...[
-          const SizedBox(height: 4),
-          SelectableText(
-            user.email ?? user.uid,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          if (user.emailVerified) ...[
-            const SizedBox(height: 8),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
+                          )
+                        : const Icon(
+                            AppIcons.camera,
+                            size: 15,
+                            color: Colors.white,
+                          ),
+                  ),
                 ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Inizia a fare la differenza": i primi passi finché non sono tutti fatti.
+class _FirstStepsCard extends StatelessWidget {
+  const _FirstStepsCard({
+    required this.stats,
+    required this.emailVerified,
+    required this.onReport,
+  });
+
+  final _ProfileStats stats;
+  final bool emailVerified;
+  final VoidCallback onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.forest,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -8,
+            top: -6,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(24),
+              ),
+              child: Container(
+                width: 104,
+                height: 104,
+                color: const Color(0xFFFDFDFB),
+                padding: const EdgeInsets.all(4),
+                child: SvgPicture.asset(
+                  'assets/onboarding/segnala.svg',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(right: 100),
+                  child: Text(
+                    'Inizia a fare la differenza',
+                    style: TextStyle(
+                      fontSize: 20,
+                      height: 26 / 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 4, bottom: 14, right: 100),
+                  child: Text(
+                    'Completa i primi passi e scala la classifica.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 18 / 13,
+                      color: AppColors.mintText,
+                    ),
+                  ),
+                ),
+                _StepRow(
+                  done: emailVerified,
+                  title: 'Verifica la tua email',
+                  subtitle: emailVerified
+                      ? 'Account attivo'
+                      : 'Apri il link che ti abbiamo inviato',
+                ),
+                const SizedBox(height: 6),
+                _StepRow(
+                  done: stats.reports > 0,
+                  title: 'Fai la prima segnalazione',
+                  subtitle: 'Una foto e la posizione, 10 secondi',
+                  points: pointsPerReport,
+                ),
+                const SizedBox(height: 6),
+                _StepRow(
+                  done: stats.cleanups > 0,
+                  title: 'Completa la prima pulizia',
+                  subtitle: 'Prendila in carico dalla mappa',
+                  points: pointsPerCleanup,
+                ),
+                if (stats.reports == 0) ...[
+                  const SizedBox(height: 14),
+                  AppButton(
+                    label: 'Segnala ora',
+                    icon: AppIcons.addPlace,
+                    height: 52,
+                    onPressed: onReport,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  const _StepRow({
+    required this.done,
+    required this.title,
+    required this.subtitle,
+    this.points,
+  });
+
+  final bool done;
+  final String title;
+  final String subtitle;
+  final int? points;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$title: ${done ? 'fatto' : 'da fare'}',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: done ? AppColors.greenLight : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            done
+                ? Container(
+                    width: 32,
+                    height: 32,
+                    decoration: const BoxDecoration(
+                      color: AppColors.greenBrand,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      AppIcons.check,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  )
+                : Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.mintBorder, width: 2),
+                    ),
+                  ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 19 / 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary.withAlpha(done ? 153 : 255),
+                      decoration: done ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 16 / 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (done)
+              const Text(
+                'Fatto',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.greenDark,
+                ),
+              )
+            else if (points != null)
+              Container(
+                height: 22,
+                padding: const EdgeInsets.only(left: 6, right: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.greenBrand,
-                  borderRadius: BorderRadius.circular(20),
+                  color: AppColors.yellow,
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(AppIcons.verified, size: 13, color: Colors.white),
-                    SizedBox(width: 4),
+                  children: [
+                    const Icon(
+                      AppIcons.starFilled,
+                      size: 12,
+                      color: AppColors.onYellow,
+                    ),
+                    const SizedBox(width: 3),
                     Text(
-                      'Email verificata',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                      '+$points pt',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.onYellow,
                       ),
                     ),
                   ],
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// I tuoi numeri, quando i primi passi sono completati.
+class _StatsCard extends StatelessWidget {
+  const _StatsCard({required this.stats});
+
+  final _ProfileStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget tile(int value, String label) => Expanded(
+      child: Semantics(
+        label: '$value $label',
+        excludeSemantics: true,
+        child: Column(
+          children: [
+            Text(
+              '$value',
+              style: const TextStyle(
+                fontSize: 30,
+                height: 1.1,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1,
+                color: Colors.white,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.mintText,
+              ),
             ),
           ],
-          const SizedBox(height: 20),
-          if (_statsFuture != null)
-            FutureBuilder<({int reports, int points})>(
-              future: _statsFuture,
-              builder: (context, snap) {
-                if (snap.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          AppIcons.statusReported,
-                          size: 14,
-                          color: cs.error,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Statistiche non disponibili',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.error,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () => setState(() {
-                            _loadedStatsForUid = null;
-                            _maybeLoadStats(userId!);
-                          }),
-                          child: Text(
-                            'Riprova',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.greenBrand,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                final done = snap.connectionState == ConnectionState.done;
-                final reports = snap.data?.reports ?? 0;
-                final points = snap.data?.points ?? 0;
-                return Container(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  decoration: BoxDecoration(
-                    color: context.palette.surfaceWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: context.palette.cardShadow,
-                        blurRadius: 16,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _StatTile(
-                          value: done ? '$reports' : '—',
-                          label: 'segnalazioni',
-                          icon: AppIcons.myReports,
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: context.palette.divider,
-                      ),
-                      Expanded(
-                        child: _StatTile(
-                          value: done ? '$points' : '—',
-                          label: 'punti',
-                          icon: AppIcons.star,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-        ] else ...[
-          const SizedBox(height: 8),
-          Text(
-            firebaseReady
-                ? 'Accedi per salvare segnalazioni e notifiche.'
-                : 'Firebase non attivo: vedi strumenti debug.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
+        ),
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      decoration: BoxDecoration(
+        color: AppColors.forest,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Il tuo contributo',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              color: Colors.white,
             ),
           ),
-        ],
-        const SizedBox(height: 32),
-        if (firebaseReady && userId != null)
-          _MenuTile(
-            icon: AppIcons.myReports,
-            label: 'Le mie segnalazioni',
-            onTap: () => context.push(AppRoutes.mieSegnalazioni),
-          ),
-        if (firebaseReady && userId != null && session.isAdmin)
-          _MenuTile(
-            icon: AppIcons.shield,
-            label: 'Moderazione',
-            onTap: () => context.push(AppRoutes.moderazione),
-          ),
-        // Notifiche, Debug Firebase e Logout non sono nel mockup: nascoste
-        // per fedeltà visiva, non rimosse — restano raggiungibili altrove
-        // (Notifiche dalla campanella nelle altre tab) finché non si decide
-        // dove reinserirle. Per riattivarle: _kShowHiddenMenuItems = true.
-        if (_kShowHiddenMenuItems) ...[
-          _MenuTile(
-            icon: AppIcons.notifications,
-            label: 'Notifiche',
-            onTap: () => context.push(AppRoutes.notifiche),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              tile(
+                stats.reports,
+                stats.reports == 1 ? 'segnalazione' : 'segnalazioni',
+              ),
+              tile(stats.cleanups, stats.cleanups == 1 ? 'pulizia' : 'pulizie'),
+              tile(stats.points, 'punti'),
+            ],
           ),
         ],
-        _MenuTile(
-          icon: AppIcons.settings,
-          label: 'Impostazioni',
-          onTap: () => context.push(AppRoutes.impostazioni),
+      ),
+    );
+  }
+}
+
+class _StatsError extends StatelessWidget {
+  const _StatsError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(AppIcons.error, size: 16, color: AppColors.redText),
+        const SizedBox(width: 6),
+        const Text(
+          'Statistiche non disponibili',
+          style: TextStyle(fontSize: 13, color: AppColors.redText),
         ),
-        _MenuTile(
-          icon: AppIcons.help,
-          label: 'Aiuto e feedback',
-          onTap: () => context.push(AppRoutes.aiutoFeedback),
-        ),
-        if (_kShowHiddenMenuItems && kDebugMode)
-          _MenuTile(
-            icon: AppIcons.tune,
-            label: 'Debug Firebase',
-            onTap: () => context.push(AppRoutes.debugFirebase),
-          ),
-        if (firebaseReady && userId != null) ...[
-          const Divider(height: 24),
-          _MenuTile(
-            icon: AppIcons.logout,
-            label: 'Logout',
-            onTap: _deletingAccount ? null : _logout,
-          ),
-          // Obbligatoria per Google Play: un'app che permette di creare un
-          // account deve permettere di eliminarlo dall'app stessa.
-          _MenuTile(
-            icon: AppIcons.delete,
-            label: 'Elimina account',
-            color: cs.error,
-            trailing: _deletingAccount
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: _deletingAccount ? null : _confirmDeleteAccount,
-          ),
-        ],
+        TextButton(onPressed: onRetry, child: const Text('Riprova')),
       ],
     );
   }
 }
 
-const _kShowHiddenMenuItems = false;
+class _MenuCard extends StatelessWidget {
+  const _MenuCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(color: AppColors.mintBorder, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(children: children),
+      ),
+    );
+  }
+}
+
+class _MenuTile extends StatelessWidget {
+  const _MenuTile({
+    required this.icon,
+    required this.label,
+    required this.bg,
+    required this.fg,
+    required this.onTap,
+    this.labelColor,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color bg;
+  final Color fg;
+  final Color? labelColor;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 60),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 20, color: fg),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: labelColor ?? AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              trailing ??
+                  const Icon(
+                    AppIcons.chevronRight,
+                    size: 18,
+                    color: AppColors.textDisabled,
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _DeleteAccountDialog extends StatefulWidget {
   const _DeleteAccountDialog();
@@ -464,101 +949,6 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
             ),
             onPressed: _password.text.isEmpty ? null : _submit,
             child: const Text('Elimina'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({
-    this.icon,
-    this.iconAsset,
-    required this.label,
-    required this.onTap,
-    this.color,
-    this.trailing,
-  }) : assert(icon != null || iconAsset != null);
-
-  final IconData? icon;
-  final String? iconAsset;
-  final String label;
-  final VoidCallback? onTap;
-  final Color? color;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = color ?? context.palette.textPrimary;
-    final iconColor = color ?? AppColors.greenBrand;
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: iconColor.withAlpha(20),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        alignment: Alignment.center,
-        child: iconAsset != null
-            ? SvgPicture.asset(
-                iconAsset!,
-                width: 18,
-                height: 18,
-                colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-              )
-            : Icon(icon, size: 18, color: iconColor),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(color: fg, fontWeight: FontWeight.w500),
-      ),
-      trailing:
-          trailing ??
-          Icon(
-            AppIcons.chevronRight,
-            size: 18,
-            color: color ?? context.palette.textDisabled,
-          ),
-      onTap: onTap,
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
-
-  final String value;
-  final String label;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 20, color: AppColors.greenBrand),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.w800,
-            color: AppColors.greenBrand,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: context.palette.textSecondary,
           ),
         ),
       ],

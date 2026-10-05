@@ -9,7 +9,6 @@ import 'mappa_screen.dart';
 import 'profilo_screen.dart';
 import '../theme/app_icons.dart';
 import '../widgets/app_button.dart';
-import '../widgets/tab_header.dart';
 
 /// Contenitore principale: tab Mappa, Classifica, Profilo. Segnala si apre a
 /// tutto schermo dal pulsante giallo della Mappa.
@@ -46,8 +45,6 @@ class _MainShellState extends State<MainShell> {
       _index = _normalizedIndex(widget.initialIndex);
     }
   }
-
-  static const _titles = ['Mappa', 'Classifica', 'Profilo'];
 
   /// Una sola tab alla volta nel tree: [IndexedStack] teneva tutte le schermate
   /// (inclusa [GoogleMap]) montate insieme e su Android creava più platform view
@@ -99,22 +96,9 @@ class _MainShellState extends State<MainShell> {
     ),
   ];
 
-  /// Mappa e Classifica disegnano il proprio header: niente AppBar.
-  PreferredSizeWidget? _buildAppBar(BuildContext context) {
-    if (_index == 0 || _index == 1) return null;
-    return AppBar(
-      title: Text(_titles[_index]),
-      actions: [
-        NotificationsBell(onDark: _index == 1),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _buildAppBar(context),
       body: SizedBox.expand(child: _bodyForTab(_index)),
       bottomNavigationBar: _bottomNavBar(context),
       // Segnala è l'azione principale dell'app: pulsante giallo sulla Mappa.

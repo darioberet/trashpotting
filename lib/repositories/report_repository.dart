@@ -301,6 +301,18 @@ class FirestoreReportRepository implements ReportRepository {
     return snap.count ?? 0;
   }
 
+  /// Pulizie completate da [uid] (checklist del Profilo). Solo filtri di
+  /// uguaglianza: Firestore li combina senza un indice composito.
+  Future<int> countCleanedBy(String uid) async {
+    final snap = await _firestore
+        .collection('reports')
+        .where('cleaningOwner.uid', isEqualTo: uid)
+        .where('status', isEqualTo: 'ripulita')
+        .count()
+        .get();
+    return snap.count ?? 0;
+  }
+
   @override
   Future<void> anonymizeUserReports(String uid) async {
     final snap = await _firestore
