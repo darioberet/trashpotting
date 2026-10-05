@@ -177,20 +177,20 @@ C'è sempre anche "Esci dall'account". Il blocco sparisce da solo appena GPS e p
 
 ## 5. Segnalare un rifiuto
 
-**Schermata:** `segnala_screen.dart` (pulsante centrale della barra in basso)
+**Schermata:** `segnala_screen.dart`, a tutto schermo, aperta dal pulsante giallo "Segnala +1 pt" della Mappa. In alto una barra a tre passi (Foto, Posizione, Tipo) e il contatore "N di 3 pronti".
 
-1. **Foto** (facoltativa): fotocamera o galleria. Prima del caricamento viene ridimensionata a massimo 1600 px, compressa in JPEG qualità 78 (circa 140 KB in media) e **ripulita da tutti i metadati EXIF**: coordinate GPS, modello del telefono, data (`services/image_processing_service.dart`). Una foto illeggibile viene rifiutata, mai caricata così com'è. Un avviso ricorda di non inquadrare volti e targhe.
-2. **Posizione:** acquisita automaticamente dal GPS, con indirizzo ricavato dal geocoder di Android e precisione in metri.
-3. **Tipo di rifiuto:** Discarica abusiva, Rifiuti abbandonati, Rifiuti pericolosi.
-4. **Descrizione:** almeno 10 caratteri.
-5. **Controllo doppioni:** se entro 30 m c'è già una segnalazione ancora da pulire o in corso, l'app chiede "Forse è già stato segnalato" e propone di aprire quella esistente ("Apri quella") o di inviare comunque ("È un altro, invia").
+1. **Foto** (obbligatoria): fotocamera o galleria. Prima del caricamento viene ridimensionata a massimo 1600 px, compressa in JPEG qualità 78 (circa 140 KB in media) e **ripulita da tutti i metadati EXIF**: coordinate GPS, modello del telefono, data (`services/image_processing_service.dart`). Una foto illeggibile viene rifiutata, mai caricata così com'è. Un avviso ricorda di non inquadrare volti e targhe.
+2. **Posizione** (obbligatoria): acquisita automaticamente dal GPS, con indirizzo ricavato dal geocoder di Android e precisione in metri.
+3. **Tipo di rifiuto** (obbligatorio): tre riquadri grandi, Rifiuti abbandonati, Discarica abusiva, Rifiuti pericolosi.
+4. **Descrizione** (facoltativa, fino a 300 caratteri): si apre con "Aggiungi una descrizione". Senza descrizione il titolo della segnalazione è il tipo di rifiuto.
+5. **Controllo doppioni:** appena acquisita la posizione, se entro 30 m c'è già una segnalazione ancora da pulire, in corso o con un evento, compare l'avviso viola "C'è già una segnalazione a N m" con "Vedi segnalazione". Se il controllo non è riuscito prima, all'invio l'app chiede "Forse è già stato segnalato" e propone di aprire quella esistente ("Apri quella") o di inviare comunque ("È un altro, invia").
 6. **Limite giornaliero:** massimo **10 segnalazioni al giorno** per utente. Il limite è garantito dalle regole di Firestore: ogni segnalazione incrementa, nella stessa transazione, il contatore `users/{uid}.reportQuota`, che non si può azzerare.
 7. **Invio:**
    - la foto va su Storage in `report_photos/{uid}/`;
    - la segnalazione va su `reports` con stato `segnalata`, coordinate, geohash e indirizzo;
    - l'autore riceve **1 punto**.
 
-Gli errori, per esempio una descrizione troppo corta o il GPS non disponibile, sono mostrati con messaggi comprensibili.
+Gli errori, per esempio foto o tipo mancanti o il GPS non disponibile, sono mostrati con messaggi comprensibili.
 
 ---
 

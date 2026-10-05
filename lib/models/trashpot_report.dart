@@ -135,7 +135,12 @@ class TrashpotReport {
 
     return TrashpotReport(
       id: doc.id,
-      title: rawNote?.isNotEmpty == true ? rawNote! : 'Segnalazione',
+      // Senza descrizione il titolo è il tipo di rifiuto.
+      title: rawNote?.isNotEmpty == true
+          ? rawNote!
+          : (data['typeLabel'] as String? ??
+                data['type'] as String? ??
+                'Segnalazione'),
       note: rawNote,
       address:
           data['address'] as String? ?? 'Posizione rilevata dal dispositivo',

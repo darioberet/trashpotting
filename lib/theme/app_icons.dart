@@ -55,6 +55,7 @@ abstract final class AppIcons {
   static const IconData image = PhosphorIconsRegular.image;
   static const IconData imageBroken = PhosphorIconsRegular.imageBroken;
   static const IconData send = PhosphorIconsRegular.paperPlaneTilt;
+  static const IconData edit = PhosphorIconsRegular.pencilSimple;
   static const IconData upload = PhosphorIconsRegular.cloudArrowUp;
   static const IconData myReports = PhosphorIconsRegular.clipboardText;
   static const IconData landscape = PhosphorIconsRegular.mountains;

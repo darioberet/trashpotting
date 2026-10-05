@@ -27,9 +27,25 @@ class ReportService {
     String? type,
     String? address,
   }) async {
+    // Foto, posizione e tipo sono obbligatori; la descrizione no (senza,
+    // il titolo della segnalazione è il tipo di rifiuto).
     final cleaned = note.trim();
-    if (cleaned.length < 10) {
-      throw ArgumentError.value(note, 'note', 'Inserisci almeno 10 caratteri.');
+    if (photoPath == null || photoPath.trim().isEmpty) {
+      throw ArgumentError.value(
+        photoPath,
+        'photoPath',
+        'Aggiungi una foto dei rifiuti.',
+      );
+    }
+    if (latitude == null || longitude == null) {
+      throw ArgumentError.value(
+        latitude,
+        'latitude',
+        'Posizione non disponibile: attiva il GPS e riprova.',
+      );
+    }
+    if (type == null || type.trim().isEmpty) {
+      throw ArgumentError.value(type, 'type', 'Scegli il tipo di rifiuto.');
     }
     // Prima della foto: se il limite giornaliero è raggiunto, la foto
     // resterebbe caricata ma orfana. Il controllo vincolante è comunque
@@ -38,11 +54,8 @@ class ReportService {
       throw const ReportQuotaExceededException();
     }
 
-    String? photoUrl;
-    if (photoPath != null && photoPath.trim().isNotEmpty) {
-      photoUrl = await (_photoUploadService ?? PhotoUploadService())
-          .uploadReportPhoto(localPath: photoPath, ownerId: uid ?? 'guest');
-    }
+    final photoUrl = await (_photoUploadService ?? PhotoUploadService())
+        .uploadReportPhoto(localPath: photoPath, ownerId: uid ?? 'guest');
 
     final draft = ReportDraft(
       note: cleaned,

@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/geo_utils.dart';
 import '../models/trashpot_report.dart';
+import '../repositories/leaderboard_repository.dart' show pointsPerReport;
 import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../services/location_service.dart';
@@ -20,8 +21,9 @@ import '../services/image_processing_service.dart';
 import '../state/app_session.dart';
 import '../state/segnala_view_model.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
+import '../widgets/app_button.dart';
 import '../widgets/image_source_bottom_sheet.dart';
+import '../widgets/tab_header.dart';
 import '../theme/app_icons.dart';
 
 /// Segnala a tutto schermo, aperta dal pulsante giallo della Mappa (e dagli
@@ -31,18 +33,12 @@ class SegnalaPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Chiudi',
-          icon: const Icon(AppIcons.close),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text('Segnala'),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
       ),
-      body: SafeArea(
-        top: false,
-        child: SegnalaScreen(
+      child: Scaffold(
+        body: SegnalaScreen(
           onSubmitted: () {
             if (context.canPop()) context.pop();
           },
@@ -87,6 +83,41 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
   int _seenInfoToken = 0;
   int _seenErrorToken = 0;
   bool _resolvingPosition = false;
+  bool _showNote = false;
+
+  /// Segnalazione attiva più vicina, se ce n'è una entro
+  /// [duplicateRadiusMeters] dalla posizione attuale.
+  ({TrashpotReport report, int meters})? _nearbyNotice;
+
+  Future<void> _loadNearby(double lat, double lng) async {
+    try {
+      final nearby = await widget._reportRepository.findActiveNearby(
+        latitude: lat,
+        longitude: lng,
+      );
+      if (!mounted) return;
+      if (nearby.isEmpty) {
+        setState(() => _nearbyNotice = null);
+        return;
+      }
+      final closest = nearby.reduce(
+        (a, b) =>
+            haversineKm(lat, lng, a.lat, a.lng) <=
+                haversineKm(lat, lng, b.lat, b.lng)
+            ? a
+            : b,
+      );
+      setState(
+        () => _nearbyNotice = (
+          report: closest,
+          meters: (haversineKm(lat, lng, closest.lat, closest.lng) * 1000)
+              .round(),
+        ),
+      );
+    } catch (_) {
+      // È solo un aiuto: senza, al momento dell'invio c'è comunque il dialog.
+    }
+  }
 
   @override
   void initState() {
@@ -103,6 +134,8 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
     final lat = _viewModel.latitude;
     final lng = _viewModel.longitude;
     if (lat == null || lng == null) return true;
+    // L'avviso è già nella pagina: chi invia lo ha visto.
+    if (_nearbyNotice != null) return true;
 
     List<TrashpotReport> nearby;
     try {
@@ -179,6 +212,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
       if (_viewModel.lastInfo == 'Segnalazione inviata correttamente.') {
         unawaited(HapticFeedback.mediumImpact());
         _note.clear();
+        _showNote = false;
         _viewModel.clearDraftExtras();
         widget.onSubmitted?.call();
       }
@@ -260,6 +294,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
         address: resolvedAddress,
         accuracy: p.accuracy,
       );
+      unawaited(_loadNearby(p.latitude, p.longitude));
       if (!silent) session.publishInfo('Posizione GPS acquisita.');
       return true;
     } catch (e) {
@@ -286,6 +321,18 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, _) {
+        final steps = (
+          photo: _viewModel.photoPath != null,
+          position: _viewModel.latitude != null && _viewModel.longitude != null,
+          type: _viewModel.reportType != null,
+        );
+        final ready = [
+          steps.photo,
+          steps.position,
+          steps.type,
+        ].where((s) => s).length;
+        final nearby = _nearbyNotice;
+
         return GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
           behavior: HitTestBehavior.translucent,
@@ -293,29 +340,100 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
             children: [
               Column(
                 children: [
+                  SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            height: 56,
+                            child: Row(
+                              children: [
+                                HeaderCircleButton(
+                                  icon: AppIcons.close,
+                                  tooltip: 'Chiudi',
+                                  onPressed: () =>
+                                      Navigator.of(context).maybePop(),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Semantics(
+                                    header: true,
+                                    child: const Text(
+                                      'Segnala',
+                                      style: TextStyle(
+                                        fontSize: 26,
+                                        height: 32 / 26,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.8,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.greenLight,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    '$ready di 3 pronti',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.greenDark,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StepBar(
+                                  label: 'Foto',
+                                  done: steps.photo,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _StepBar(
+                                  label: 'Posizione',
+                                  done: steps.position,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _StepBar(
+                                  label: 'Tipo',
+                                  done: steps.type,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   Expanded(
                     child: AbsorbPointer(
                       absorbing: _viewModel.sending,
                       child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                         children: [
-                          Text(
-                            'Segnala rifiuti',
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 22,
-                                  color: context.palette.textPrimary,
-                                ),
-                          ),
-                          const SizedBox(height: 16),
                           _PhotoUploadArea(
                             photoPath: _viewModel.photoPath,
                             onTap: _choosePhotoSource,
-                            onRemove: _viewModel.clearPhoto,
                           ),
-                          const SizedBox(height: 12),
-                          _GpsChip(
+                          const SizedBox(height: 14),
+                          _GpsCard(
                             resolving: _resolvingPosition,
                             latitude: _viewModel.latitude,
                             longitude: _viewModel.longitude,
@@ -324,43 +442,64 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
                             onRefresh: () =>
                                 _resolvePosition(forceRefresh: true),
                           ),
-                          const SizedBox(height: 16),
-                          _FieldLabel('Tipo di rifiuto'),
-                          const SizedBox(height: 8),
+                          if (nearby != null) ...[
+                            const SizedBox(height: 14),
+                            _NearbyNotice(
+                              meters: nearby.meters,
+                              onOpen: () => context.push(
+                                '${AppRoutes.reportDetail}/${nearby.report.id}',
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          Semantics(
+                            header: true,
+                            child: const Text(
+                              'Che rifiuti hai trovato?',
+                              style: TextStyle(
+                                fontSize: 17,
+                                height: 22 / 17,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
                           _TypeSelector(
                             selected: _viewModel.reportType,
                             onSelected: _viewModel.setReportType,
                           ),
-                          const SizedBox(height: 16),
-                          _FieldLabel('Descrizione'),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _note,
-                            maxLines: 4,
-                            maxLength: 300,
-                            decoration: const InputDecoration(
-                              hintText:
-                                  'Descrivi brevemente i rifiuti che hai trovato...',
-                              alignLabelWithHint: true,
+                          const SizedBox(height: 18),
+                          if (_showNote || _note.text.isNotEmpty)
+                            TextField(
+                              controller: _note,
+                              autofocus: _note.text.isEmpty,
+                              maxLines: 4,
+                              minLines: 2,
+                              maxLength: 300,
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: const InputDecoration(
+                                labelText: 'Descrizione (facoltativa)',
+                                hintText:
+                                    'Es. sacchi neri a bordo strada, '
+                                    'vicino al parcheggio',
+                                alignLabelWithHint: true,
+                              ),
+                            )
+                          else
+                            _AddNoteButton(
+                              onTap: () => setState(() => _showNote = true),
                             ),
-                          ),
                         ],
                       ),
                     ),
                   ),
-
-                  // Sticky bottom CTA
                   _StickyBottomBar(sending: _viewModel.sending, onSend: _send),
                 ],
               ),
-
               if (_viewModel.sending)
-                const Positioned.fill(
-                  child: ColoredBox(
-                    color: Colors.black26,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                ),
+                const Positioned.fill(child: ColoredBox(color: Colors.black12)),
             ],
           ),
         );
@@ -371,150 +510,201 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
 
 // ─── Sub-widgets ────────────────────────────────────────────────────────────
 
-class _PhotoUploadArea extends StatelessWidget {
-  const _PhotoUploadArea({
-    required this.photoPath,
-    required this.onTap,
-    required this.onRemove,
-  });
+/// Un passo della barra in alto: segmento verde e spunta quando è fatto.
+class _StepBar extends StatelessWidget {
+  const _StepBar({required this.label, required this.done});
 
-  final String? photoPath;
-  final VoidCallback onTap;
-  final VoidCallback onRemove;
+  final String label;
+  final bool done;
 
   @override
   Widget build(BuildContext context) {
-    final hasPhoto = photoPath != null;
-
-    if (hasPhoto) {
-      return Semantics(
-        label: 'Foto allegata. Tocca per cambiare.',
-        button: true,
-        child: Stack(
-          children: [
-            GestureDetector(
-              onTap: onTap,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    kIsWeb
-                        ? Container(
-                            height: 180,
-                            width: double.infinity,
-                            color: context.palette.surfaceWarm,
-                            alignment: Alignment.center,
-                            child: Text(
-                              photoPath!.split(RegExp(r'[\\/]')).last,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: context.palette.textSecondary,
-                              ),
-                            ),
-                          )
-                        : Image.file(
-                            File(photoPath!),
-                            height: 180,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      color: Colors.black.withAlpha(140),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(AppIcons.image, size: 16, color: Colors.white),
-                          SizedBox(width: 6),
-                          Text(
-                            'Tocca per cambiare foto',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return Semantics(
+      label: '$label: ${done ? 'fatto' : 'da fare'}',
+      excludeSemantics: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            height: 6,
+            decoration: BoxDecoration(
+              color: done ? AppColors.greenBrand : AppColors.mintBorder,
+              borderRadius: BorderRadius.circular(3),
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Semantics(
-                label: 'Rimuovi foto',
-                button: true,
-                child: GestureDetector(
-                  onTap: onRemove,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withAlpha(140),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      AppIcons.close,
-                      size: 16,
-                      color: Colors.white,
-                    ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if (done) ...[
+                const Icon(
+                  AppIcons.check,
+                  size: 13,
+                  color: AppColors.greenDark,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: done ? AppColors.greenDark : AppColors.textDisabled,
                   ),
                 ),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhotoUploadArea extends StatelessWidget {
+  const _PhotoUploadArea({required this.photoPath, required this.onTap});
+
+  final String? photoPath;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final path = photoPath;
+    if (path != null) {
+      return Semantics(
+        label: 'Foto allegata',
+        image: true,
+        child: SizedBox(
+          height: 172,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                kIsWeb
+                    ? ColoredBox(
+                        color: AppColors.surfaceWarm,
+                        child: Center(
+                          child: Text(
+                            path.split(RegExp(r'[\\/]')).last,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Image.file(File(path), fit: BoxFit.cover),
+                Positioned(
+                  right: 10,
+                  bottom: 10,
+                  child: Material(
+                    color: Colors.white,
+                    shape: const StadiumBorder(),
+                    elevation: 3,
+                    shadowColor: AppColors.textPrimary.withAlpha(80),
+                    child: InkWell(
+                      customBorder: const StadiumBorder(),
+                      onTap: onTap,
+                      child: const SizedBox(
+                        height: 40,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 14),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                AppIcons.camera,
+                                size: 18,
+                                color: AppColors.textPrimary,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Cambia foto',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       );
     }
 
     return Semantics(
-      label: 'Tocca per aggiungere una foto',
+      label: 'Aggiungi una foto dei rifiuti',
       button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 180,
-          decoration: BoxDecoration(
-            color: context.palette.surfaceWarm,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: context.palette.divider,
-              width: 1.5,
-              style: BorderStyle.solid,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: CustomPaint(
+            painter: const _DashedBorderPainter(
+              color: AppColors.mintBorder,
+              radius: 24,
             ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                AppIcons.camera,
-                size: 40,
-                color: AppColors.greenBrand,
+            child: SizedBox(
+              height: 172,
+              width: double.infinity,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: AppColors.yellow,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.yellowEdge,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      AppIcons.cameraFilled,
+                      size: 26,
+                      color: AppColors.onYellow,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Scatta o scegli una foto',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Inquadra solo i rifiuti: niente volti né targhe.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Scatta o scegli una foto',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: context.palette.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'La foto aiuta la verifica.\n'
-                'Inquadra solo i rifiuti: niente volti né targhe.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: context.palette.textSecondary,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -522,8 +712,42 @@ class _PhotoUploadArea extends StatelessWidget {
   }
 }
 
-class _GpsChip extends StatelessWidget {
-  const _GpsChip({
+/// Bordo tratteggiato arrotondato (foto mancante, "Aggiungi descrizione").
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          (Offset.zero & size).deflate(1),
+          Radius.circular(radius),
+        ),
+      );
+    for (final metric in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < metric.length) {
+        canvas.drawPath(metric.extractPath(d, d + 7), paint);
+        d += 12;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius;
+}
+
+class _GpsCard extends StatelessWidget {
+  const _GpsCard({
     required this.resolving,
     required this.latitude,
     required this.longitude,
@@ -541,98 +765,196 @@ class _GpsChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (resolving) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: context.palette.surfaceWarm,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                color: AppColors.greenBrand,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Recupero posizione...',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontSize: 12,
-                color: context.palette.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (latitude == null || longitude == null) return const SizedBox.shrink();
-
-    final subtitle = accuracy != null
-        ? 'GPS · precisione ±${accuracy!.round()}m'
+    final hasPosition = latitude != null && longitude != null;
+    final title = resolving
+        ? 'Recupero posizione…'
+        : !hasPosition
+        ? 'Posizione non disponibile'
+        : address ??
+              '${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)}';
+    final subtitle = resolving
+        ? 'Attendi qualche secondo'
+        : !hasPosition
+        ? 'Tocca il mirino per riprovare'
+        : accuracy != null
+        ? 'GPS, precisione ${accuracy!.round()} m'
         : 'GPS';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
       decoration: BoxDecoration(
-        color: context.palette.greenLight,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.greenLight,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          const Icon(AppIcons.place, size: 20, color: AppColors.greenBrand),
-          const SizedBox(width: 8),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: hasPosition ? AppColors.greenBrand : AppColors.mintBorder,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: resolving
+                ? const Padding(
+                    padding: EdgeInsets.all(11),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(AppIcons.place, size: 22, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  address ??
-                      'Lat ${latitude!.toStringAsFixed(5)}, Lng ${longitude!.toStringAsFixed(5)}',
-                  maxLines: 1,
+                  title,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: context.palette.textPrimary,
-                    fontWeight: FontWeight.w600,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 19 / 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.greenDark,
                   ),
                 ),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 11,
-                    color: context.palette.textSecondary,
+                    fontSize: 12,
+                    height: 16 / 12,
+                    color: AppColors.greenDark.withAlpha(190),
                   ),
                 ),
               ],
             ),
           ),
-          if (onRefresh != null) ...[
-            const SizedBox(width: 8),
-            Semantics(
-              label: 'Aggiorna posizione GPS',
-              button: true,
-              child: InkWell(
-                onTap: onRefresh,
-                customBorder: const CircleBorder(),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: const Icon(
-                    AppIcons.myLocation,
-                    size: 22,
-                    color: AppColors.greenBrand,
-                  ),
-                ),
+          if (onRefresh != null)
+            IconButton(
+              tooltip: 'Aggiorna posizione',
+              onPressed: resolving ? null : onRefresh,
+              icon: const Icon(
+                AppIcons.myLocation,
+                size: 22,
+                color: AppColors.greenDark,
               ),
             ),
-          ],
         ],
+      ),
+    );
+  }
+}
+
+/// "C'è già una segnalazione a 40 m": invito a confermare quella invece di
+/// crearne un doppione.
+class _NearbyNotice extends StatelessWidget {
+  const _NearbyNotice({required this.meters, required this.onOpen});
+
+  final int meters;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+      decoration: BoxDecoration(
+        color: AppColors.purpleLight,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(AppIcons.info, size: 18, color: AppColors.purpleDark),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 18 / 13,
+                      color: AppColors.purpleDark,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'C\'è già una segnalazione a $meters m. ',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const TextSpan(
+                        text:
+                            'Se sono gli stessi rifiuti, confermala: vale '
+                            'comunque $pointsPerVote punto.',
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: onOpen,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.purple,
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 36),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  child: const Text('Vedi segnalazione'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddNoteButton extends StatelessWidget {
+  const _AddNoteButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: CustomPaint(
+          painter: const _DashedBorderPainter(
+            color: AppColors.mintBorder,
+            radius: 16,
+          ),
+          child: const SizedBox(
+            height: 52,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(AppIcons.edit, size: 18, color: AppColors.greenDark),
+                SizedBox(width: 8),
+                Text(
+                  'Aggiungi una descrizione (facoltativa)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.greenDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -648,48 +970,24 @@ class _StickyBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(color: context.palette.divider, width: 0.5),
-        ),
+      padding: EdgeInsets.fromLTRB(16, 14, 16, 18 + bottomInset),
+      decoration: const BoxDecoration(
+        color: AppColors.greenLight,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: FilledButton.icon(
-        onPressed: sending ? null : onSend,
-        icon: sending
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Icon(AppIcons.send, size: 18),
-        label: Text(sending ? 'Invio in corso...' : 'Invia segnalazione'),
+      child: AppButton(
+        label: sending ? 'Invio in corso…' : 'Invia segnalazione',
+        icon: AppIcons.send,
+        badge: sending ? null : '+$pointsPerReport pt',
+        loading: sending,
+        onPressed: onSend,
       ),
     );
   }
 }
 
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        color: context.palette.textPrimary,
-      ),
-    );
-  }
-}
-
+/// Tre riquadri grandi per il tipo di rifiuto; quello scelto diventa verde
+/// con la spunta gialla.
 class _TypeSelector extends StatelessWidget {
   const _TypeSelector({required this.selected, required this.onSelected});
 
@@ -697,66 +995,148 @@ class _TypeSelector extends StatelessWidget {
   final void Function(String?) onSelected;
 
   static const _types = [
-    'Discarica abusiva',
-    'Rifiuti abbandonati',
-    'Rifiuti pericolosi',
+    (
+      label: 'Rifiuti abbandonati',
+      bg: AppColors.greenLight,
+      fg: AppColors.greenDark,
+    ),
+    (label: 'Discarica abusiva', bg: Color(0xFFFFE7D6), fg: Color(0xFF8A3B0A)),
+    (
+      label: 'Rifiuti pericolosi',
+      bg: AppColors.purpleLight,
+      fg: AppColors.purpleDark,
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.palette.surfaceWhite,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: context.palette.cardShadow,
-            blurRadius: 12,
-            offset: const Offset(0, 2),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final (i, t) in _types.indexed) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: _TypeTile(
+              label: t.label,
+              bg: t.bg,
+              fg: t.fg,
+              selected: selected == t.label,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onSelected(selected == t.label ? null : t.label);
+              },
+            ),
           ),
         ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final (i, t) in _types.indexed) ...[
-            if (i > 0) Divider(height: 1, color: context.palette.divider),
-            InkWell(
-              onTap: () => onSelected(selected == t ? null : t),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      selected == t ? AppIcons.radioOn : AppIcons.radioOff,
-                      size: 18,
-                      color: selected == t
-                          ? AppColors.greenBrand
-                          : context.palette.textDisabled,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      t,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: selected == t
-                            ? context.palette.textPrimary
-                            : context.palette.textSecondary,
-                        fontWeight: selected == t
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      ],
+    );
+  }
+}
+
+class _TypeTile extends StatelessWidget {
+  const _TypeTile({
+    required this.label,
+    required this.bg,
+    required this.fg,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color bg;
+  final Color fg;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = selected ? Colors.white : fg;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        constraints: const BoxConstraints(minHeight: 124),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.greenBrand : bg,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: selected ? AppColors.greenDark : Colors.transparent,
+              offset: const Offset(0, 4),
             ),
           ],
-        ],
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: onTap,
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 14,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? Colors.white.withAlpha(41)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            AppIcons.forWasteType(label),
+                            size: 26,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 16 / 13,
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (selected)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        color: AppColors.yellow,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        AppIcons.check,
+                        size: 14,
+                        color: AppColors.onYellow,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
