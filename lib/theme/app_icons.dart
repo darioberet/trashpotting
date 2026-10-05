@@ -19,6 +19,8 @@ abstract final class AppIcons {
   static const IconData dropdown = PhosphorIconsRegular.caretDown;
   static const IconData openExternal = PhosphorIconsRegular.arrowSquareOut;
   static const IconData close = PhosphorIconsRegular.x;
+  static const IconData back = PhosphorIconsBold.caretLeft;
+  static const IconData more = PhosphorIconsBold.dotsThreeVertical;
   static const IconData share = PhosphorIconsRegular.export;
 
   // ── Utente e account ─────────────────────────────────────────────────────

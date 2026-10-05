@@ -78,6 +78,8 @@ class TrashpotReport {
     this.cleaningOwner,
     this.event,
     this.createdAt,
+    this.cleaningStartedAt,
+    this.cleanedAt,
     this.distanceLabel,
     this.dateLabel,
     this.typeLabel,
@@ -98,6 +100,12 @@ class TrashpotReport {
   final AppUserProfile? cleaningOwner;
   final CleanupEvent? event;
   final DateTime? createdAt;
+
+  /// Quando qualcuno ha preso in carico la pulizia ("Voglio pulire").
+  final DateTime? cleaningStartedAt;
+
+  /// Quando la pulizia è stata completata con la foto finale.
+  final DateTime? cleanedAt;
   final String? distanceLabel;
   final String? dateLabel;
   final String? typeLabel;
@@ -116,6 +124,11 @@ class TrashpotReport {
 
     final createdAt = data['createdAt'];
     final createdDate = createdAt is Timestamp ? createdAt.toDate() : null;
+    DateTime? dateOf(String key) {
+      final value = data[key];
+      return value is Timestamp ? value.toDate() : null;
+    }
+
     final rawNote = (data['note'] as String?)?.trim();
     final cleaningOwnerRaw = data['cleaningOwner'];
     final eventRaw = data['event'];
@@ -144,6 +157,8 @@ class TrashpotReport {
           ? CleanupEvent.fromMap(Map<String, dynamic>.from(eventRaw))
           : null,
       createdAt: createdDate,
+      cleaningStartedAt: dateOf('cleaningStartedAt'),
+      cleanedAt: dateOf('cleanedAt'),
       dateLabel: createdDate == null
           ? null
           : '${createdDate.day.toString().padLeft(2, '0')}/${createdDate.month.toString().padLeft(2, '0')}/${createdDate.year}',
