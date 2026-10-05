@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -548,7 +549,7 @@ class _PasswordStrength extends StatelessWidget {
 
 /// "Ho letto e accetto i Termini d'uso e l'Informativa privacy", con i due
 /// link apribili.
-class _TermsCheckbox extends StatelessWidget {
+class _TermsCheckbox extends StatefulWidget {
   const _TermsCheckbox({
     required this.value,
     required this.onChanged,
@@ -560,7 +561,30 @@ class _TermsCheckbox extends StatelessWidget {
   final String? errorText;
 
   @override
+  State<_TermsCheckbox> createState() => _TermsCheckboxState();
+}
+
+class _TermsCheckboxState extends State<_TermsCheckbox> {
+  // Link come TextSpan con riconoscitore, non WidgetSpan: un widget dentro
+  // il testo viene ingrandito due volte con il testo di sistema grande, e i
+  // link risultavano più grossi del resto della frase.
+  late final _termsTap = TapGestureRecognizer()
+    ..onTap = () => LegalLinks.open(LegalLinks.terms);
+  late final _privacyTap = TapGestureRecognizer()
+    ..onTap = () => LegalLinks.open(LegalLinks.privacy);
+
+  @override
+  void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final value = widget.value;
+    final onChanged = widget.onChanged;
+    final errorText = widget.errorText;
     const style = TextStyle(
       fontSize: 13,
       height: 19 / 13,
@@ -572,14 +596,8 @@ class _TermsCheckbox extends StatelessWidget {
       decoration: TextDecoration.underline,
     );
 
-    WidgetSpan link(String label, Uri uri) => WidgetSpan(
-      alignment: PlaceholderAlignment.baseline,
-      baseline: TextBaseline.alphabetic,
-      child: InkWell(
-        onTap: () => LegalLinks.open(uri),
-        child: Text(label, style: linkStyle),
-      ),
-    );
+    TextSpan link(String label, TapGestureRecognizer recognizer) =>
+        TextSpan(text: label, style: linkStyle, recognizer: recognizer);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,9 +620,9 @@ class _TermsCheckbox extends StatelessWidget {
                       const TextSpan(
                         text: 'Ho almeno 14 anni, ho letto e accetto i ',
                       ),
-                      link('Termini d\'uso', LegalLinks.terms),
+                      link('Termini d\'uso', _termsTap),
                       const TextSpan(text: ' e l\''),
-                      link('Informativa privacy', LegalLinks.privacy),
+                      link('Informativa privacy', _privacyTap),
                       const TextSpan(text: '.'),
                     ],
                   ),
@@ -617,7 +635,7 @@ class _TermsCheckbox extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 12),
             child: Text(
-              errorText!,
+              errorText,
               style: const TextStyle(
                 color: AppColors.redText,
                 fontSize: 12,
