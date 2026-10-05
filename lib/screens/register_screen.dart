@@ -1,3 +1,6 @@
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +51,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _busy = false;
   bool _termsAccepted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Solo in debug: account di prova già compilato, per registrare in fretta
+    // gli utenti di test (la parte dopo il + cambia a ogni apertura).
+    if (kDebugMode) {
+      final n = Random().nextInt(10000) + 1;
+      _emailController.text = 'polivastro123+$n@gmail.com';
+      _passwordController.text = 'test1234';
+      _confirmController.text = 'test1234';
+      _termsAccepted = true;
+    }
+  }
+
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
@@ -325,7 +343,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           // Obbligatorio (GDPR e Google Play): senza
                           // accettazione il form non è valido.
                           FormField<bool>(
-                            initialValue: false,
+                            initialValue: _termsAccepted,
                             validator: (v) => v == true
                                 ? null
                                 : 'Per registrarti devi accettare termini e '
