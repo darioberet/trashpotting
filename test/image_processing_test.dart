@@ -46,15 +46,14 @@ void main() {
     expect(exif == null || !exif.imageIfd.hasModel, isTrue);
   });
 
-  test(
-    "se il file non è un'immagine valida non viene caricato l'originale",
-    () async {
-      final file = File('${dir.path}/broken.jpg')..writeAsBytesSync([1, 2, 3]);
+  test("se il file non è un'immagine valida non viene caricato l'originale",
+      () async {
+    final file = File('${dir.path}/broken.jpg')
+      ..writeAsBytesSync([1, 2, 3]);
 
-      expect(
-        () => const ImageProcessingService().resizeAndCompress(file.path),
-        throwsA(isA<ImageProcessingException>()),
-      );
-    },
-  );
+    expect(
+      () => const ImageProcessingService().resizeAndCompress(file.path),
+      throwsA(isA<ImageProcessingException>()),
+    );
+  });
 }
