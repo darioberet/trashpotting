@@ -373,6 +373,8 @@ class _PodiumSlot extends StatelessWidget {
             ),
             child: IntrinsicHeight(
               child: Stack(
+                // Il Column non occupa tutta la larghezza: va centrato.
+                alignment: Alignment.topCenter,
                 children: [
                   if (first)
                     const Positioned(
