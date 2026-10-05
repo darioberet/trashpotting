@@ -65,6 +65,15 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
     return doc.data()?['points'] as int? ?? 0;
   }
 
+  /// Punti dell'utente aggiornati in tempo reale (pillola nell'header).
+  Stream<int> watchUserPoints(String uid) {
+    return _firestore
+        .collection('leaderboard')
+        .doc(uid)
+        .snapshots()
+        .map((doc) => doc.data()?['points'] as int? ?? 0);
+  }
+
   @override
   Future<List<LeaderboardEntry>> fetchTop({int limit = 20}) async {
     final snap = await _firestore

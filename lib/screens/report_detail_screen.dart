@@ -1093,6 +1093,9 @@ class _MiniMap extends StatelessWidget {
                     markerId: const MarkerId('report'),
                     position: position,
                     icon: icon,
+                    anchor: snapshot.hasData
+                        ? MarkerIconFactory.pinAnchor
+                        : const Offset(0.5, 1),
                   ),
                 },
                 style: mapStyleJson,

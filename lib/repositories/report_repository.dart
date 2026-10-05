@@ -324,6 +324,7 @@ class FirestoreReportRepository implements ReportRepository {
     final active = [
       ...ReportStatusGroup.daPulire.firestoreStatuses,
       ...ReportStatusGroup.inCorso.firestoreStatuses,
+      ...ReportStatusGroup.evento.firestoreStatuses,
     ];
     // Stesso indice status + geohash della mappa; a 30 m i range sono pochi
     // e piccoli, quindi le letture sono una manciata.

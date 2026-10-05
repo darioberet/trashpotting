@@ -66,6 +66,8 @@ abstract final class AppIcons {
   static const IconData statusCleanedFilled = PhosphorIconsFill.checkCircle;
   static const IconData statusGone = PhosphorIconsRegular.question;
   static const IconData clean = PhosphorIconsRegular.broom;
+  static const IconData cleanFilled = PhosphorIconsFill.broom;
+  static const IconData layers = PhosphorIconsRegular.stackSimple;
   static const IconData tools = PhosphorIconsRegular.wrench;
   static const IconData calendar = PhosphorIconsRegular.calendarBlank;
   static const IconData time = PhosphorIconsRegular.clock;
@@ -95,12 +97,13 @@ abstract final class AppIcons {
   // Marker degli stati in cui il tipo conta meno dell'avanzamento.
   static const IconData markerEvent = PhosphorIconsFill.calendarBlank;
   static const IconData markerCleaning = PhosphorIconsFill.broom;
-  static const IconData markerCleaned = PhosphorIconsFill.checkCircle;
-  static const IconData markerGone = PhosphorIconsFill.question;
+  static const IconData markerCleaned = PhosphorIconsBold.check;
+  static const IconData markerGone = PhosphorIconsBold.eyeSlash;
 
   // ── Classifica ───────────────────────────────────────────────────────────
   static const IconData trophy = PhosphorIconsRegular.trophy;
   static const IconData star = PhosphorIconsRegular.star;
+  static const IconData starFilled = PhosphorIconsFill.star;
 
   // ── Moderazione ──────────────────────────────────────────────────────────
   static const IconData flag = PhosphorIconsRegular.flag;

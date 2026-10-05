@@ -5,10 +5,11 @@ const reportRadiusOptionsKm = [1, 5, 10, 25, 50];
 const defaultReportRadiusKm = 10;
 
 /// Raggruppamento degli stati per i filtri: i sette stati del modello sono
-/// troppi da mostrare singolarmente, per l'utente contano tre fasi.
+/// troppi da mostrare singolarmente, per l'utente contano quattro fasi.
 enum ReportStatusGroup {
   daPulire('Da pulire'),
   inCorso('In corso'),
+  evento('Evento'),
   pulite('Pulite');
 
   const ReportStatusGroup(this.label);
@@ -19,7 +20,8 @@ enum ReportStatusGroup {
   /// mappa filtra su questi, così gli stati esclusi non vengono letti.
   List<String> get firestoreStatuses => switch (this) {
     daPulire => const ['segnalata', 'aperta'],
-    inCorso => const ['inLavorazione', 'eventoCreato', 'puliziaInCorso'],
+    inCorso => const ['inLavorazione', 'puliziaInCorso'],
+    evento => const ['eventoCreato'],
     pulite => const ['ripulita', 'pulita'],
   };
 
@@ -28,9 +30,8 @@ enum ReportStatusGroup {
   static ReportStatusGroup? of(TrashpotStatus status) {
     return switch (status) {
       TrashpotStatus.segnalata || TrashpotStatus.aperta => daPulire,
-      TrashpotStatus.inLavorazione ||
-      TrashpotStatus.eventoCreato ||
-      TrashpotStatus.puliziaInCorso => inCorso,
+      TrashpotStatus.inLavorazione || TrashpotStatus.puliziaInCorso => inCorso,
+      TrashpotStatus.eventoCreato => evento,
       TrashpotStatus.pulita || TrashpotStatus.ripulita => pulite,
       TrashpotStatus.sparita => null,
     };
@@ -45,7 +46,6 @@ const cleanedVisibleDays = 30;
 /// Tetto alle ripulite recenti lette per ogni apertura della mappa.
 const cleanedQueryLimit = 100;
 
-const defaultReportStatusGroups = {
-  ReportStatusGroup.daPulire,
-  ReportStatusGroup.inCorso,
-};
+/// Di base si vede tutto (chip "Tutti"): le ripulite sono comunque limitate
+/// a [cleanedVisibleDays] giorni e [cleanedQueryLimit] documenti.
+const defaultReportStatusGroups = {...ReportStatusGroup.values};

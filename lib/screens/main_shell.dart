@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/app_notification.dart';
-import '../repositories/notification_repository.dart';
 import '../routes.dart';
-import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import 'classifica_screen.dart';
 import 'mappa_screen.dart';
 import 'profilo_screen.dart';
 import '../theme/app_icons.dart';
 import '../widgets/app_button.dart';
+import '../widgets/tab_header.dart';
 
 /// Contenitore principale: tab Mappa, Classifica, Profilo. Segnala si apre a
 /// tutto schermo dal pulsante giallo della Mappa.
@@ -33,8 +30,6 @@ class _MainShellState extends State<MainShell> {
     HapticFeedback.selectionClick();
     setState(() => _index = index);
   }
-
-  final _notificationRepository = FirestoreNotificationRepository();
 
   int _normalizedIndex(int value) => value.clamp(0, 2);
 
@@ -63,45 +58,6 @@ class _MainShellState extends State<MainShell> {
       1 => ClassificaScreen(),
       _ => const ProfiloScreen(),
     };
-  }
-
-  Widget _notificationsButton(BuildContext context) {
-    final uid = AppSessionScope.watch(context).currentUserId;
-
-    final icon = uid == null
-        ? const Icon(AppIcons.notifications)
-        : StreamBuilder<List<AppNotification>>(
-            stream: _notificationRepository.watchUserNotifications(uid),
-            builder: (context, snapshot) {
-              final hasUnread = snapshot.data?.any((n) => !n.read) ?? false;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(AppIcons.notifications),
-                  if (hasUnread)
-                    Positioned(
-                      top: -1,
-                      right: -1,
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          color: AppColors.redPin,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          );
-
-    return IconButton(
-      tooltip: 'Notifiche',
-      icon: icon,
-      onPressed: () => context.push(AppRoutes.notifiche),
-    );
   }
 
   Widget _bottomNavBar(BuildContext context) {
@@ -143,39 +99,9 @@ class _MainShellState extends State<MainShell> {
     ),
   ];
 
-  // Header brand (logo + "Trashpotting") condiviso da Mappa e Segnala,
-  // le due tab che nel mockup Figma mostrano il logo invece del nome tab.
-  PreferredSizeWidget _brandAppBar(BuildContext context) {
-    return AppBar(
-      automaticallyImplyLeading: false,
-      centerTitle: false,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SvgPicture.asset(
-            'assets/icons/logo_leaf_pin.svg',
-            width: 20,
-            height: 20,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'Trashpotting',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: AppColors.greenBrand,
-            ),
-          ),
-        ],
-      ),
-      actions: [_notificationsButton(context)],
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    if (_index == 0) {
-      return _brandAppBar(context);
-    }
+  /// La Mappa disegna il proprio header sopra la mappa: niente AppBar.
+  PreferredSizeWidget? _buildAppBar(BuildContext context) {
+    if (_index == 0) return null;
     if (_index == 1) {
       // AppBar verde brand: stessa meccanica di sicurezza/spaziatura della
       // tab Mappa (Scaffold la posiziona già correttamente sotto la status
@@ -188,12 +114,18 @@ class _MainShellState extends State<MainShell> {
           'Classifica',
           style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
-        actions: [_notificationsButton(context)],
+        actions: [
+          NotificationsBell(onDark: _index == 1),
+          const SizedBox(width: 8),
+        ],
       );
     }
     return AppBar(
       title: Text(_titles[_index]),
-      actions: [_notificationsButton(context)],
+      actions: [
+        NotificationsBell(onDark: _index == 1),
+        const SizedBox(width: 8),
+      ],
     );
   }
 
