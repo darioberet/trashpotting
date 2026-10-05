@@ -24,9 +24,38 @@ import '../theme/app_palette.dart';
 import '../widgets/image_source_bottom_sheet.dart';
 import '../theme/app_icons.dart';
 
+/// Segnala a tutto schermo, aperta dal pulsante giallo della Mappa (e dagli
+/// inviti "Fai la prima segnalazione"). Dopo l'invio torna indietro.
+class SegnalaPage extends StatelessWidget {
+  const SegnalaPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Chiudi',
+          icon: const Icon(AppIcons.close),
+          onPressed: () => context.pop(),
+        ),
+        title: const Text('Segnala'),
+      ),
+      body: SafeArea(
+        top: false,
+        child: SegnalaScreen(
+          onSubmitted: () {
+            if (context.canPop()) context.pop();
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class SegnalaScreen extends StatefulWidget {
   SegnalaScreen({
     super.key,
+    this.onSubmitted,
     ReportService? reportService,
     MediaPickerService? mediaPickerService,
     LocationService? locationService,
@@ -44,6 +73,9 @@ class SegnalaScreen extends StatefulWidget {
   final MediaPickerService _mediaPickerService;
   final LocationService _locationService;
   final ImageProcessingService _imageProcessingService;
+
+  /// Chiamata dopo un invio riuscito.
+  final VoidCallback? onSubmitted;
 
   @override
   State<SegnalaScreen> createState() => _SegnalaScreenState();
@@ -148,6 +180,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
         unawaited(HapticFeedback.mediumImpact());
         _note.clear();
         _viewModel.clearDraftExtras();
+        widget.onSubmitted?.call();
       }
     }
     if (_viewModel.errorToken > _seenErrorToken &&

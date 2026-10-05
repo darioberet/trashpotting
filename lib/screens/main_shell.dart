@@ -8,14 +8,14 @@ import '../repositories/notification_repository.dart';
 import '../routes.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
 import 'classifica_screen.dart';
 import 'mappa_screen.dart';
 import 'profilo_screen.dart';
-import 'segnala_screen.dart';
 import '../theme/app_icons.dart';
+import '../widgets/app_button.dart';
 
-/// Contenitore principale: tab Mappa, Segnala, Profilo.
+/// Contenitore principale: tab Mappa, Classifica, Profilo. Segnala si apre a
+/// tutto schermo dal pulsante giallo della Mappa.
 class MainShell extends StatefulWidget {
   const MainShell({super.key, this.initialIndex = 0});
 
@@ -36,7 +36,7 @@ class _MainShellState extends State<MainShell> {
 
   final _notificationRepository = FirestoreNotificationRepository();
 
-  int _normalizedIndex(int value) => value.clamp(0, 3);
+  int _normalizedIndex(int value) => value.clamp(0, 2);
 
   @override
   void initState() {
@@ -52,7 +52,7 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  static const _titles = ['Mappa', 'Segnala', 'Classifica', 'Profilo'];
+  static const _titles = ['Mappa', 'Classifica', 'Profilo'];
 
   /// Una sola tab alla volta nel tree: [IndexedStack] teneva tutte le schermate
   /// (inclusa [GoogleMap]) montate insieme e su Android creava più platform view
@@ -60,8 +60,7 @@ class _MainShellState extends State<MainShell> {
   Widget _bodyForTab(int i) {
     return switch (i) {
       0 => const MappaScreen(),
-      1 => SegnalaScreen(),
-      2 => ClassificaScreen(),
+      1 => ClassificaScreen(),
       _ => const ProfiloScreen(),
     };
   }
@@ -108,55 +107,41 @@ class _MainShellState extends State<MainShell> {
   Widget _bottomNavBar(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
+      color: AppColors.forest,
       padding: EdgeInsets.only(bottom: bottomInset),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(color: context.palette.divider, width: 0.5),
-        ),
-      ),
       child: SizedBox(
-        height: 60,
+        height: 80,
         child: Row(
           children: [
-            Expanded(
-              child: _NavBarItem(
-                icon: AppIcons.map,
-                activeIcon: AppIcons.mapActive,
-                label: 'Mappa',
-                selected: _index == 0,
-                onTap: () => _selectTab(0),
+            for (final (i, item) in _navItems.indexed)
+              Expanded(
+                child: _NavBarItem(
+                  icon: item.icon,
+                  activeIcon: item.activeIcon,
+                  label: item.label,
+                  selected: _index == i,
+                  onTap: () => _selectTab(i),
+                ),
               ),
-            ),
-            Expanded(
-              child: _SegnalaFabItem(
-                selected: _index == 1,
-                onTap: () => _selectTab(1),
-              ),
-            ),
-            Expanded(
-              child: _NavBarItem(
-                icon: AppIcons.leaderboard,
-                activeIcon: AppIcons.leaderboardActive,
-                label: 'Classifica',
-                selected: _index == 2,
-                onTap: () => _selectTab(2),
-              ),
-            ),
-            Expanded(
-              child: _NavBarItem(
-                icon: AppIcons.profile,
-                activeIcon: AppIcons.profileActive,
-                label: 'Profilo',
-                selected: _index == 3,
-                onTap: () => _selectTab(3),
-              ),
-            ),
           ],
         ),
       ),
     );
   }
+
+  static const _navItems = [
+    (icon: AppIcons.map, activeIcon: AppIcons.mapActive, label: 'Mappa'),
+    (
+      icon: AppIcons.leaderboard,
+      activeIcon: AppIcons.leaderboardActive,
+      label: 'Classifica',
+    ),
+    (
+      icon: AppIcons.profile,
+      activeIcon: AppIcons.profileActive,
+      label: 'Profilo',
+    ),
+  ];
 
   // Header brand (logo + "Trashpotting") condiviso da Mappa e Segnala,
   // le due tab che nel mockup Figma mostrano il logo invece del nome tab.
@@ -188,10 +173,10 @@ class _MainShellState extends State<MainShell> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    if (_index == 0 || _index == 1) {
+    if (_index == 0) {
       return _brandAppBar(context);
     }
-    if (_index == 2) {
+    if (_index == 1) {
       // AppBar verde brand: stessa meccanica di sicurezza/spaziatura della
       // tab Mappa (Scaffold la posiziona già correttamente sotto la status
       // bar), solo colorata per continuare nell'hero gradiente sotto.
@@ -218,12 +203,25 @@ class _MainShellState extends State<MainShell> {
       appBar: _buildAppBar(context),
       body: SizedBox.expand(child: _bodyForTab(_index)),
       bottomNavigationBar: _bottomNavBar(context),
+      // Segnala è l'azione principale dell'app: pulsante giallo sulla Mappa.
+      floatingActionButton: _index == 0
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: AppButton(
+                label: 'Segnala',
+                icon: AppIcons.addPlace,
+                badge: '+1 pt',
+                expand: false,
+                onPressed: () => context.push(AppRoutes.segnala),
+              ),
+            )
+          : null,
     );
   }
 }
 
-/// Voce standard della bottom bar: icona in pillola (verde chiara se
-/// selezionata) + label, come da mockup.
+/// Voce della bottom bar: su verde foresta, la voce attiva ha l'icona in una
+/// pillola gialla e l'etichetta bianca.
 class _NavBarItem extends StatelessWidget {
   const _NavBarItem({
     required this.icon,
@@ -241,98 +239,48 @@ class _NavBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = selected
-        ? AppColors.greenBrand
-        : context.palette.textDisabled;
-    return InkResponse(
-      onTap: onTap,
-      radius: 40,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected ? context.palette.greenLight : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              selected ? activeIcon : icon,
-              size: 22,
-              color: iconColor,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-              color: selected
-                  ? (Theme.of(context).brightness == Brightness.dark
-                        ? AppColors.greenBrand
-                        : AppColors.greenDark)
-                  : context.palette.textDisabled,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Voce centrale "Segnala": FAB circolare verde rialzato di 8px che rompe
-/// il bordo superiore della bottom bar, come da design brief.
-class _SegnalaFabItem extends StatelessWidget {
-  const _SegnalaFabItem({required this.selected, required this.onTap});
-
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Transform.translate(
-        offset: const Offset(0, -8),
-        child: Semantics(
-          label: 'Segnala',
-          button: true,
-          selected: selected,
-          child: Material(
-            color: AppColors.greenBrand,
-            shape: const CircleBorder(
-              side: BorderSide(color: Colors.white, width: 3),
-            ),
-            elevation: 0,
-            child: InkWell(
-              onTap: onTap,
-              customBorder: const CircleBorder(),
-              child: Container(
-                width: 52,
-                height: 52,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.greenBrand.withAlpha(90),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  AppIcons.addPlace,
-                  color: Colors.white,
-                  size: 26,
-                ),
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 44,
+        highlightColor: Colors.transparent,
+        splashColor: Colors.white.withAlpha(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              width: 64,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.yellow : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                selected ? activeIcon : icon,
+                size: 22,
+                color: selected ? AppColors.onYellow : AppColors.mintText,
               ),
             ),
-          ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                height: 16 / 12,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected ? Colors.white : AppColors.mintText,
+              ),
+            ),
+          ],
         ),
       ),
     );

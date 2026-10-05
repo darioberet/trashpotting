@@ -13,6 +13,7 @@ import 'screens/impostazioni_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/mie_segnalazioni_screen.dart';
+import 'screens/segnala_screen.dart';
 import 'screens/moderazione_screen.dart';
 import 'screens/notifiche_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -129,15 +130,15 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
         ),
         GoRoute(
           path: AppRoutes.segnala,
-          builder: (context, state) => const MainShell(initialIndex: 1),
+          builder: (context, state) => SegnalaPage(),
         ),
         GoRoute(
           path: AppRoutes.classifica,
-          builder: (context, state) => const MainShell(initialIndex: 2),
+          builder: (context, state) => const MainShell(initialIndex: 1),
         ),
         GoRoute(
           path: AppRoutes.profilo,
-          builder: (context, state) => const MainShell(initialIndex: 3),
+          builder: (context, state) => const MainShell(initialIndex: 2),
         ),
         GoRoute(
           path: AppRoutes.notifiche,
