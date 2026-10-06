@@ -20,6 +20,7 @@ import '../repositories/report_repository.dart';
 import '../routes.dart';
 import '../services/location_service.dart';
 import '../services/push_service.dart';
+import '../widgets/location_gate.dart';
 import '../widgets/report_card.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/tab_header.dart';
@@ -320,9 +321,12 @@ class _MappaScreenState extends State<MappaScreen> {
       if (!mounted) return;
       final pos = LatLng(p.latitude, p.longitude);
       setState(() {
-        _initialTarget = pos;
+        _initialTarget ??= pos;
         _userPosition = pos;
       });
+      // Se la mappa era già partita dal punto predefinito (posizione arrivata
+      // dopo), la si porta sul raggio attorno all'utente.
+      unawaited(_fitRadius());
       unawaited(
         PushService.instance.updateApproximateLocation(p.latitude, p.longitude),
       );
@@ -371,7 +375,20 @@ class _MappaScreenState extends State<MappaScreen> {
       });
     }
     _loadFilters();
-    _resolveInitialPosition();
+  }
+
+  bool _locationReady = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // La posizione si chiede solo quando GPS e permesso sono attivi (vedi
+    // LocationReadyScope), e di nuovo appena lo diventano.
+    final ready = LocationReadyScope.of(context);
+    if (ready && !_locationReady && _userPosition == null) {
+      _resolveInitialPosition();
+    }
+    _locationReady = ready;
   }
 
   @override

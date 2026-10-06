@@ -121,9 +121,13 @@ class _LocationGateState extends State<LocationGate>
         _status != _LocationStatus.ok &&
         _status != _LocationStatus.checking;
 
+    // Su piattaforme senza GPS (o con il plugin non disponibile) si
+    // considera pronto: le schermate ripiegano sui loro valori predefiniti.
+    final ready = !_supported || _status == _LocationStatus.ok;
+
     return Stack(
       children: [
-        widget.child,
+        LocationReadyScope(ready: ready, child: widget.child),
         if (blocked)
           Positioned.fill(
             child: _BlockedView(
@@ -137,6 +141,31 @@ class _LocationGateState extends State<LocationGate>
       ],
     );
   }
+}
+
+/// Dice alle schermate sotto [LocationGate] se GPS e permesso sono attivi.
+///
+/// La Mappa si costruisce anche sotto la schermata di blocco: se chiedesse
+/// la posizione in quel momento, la sua richiesta di permesso si
+/// sovrapporrebbe a quella del blocco e Android ne annullerebbe una,
+/// lasciandola in attesa per sempre. Aspetta invece che questo diventi vero.
+class LocationReadyScope extends InheritedWidget {
+  const LocationReadyScope({
+    super.key,
+    required this.ready,
+    required super.child,
+  });
+
+  final bool ready;
+
+  /// Vero anche senza [LocationGate] sopra (test, schermate fuori dall'app).
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<LocationReadyScope>()?.ready ??
+      true;
+
+  @override
+  bool updateShouldNotify(LocationReadyScope oldWidget) =>
+      oldWidget.ready != ready;
 }
 
 class _BlockedView extends StatelessWidget {
@@ -204,7 +233,11 @@ class _BlockedView extends StatelessWidget {
         ),
         primary: AppButton(
           label: action,
-          icon: AppIcons.settings,
+          // Solo "Consenti accesso" chiede il permesso; gli altri aprono le
+          // impostazioni di Android.
+          icon: status == _LocationStatus.denied
+              ? AppIcons.myLocation
+              : AppIcons.settings,
           loading: busy,
           onPressed: onFix,
         ),

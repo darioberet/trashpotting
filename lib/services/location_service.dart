@@ -25,7 +25,12 @@ class LocationService {
 
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      // Se Android annulla la richiesta (es. due richieste insieme) il plugin
+      // non risponde più: meglio considerarlo un rifiuto che restare appesi.
+      permission = await Geolocator.requestPermission().timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => LocationPermission.denied,
+      );
     }
 
     if (permission == LocationPermission.denied ||
