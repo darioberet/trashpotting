@@ -280,7 +280,9 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
           routerConfig: _router,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
-          themeMode: _themeController.mode,
+          themeMode: kDarkThemeEnabled
+              ? _themeController.mode
+              : ThemeMode.light,
           // L'app è solo in italiano: calendario, orologio e dialog Material
           // altrimenti comparirebbero in inglese ("Select date", "Cancel").
           locale: const Locale('it'),

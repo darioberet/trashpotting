@@ -4,6 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'app_palette.dart';
 
+/// Il redesign esiste per ora solo in chiaro: finché il tema scuro non è
+/// rifatto l'app resta chiara e la scelta non compare nelle Impostazioni.
+const kDarkThemeEnabled = false;
+
 abstract final class AppTheme {
   static ThemeData get light => _build(Brightness.light);
   static ThemeData get dark => _build(Brightness.dark);

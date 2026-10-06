@@ -5,6 +5,7 @@ import '../state/app_session.dart';
 import '../state/theme_controller.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
+import '../theme/app_theme.dart';
 import '../theme/app_icons.dart';
 
 class ImpostazioniScreen extends StatelessWidget {
@@ -30,72 +31,75 @@ class ImpostazioniScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          Text(
-            'Aspetto',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: context.palette.textSecondary,
+          if (kDarkThemeEnabled) ...[
+            Text(
+              'Aspetto',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: context.palette.textSecondary,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: context.palette.divider, width: 0.5),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final (i, option) in _options.indexed) ...[
-                  if (i > 0) Divider(height: 1, color: context.palette.divider),
-                  InkWell(
-                    onTap: () => themeController.setMode(option.mode),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            option.icon,
-                            size: 18,
-                            color: context.palette.textSecondary,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              option.label,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: currentMode == option.mode
-                                    ? context.palette.textPrimary
-                                    : context.palette.textSecondary,
-                                fontWeight: currentMode == option.mode
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: context.palette.divider, width: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final (i, option) in _options.indexed) ...[
+                    if (i > 0)
+                      Divider(height: 1, color: context.palette.divider),
+                    InkWell(
+                      onTap: () => themeController.setMode(option.mode),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              option.icon,
+                              size: 18,
+                              color: context.palette.textSecondary,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                option.label,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: currentMode == option.mode
+                                      ? context.palette.textPrimary
+                                      : context.palette.textSecondary,
+                                  fontWeight: currentMode == option.mode
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
                               ),
                             ),
-                          ),
-                          Icon(
-                            currentMode == option.mode
-                                ? AppIcons.radioOn
-                                : AppIcons.radioOff,
-                            size: 18,
-                            color: currentMode == option.mode
-                                ? AppColors.greenBrand
-                                : context.palette.textDisabled,
-                          ),
-                        ],
+                            Icon(
+                              currentMode == option.mode
+                                  ? AppIcons.radioOn
+                                  : AppIcons.radioOff,
+                              size: 18,
+                              color: currentMode == option.mode
+                                  ? AppColors.greenBrand
+                                  : context.palette.textDisabled,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+          ],
           const _NotificationsSection(),
         ],
       ),
