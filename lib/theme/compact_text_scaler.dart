@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-/// Riduce tutto il testo dell'app di circa un punto (14 → 13) e poi applica
+/// Riduce tutto il testo dell'app di circa due punti (14 → 12) e poi applica
 /// la dimensione del testo scelta nelle impostazioni del telefono, così
 /// l'interfaccia è meno affollata senza togliere l'ingrandimento a chi lo usa.
 class CompactTextScaler extends TextScaler {
@@ -9,7 +9,7 @@ class CompactTextScaler extends TextScaler {
   /// Scala di sistema (impostazioni di accessibilità).
   final TextScaler base;
 
-  static const factor = 13 / 14;
+  static const factor = 12 / 14;
 
   @override
   double scale(double fontSize) => base.scale(fontSize * factor);

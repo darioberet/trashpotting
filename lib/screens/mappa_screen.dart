@@ -1019,14 +1019,17 @@ class _ReportFiltersBar extends StatelessWidget {
 
   bool get _all => statusGroups.length == ReportStatusGroup.values.length;
 
-  /// Con "Tutti" attivo, toccare uno stato mostra solo quello; altrimenti
-  /// lo aggiunge o lo toglie. Togliendo l'ultimo si torna a "Tutti".
+  String get _statusLabel {
+    if (_all) return 'Tutti gli stati';
+    final selected = ReportStatusGroup.values.where(statusGroups.contains);
+    return selected.length == 1
+        ? selected.first.label
+        : '${selected.length} stati';
+  }
+
+  /// Aggiunge o toglie uno stato; togliendo l'ultimo si torna a "tutti".
   void _toggle(ReportStatusGroup group) {
     HapticFeedback.selectionClick();
-    if (_all) {
-      onStatusChanged({group});
-      return;
-    }
     final next = {...statusGroups};
     if (!next.remove(group)) next.add(group);
     onStatusChanged(next.isEmpty ? ReportStatusGroup.values.toSet() : next);
@@ -1034,9 +1037,9 @@ class _ReportFiltersBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = counts.values.fold<int>(0, (sum, n) => sum + n);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    // Due menu a tendina: stanno sempre in una riga, anche con il testo
+    // ingrandito, e nessuno stato resta nascosto fuori dallo schermo.
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
@@ -1053,44 +1056,88 @@ class _ReportFiltersBar extends StatelessWidget {
                   child: Text('Entro $km km'),
                 ),
             ],
-            // Il tap lo gestisce il PopupMenuButton, il chip è solo aspetto.
+            // Il tap lo gestisce il PopupMenuButton, la pillola è solo aspetto.
             child: IgnorePointer(
-              child: _RadiusChip(
+              child: _DropdownPill(
+                icon: AppIcons.radius,
                 label: radiusEnabled ? '$radiusKm km' : 'Raggio',
+                semanticsLabel: 'Raggio di ricerca',
               ),
             ),
           ),
-          Container(
-            width: 1,
-            height: 24,
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            color: AppColors.mintBorder,
-          ),
-          _FilterChip(
-            label: 'Tutti',
-            count: _all && counts.isNotEmpty ? total : null,
-            selected: _all,
-            selectedBg: AppColors.greenBrand,
-            bg: Colors.white,
-            fg: AppColors.greenDark,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              onStatusChanged(ReportStatusGroup.values.toSet());
-            },
-          ),
-          for (final group in ReportStatusGroup.values) ...[
-            const SizedBox(width: 8),
-            _FilterChip(
-              label: group.label,
-              dot: _groupColor(group),
-              count: counts[group],
-              selected: !_all && statusGroups.contains(group),
-              selectedBg: _groupColor(group),
-              bg: _groupTint(group).bg,
-              fg: _groupTint(group).fg,
-              onTap: () => _toggle(group),
+          const SizedBox(width: 8),
+          Flexible(
+            child: MenuAnchor(
+              alignmentOffset: const Offset(0, 4),
+              style: MenuStyle(
+                backgroundColor: const WidgetStatePropertyAll(Colors.white),
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+              ),
+              menuChildren: [
+                for (final group in ReportStatusGroup.values)
+                  CheckboxMenuButton(
+                    value: statusGroups.contains(group),
+                    // Resta aperto: si possono scegliere più stati di fila.
+                    closeOnActivate: false,
+                    onChanged: (_) => _toggle(group),
+                    trailingIcon: counts[group] == null
+                        ? null
+                        : Text(
+                            '${counts[group]}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: _groupColor(group),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(group.label),
+                      ],
+                    ),
+                  ),
+                const Divider(height: 8),
+                MenuItemButton(
+                  onPressed: _all
+                      ? null
+                      : () {
+                          HapticFeedback.selectionClick();
+                          onStatusChanged(ReportStatusGroup.values.toSet());
+                        },
+                  leadingIcon: const Icon(AppIcons.check, size: 18),
+                  child: const Text('Mostra tutti'),
+                ),
+              ],
+              builder: (context, controller, _) => Semantics(
+                button: true,
+                label: 'Filtra per stato: $_statusLabel',
+                excludeSemantics: true,
+                child: GestureDetector(
+                  onTap: () => controller.isOpen
+                      ? controller.close()
+                      : controller.open(),
+                  child: _DropdownPill(
+                    icon: AppIcons.filter,
+                    label: _statusLabel,
+                    highlighted: !_all,
+                  ),
+                ),
+              ),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -1104,137 +1151,55 @@ Color _groupColor(ReportStatusGroup group) => switch (group) {
   ReportStatusGroup.pulite => AppColors.greenPin,
 };
 
-({Color bg, Color fg}) _groupTint(ReportStatusGroup group) => switch (group) {
-  ReportStatusGroup.daPulire => (bg: AppColors.redLight, fg: AppColors.redText),
-  ReportStatusGroup.inCorso => (
-    bg: AppColors.amberLight,
-    fg: AppColors.amberText,
-  ),
-  ReportStatusGroup.evento => (bg: AppColors.blueLight, fg: AppColors.blueText),
-  ReportStatusGroup.pulite => (
-    bg: AppColors.greenStatusLight,
-    fg: AppColors.greenStatusText,
-  ),
-};
+/// Pillola dei due menu a tendina: bianca, verde piena quando il filtro non
+/// è quello predefinito.
+class _DropdownPill extends StatelessWidget {
+  const _DropdownPill({
+    required this.icon,
+    required this.label,
+    this.highlighted = false,
+    this.semanticsLabel,
+  });
 
-class _RadiusChip extends StatelessWidget {
-  const _RadiusChip({required this.label});
-
+  final IconData icon;
   final String label;
+  final bool highlighted;
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
+    final fg = highlighted ? Colors.white : AppColors.greenDark;
     return Semantics(
       button: true,
-      label: 'Raggio di ricerca: $label',
-      excludeSemantics: true,
+      label: semanticsLabel == null ? null : '$semanticsLabel: $label',
+      excludeSemantics: semanticsLabel != null,
       child: Container(
         height: 40,
         padding: const EdgeInsets.only(left: 12, right: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: highlighted ? AppColors.greenBrand : Colors.white,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(AppIcons.radius, size: 18, color: AppColors.greenDark),
+            Icon(icon, size: 18, color: fg),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.greenDark,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: fg,
+                ),
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(AppIcons.dropdown, size: 16, color: AppColors.greenDark),
+            Icon(AppIcons.dropdown, size: 16, color: fg),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Chip di filtro: tinta tenue a riposo, colore pieno quando è selezionato.
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.selectedBg,
-    required this.bg,
-    required this.fg,
-    required this.onTap,
-    this.count,
-    this.dot,
-  });
-
-  final String label;
-  final int? count;
-  final Color? dot;
-  final bool selected;
-  final Color selectedBg;
-  final Color bg;
-  final Color fg;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final textColor = selected ? Colors.white : fg;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: count == null ? label : '$label, $count',
-      excludeSemantics: true,
-      child: Material(
-        color: selected ? selectedBg : bg,
-        shape: const StadiumBorder(),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: MediaQuery.of(context).disableAnimations
-                ? Duration.zero
-                : const Duration(milliseconds: 150),
-            height: 40,
-            padding: EdgeInsets.only(left: dot == null ? 12 : 10, right: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (dot != null) ...[
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: selected ? Colors.white : dot,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                  ),
-                ),
-                if (count != null) ...[
-                  const SizedBox(width: 6),
-                  Text(
-                    '$count',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: textColor.withAlpha(185),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
         ),
       ),
     );
