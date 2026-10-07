@@ -30,6 +30,7 @@ import '../widgets/app_button.dart';
 import '../widgets/image_source_bottom_sheet.dart';
 import '../widgets/moderation_actions.dart';
 import '../widgets/tab_header.dart';
+import '../widgets/user_avatar.dart';
 import '../theme/app_icons.dart';
 
 class ReportDetailScreen extends StatefulWidget {
@@ -456,6 +457,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                     _EventCard(
                                       event: event,
                                       joined: joinedEvent,
+                                      currentUid: currentUid,
                                     ),
                                   ],
                                   if (report.cleaningOwner != null &&
@@ -1680,10 +1682,15 @@ class _NoteCard extends StatelessWidget {
 }
 
 class _EventCard extends StatelessWidget {
-  const _EventCard({required this.event, required this.joined});
+  const _EventCard({
+    required this.event,
+    required this.joined,
+    required this.currentUid,
+  });
 
   final CleanupEvent event;
   final bool joined;
+  final String? currentUid;
 
   @override
   Widget build(BuildContext context) {
@@ -1765,66 +1772,207 @@ class _EventCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              if (people.isNotEmpty)
-                SizedBox(
-                  height: 32,
-                  width: 32 + 22.0 * (math.min(people.length, shown) - 1),
-                  child: Stack(
-                    children: [
-                      for (final (i, p) in people.take(shown).indexed)
-                        Positioned(
-                          left: 22.0 * i,
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.blueLight,
-                                width: 2,
+          const SizedBox(height: 10),
+          // La card mostra solo i primi avatar: toccando la riga si apre
+          // l'elenco completo (i nomi sono già nel documento, niente letture).
+          Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: people.isEmpty
+                  ? null
+                  : () => _showParticipants(context, event, currentUid),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    if (people.isNotEmpty)
+                      SizedBox(
+                        height: 32,
+                        width: 32 + 22.0 * (math.min(people.length, shown) - 1),
+                        child: Stack(
+                          children: [
+                            for (final (i, p) in people.take(shown).indexed)
+                              Positioned(
+                                left: 22.0 * i,
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.blueLight,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    p.label.characters.first.toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.blueText,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            child: Text(
-                              p.label.characters.first.toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.blueText,
-                              ),
-                            ),
-                          ),
+                          ],
                         ),
+                      ),
+                    if (people.isNotEmpty) const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        people.isEmpty
+                            ? 'Ancora nessun partecipante: sii il primo!'
+                            : people.length == 1
+                            ? (joined ? 'Partecipi solo tu' : '1 partecipante')
+                            : joined
+                            ? 'Tu e altri ${people.length - 1}'
+                            : '${people.length} partecipanti',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.blueText,
+                        ),
+                      ),
+                    ),
+                    if (people.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Vedi tutti',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.bluePin,
+                        ),
+                      ),
+                      const Icon(
+                        AppIcons.chevronRight,
+                        size: 16,
+                        color: AppColors.bluePin,
+                      ),
                     ],
-                  ),
-                ),
-              if (people.isNotEmpty) const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  people.isEmpty
-                      ? 'Ancora nessun partecipante: sii il primo!'
-                      : people.length == 1
-                      ? (joined ? 'Partecipi solo tu' : '1 partecipante')
-                      : joined
-                      ? 'Tu e altri ${people.length - 1}'
-                      : '${people.length} partecipanti',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.blueText,
-                  ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+/// Elenco completo dei partecipanti: chi organizza in cima, tu evidenziato.
+void _showParticipants(
+  BuildContext context,
+  CleanupEvent event,
+  String? currentUid,
+) {
+  final creatorUid = event.creator.uid;
+  final people = [
+    ...event.participants.where((p) => p.uid == creatorUid),
+    ...event.participants.where((p) => p.uid != creatorUid),
+  ];
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (ctx) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: people.length > 6 ? 0.7 : 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.95,
+      builder: (ctx, scrollController) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(
+              'Partecipanti (${people.length})',
+              style: Theme.of(ctx).textTheme.titleLarge,
+            ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              itemCount: people.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (ctx, i) {
+                final p = people[i];
+                final isMe = p.uid == currentUid;
+                final isCreator = p.uid == creatorUid;
+                return Semantics(
+                  label: [
+                    isMe ? 'Tu, ${p.label}' : p.label,
+                    if (isCreator) 'organizza',
+                  ].join(', '),
+                  excludeSemantics: true,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: isMe
+                          ? Border.all(color: AppColors.yellow, width: 2)
+                          : null,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.mintBorder,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        UserAvatar(name: p.label, seed: p.uid),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            isMe ? 'Tu, ${p.label}' : p.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (isCreator)
+                          Container(
+                            height: 24,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppColors.blueLight,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Text(
+                              'Organizza',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.blueText,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _InfoRow extends StatelessWidget {
