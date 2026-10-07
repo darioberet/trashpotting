@@ -73,14 +73,20 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
+  # Generati da assets/icon/launcher_icon.svg: icon.png è l'SVG intero,
+  # icon_foreground.png solo il pin su trasparente (per l'icona adattiva).
   image_path: "assets/icon/icon.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#1D9E75"
-  adaptive_icon_foreground: "assets/icon/icon.png"
+  adaptive_icon_background: "#1BD17D"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
 
 flutter_native_splash:
-  color: "#1D9E75"
+  color: "#1BD17D"
   image: assets/splash/splash.png
+  android_12:
+    # Android 12+ ritaglia l'immagine in un cerchio: il pin ha più margine.
+    image: assets/splash/splash_android12.png
+    color: "#1BD17D"
   android: true
   ios: false
   fullscreen: false
