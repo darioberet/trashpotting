@@ -391,10 +391,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                     child: Text(
                                       report.title,
                                       style: const TextStyle(
-                                        fontSize: 26,
-                                        height: 32 / 26,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -0.8,
+                                        fontSize: 22,
+                                        height: 28 / 22,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.4,
                                         color: AppColors.textPrimary,
                                       ),
                                     ),
