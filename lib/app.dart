@@ -291,7 +291,7 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
           // Senza GPS l'app non è utilizzabile: il blocco vale solo dopo
           // login, verifica email e onboarding (che chiede già il permesso).
           builder: (context, child) => MediaQuery(
-            // Testo dell'app circa due punti più piccolo (14 → 12), sopra la
+            // Titoli compressi e testo corrente pieno (CompactTextScaler), sopra la
             // dimensione scelta nelle impostazioni del telefono.
             data: MediaQuery.of(context).copyWith(
               textScaler: CompactTextScaler(MediaQuery.textScalerOf(context)),

@@ -41,15 +41,15 @@ abstract final class AppTheme {
           onError: Colors.white,
         );
 
-    // Titoli pesanti e stretti (800–900, tracking negativo), testo corrente
-    // regolare: è il carattere del redesign.
-    final baseText = GoogleFonts.interTextTheme(
+    // Figtree, geometrico e arrotondato: titoli in grassetto con poco
+    // tracking negativo, testo corrente regolare.
+    final baseText = GoogleFonts.figtreeTextTheme(
       isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
     );
     TextStyle? heavy(TextStyle? s, double size, double tracking) => s?.copyWith(
       fontSize: size,
-      fontWeight: FontWeight.w800,
-      letterSpacing: tracking,
+      fontWeight: FontWeight.w700,
+      letterSpacing: tracking / 2,
       height: 1.2,
     );
     final textTheme = baseText.copyWith(
@@ -64,7 +64,7 @@ abstract final class AppTheme {
       ),
     );
 
-    final buttonText = GoogleFonts.inter(
+    final buttonText = GoogleFonts.figtree(
       fontSize: 16,
       fontWeight: FontWeight.w800,
       letterSpacing: -0.2,
@@ -107,7 +107,7 @@ abstract final class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: GoogleFonts.figtree(
           fontSize: 22,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.5,
@@ -139,18 +139,21 @@ abstract final class AppTheme {
               : palette.textDisabled,
         ),
         suffixIconColor: palette.textDisabled,
-        labelStyle: GoogleFonts.inter(
+        labelStyle: GoogleFonts.figtree(
           fontSize: 15,
           fontWeight: FontWeight.w600,
           color: palette.textSecondary,
         ),
-        floatingLabelStyle: GoogleFonts.inter(
+        floatingLabelStyle: GoogleFonts.figtree(
           fontSize: 14,
           fontWeight: FontWeight.w700,
           color: isDark ? AppColors.mint : AppColors.greenDark,
         ),
-        hintStyle: GoogleFonts.inter(fontSize: 15, color: palette.textDisabled),
-        errorStyle: GoogleFonts.inter(
+        hintStyle: GoogleFonts.figtree(
+          fontSize: 15,
+          color: palette.textDisabled,
+        ),
+        errorStyle: GoogleFonts.figtree(
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: AppColors.redText,
@@ -200,7 +203,7 @@ abstract final class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: isDark ? AppColors.mint : AppColors.greenBrand,
           minimumSize: const Size(48, 44),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.figtree(
             fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
@@ -231,7 +234,7 @@ abstract final class AppTheme {
       ),
 
       chipTheme: ChipThemeData(
-        labelStyle: GoogleFonts.inter(
+        labelStyle: GoogleFonts.figtree(
           fontSize: 14,
           fontWeight: FontWeight.w700,
         ),
@@ -269,7 +272,7 @@ abstract final class AppTheme {
         backgroundColor: isDark ? const Color(0xFF242422) : AppColors.bgAlt,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: GoogleFonts.figtree(
           fontSize: 20,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.4,
@@ -283,7 +286,7 @@ abstract final class AppTheme {
         backgroundColor: isDark
             ? const Color(0xFF3A3A30)
             : AppColors.textPrimary,
-        contentTextStyle: GoogleFonts.inter(
+        contentTextStyle: GoogleFonts.figtree(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: Colors.white,
