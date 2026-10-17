@@ -29,7 +29,10 @@ import '../theme/app_palette.dart';
 import '../theme/app_icons.dart';
 
 class MappaScreen extends StatefulWidget {
-  const MappaScreen({super.key});
+  const MappaScreen({super.key, this.reportRepository});
+
+  /// Sostituibile nei test; di default Firestore.
+  final ReportRepository? reportRepository;
 
   @override
   State<MappaScreen> createState() => _MappaScreenState();
@@ -38,7 +41,8 @@ class MappaScreen extends StatefulWidget {
 class _MappaScreenState extends State<MappaScreen> {
   GoogleMapController? _mapController;
   final _locationService = LocationService();
-  final _reportRepository = FirestoreReportRepository();
+  late final ReportRepository _reportRepository =
+      widget.reportRepository ?? FirestoreReportRepository();
   bool _resolvingGps = false;
   LatLng? _initialTarget;
   LatLng? _userPosition;

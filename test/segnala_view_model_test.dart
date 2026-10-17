@@ -93,6 +93,9 @@ class _NoopReportRepository implements ReportRepository {
 
   @override
   Future<int> countByUser(String uid) async => 0;
+
+  @override
+  Future<int> countCleanedBy(String uid) async => 0;
 }
 
 typedef _SubmitHandler =
@@ -123,6 +126,9 @@ class _NoopLeaderboardRepository implements LeaderboardRepository {
 
   @override
   Future<int> fetchRankForPoints(int points) async => 1;
+
+  @override
+  Stream<int> watchUserPoints(String uid) => const Stream.empty();
 
   @override
   Future<void> updateUsername({

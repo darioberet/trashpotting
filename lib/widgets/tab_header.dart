@@ -170,16 +170,20 @@ class HeaderCircleButton extends StatelessWidget {
 
 /// Campanella delle notifiche, con il pallino se ce ne sono di non lette.
 class NotificationsBell extends StatefulWidget {
-  const NotificationsBell({super.key, this.onDark = false});
+  const NotificationsBell({super.key, this.onDark = false, this.repository});
 
   final bool onDark;
+
+  /// Sostituibile nei test; di default Firestore.
+  final NotificationRepository? repository;
 
   @override
   State<NotificationsBell> createState() => _NotificationsBellState();
 }
 
 class _NotificationsBellState extends State<NotificationsBell> {
-  final _repository = FirestoreNotificationRepository();
+  late final NotificationRepository _repository =
+      widget.repository ?? FirestoreNotificationRepository();
 
   // Lo stream si riapre solo se cambia l'utente, non a ogni ricostruzione.
   String? _uid;
@@ -209,16 +213,20 @@ class _NotificationsBellState extends State<NotificationsBell> {
 /// Pillola gialla con la stellina e i punti dell'utente; porta alla
 /// Classifica.
 class PointsPill extends StatefulWidget {
-  const PointsPill({super.key, this.onTap});
+  const PointsPill({super.key, this.onTap, this.repository});
 
   final VoidCallback? onTap;
+
+  /// Sostituibile nei test; di default Firestore.
+  final LeaderboardRepository? repository;
 
   @override
   State<PointsPill> createState() => _PointsPillState();
 }
 
 class _PointsPillState extends State<PointsPill> {
-  final _repository = FirestoreLeaderboardRepository();
+  late final LeaderboardRepository _repository =
+      widget.repository ?? FirestoreLeaderboardRepository();
   String? _uid;
   Stream<int>? _stream;
 

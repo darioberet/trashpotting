@@ -71,6 +71,9 @@ abstract class ReportRepository {
   });
   Future<void> anonymizeUserReports(String uid);
   Future<int> countByUser(String uid);
+
+  /// Pulizie completate da [uid] (checklist del Profilo).
+  Future<int> countCleanedBy(String uid);
   Stream<List<TrashpotReport>> watchReports({int limit = 50});
 
   /// Segnalazioni entro [radiusKm] dal punto indicato, ordinate dalla più
@@ -301,8 +304,9 @@ class FirestoreReportRepository implements ReportRepository {
     return snap.count ?? 0;
   }
 
-  /// Pulizie completate da [uid] (checklist del Profilo). Solo filtri di
-  /// uguaglianza: Firestore li combina senza un indice composito.
+  // Solo filtri di uguaglianza: Firestore li combina senza un indice
+  // composito.
+  @override
   Future<int> countCleanedBy(String uid) async {
     final snap = await _firestore
         .collection('reports')

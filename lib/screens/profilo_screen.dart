@@ -21,17 +21,32 @@ import '../widgets/tab_header.dart';
 import '../widgets/user_avatar.dart';
 
 class ProfiloScreen extends StatefulWidget {
-  const ProfiloScreen({super.key});
+  const ProfiloScreen({
+    super.key,
+    this.authService,
+    this.reportRepository,
+    this.userProfileRepository,
+    this.leaderboardRepository,
+  });
+
+  // Sostituibili nei test; di default i servizi Firebase.
+  final AuthService? authService;
+  final ReportRepository? reportRepository;
+  final UserProfileRepository? userProfileRepository;
+  final LeaderboardRepository? leaderboardRepository;
 
   @override
   State<ProfiloScreen> createState() => _ProfiloScreenState();
 }
 
 class _ProfiloScreenState extends State<ProfiloScreen> {
-  final _authService = AuthService();
-  final _reportRepository = FirestoreReportRepository();
-  final _userProfileRepository = UserProfileRepository();
-  final _leaderboardRepository = FirestoreLeaderboardRepository();
+  late final AuthService _authService = widget.authService ?? AuthService();
+  late final ReportRepository _reportRepository =
+      widget.reportRepository ?? FirestoreReportRepository();
+  late final UserProfileRepository _userProfileRepository =
+      widget.userProfileRepository ?? UserProfileRepository();
+  late final LeaderboardRepository _leaderboardRepository =
+      widget.leaderboardRepository ?? FirestoreLeaderboardRepository();
   final _mediaPickerService = MediaPickerService();
   final _photoUploadService = PhotoUploadService();
   bool _deletingAccount = false;

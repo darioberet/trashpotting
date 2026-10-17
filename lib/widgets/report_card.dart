@@ -113,7 +113,7 @@ class ReportCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             height: 19 / 14,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.2,

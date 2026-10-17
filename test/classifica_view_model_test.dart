@@ -39,6 +39,9 @@ class _FakeLeaderboardRepository implements LeaderboardRepository {
   Future<int> fetchRankForPoints(int points) async => 1;
 
   @override
+  Stream<int> watchUserPoints(String uid) => const Stream.empty();
+
+  @override
   Future<void> updateUsername({
     required String uid,
     required String username,
@@ -80,6 +83,9 @@ class _FakeReportRepository implements ReportRepository {
 
   @override
   Future<int> countByUser(String uid) async => countsByUid[uid] ?? 0;
+
+  @override
+  Future<int> countCleanedBy(String uid) async => 0;
 
   @override
   Future<void> completeCleaning({

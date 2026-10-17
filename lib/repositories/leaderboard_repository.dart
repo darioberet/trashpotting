@@ -16,6 +16,9 @@ abstract class LeaderboardRepository {
   });
   Future<int> fetchUserPoints(String uid);
 
+  /// Punti dell'utente aggiornati in tempo reale (pillola nell'header).
+  Stream<int> watchUserPoints(String uid);
+
   /// Posizione in classifica di chi ha [points] punti: 1 + quanti ne hanno
   /// di più (a pari punti si condivide la posizione).
   Future<int> fetchRankForPoints(int points);
@@ -80,7 +83,7 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
     return (snap.count ?? 0) + 1;
   }
 
-  /// Punti dell'utente aggiornati in tempo reale (pillola nell'header).
+  @override
   Stream<int> watchUserPoints(String uid) {
     return _firestore
         .collection('leaderboard')
