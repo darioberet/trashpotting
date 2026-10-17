@@ -18,12 +18,12 @@ import '../models/trashpot_report.dart';
 import '../repositories/leaderboard_repository.dart';
 import '../repositories/moderation_repository.dart';
 import '../repositories/report_repository.dart';
-import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../services/location_service.dart';
 import '../services/media_picker_service.dart';
 import '../services/photo_upload_service.dart';
 import '../state/app_session.dart';
+import '../state/report_detail_view_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
 import '../widgets/app_button.dart';
@@ -58,16 +58,23 @@ class ReportDetailScreen extends StatefulWidget {
 }
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
-  bool _busy = false;
   GpsPosition? _userPosition;
-  final _userProfileRepository = UserProfileRepository();
+  late final ReportDetailViewModel _vm = ReportDetailViewModel(
+    reportId: widget.reportId,
+    repository: widget._repository,
+    leaderboardRepository: widget._leaderboardRepository,
+    photoUploadService: widget._photoUploadService,
+  );
   final _moderation = ModerationRepository();
-  String? _reporterLabel;
 
   // Memorizzato: ricrearlo a ogni build riaprirebbe l'ascolto su Firestore.
   late final Stream<TrashpotReport?> _reportStream = widget._repository
       .watchReport(widget.reportId);
-  String? _loadedReporterForUid;
+
+  bool get _busy => _vm.busy;
+  bool get _voting => _vm.voting;
+  CommunityVote? get _myVote => _vm.myVote;
+  String? get _reporterLabel => _vm.reporterLabel;
 
   static bool get _mapAvailable {
     if (kIsWeb) return true;
@@ -83,6 +90,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _vm.addListener(_onViewModelChanged);
     // Solo per calcolare la distanza mostrata sulla foto: se fallisce
     // (permessi negati, GPS spento) la chip di distanza resta nascosta.
     LocationService()
@@ -93,59 +101,39 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         .catchError((_) {});
   }
 
-  CommunityVote? _myVote;
-  bool _voteLoaded = false;
-  bool _voting = false;
-
-  void _maybeLoadMyVote(String? uid) {
-    if (uid == null || _voteLoaded) return;
-    _voteLoaded = true;
-    widget._repository
-        .myVote(reportId: widget.reportId, uid: uid)
-        .then((v) {
-          if (mounted) setState(() => _myVote = v);
-        })
-        .catchError((_) {});
+  void _onViewModelChanged() {
+    if (mounted) setState(() {});
   }
+
+  @override
+  void dispose() {
+    _vm.removeListener(_onViewModelChanged);
+    _vm.dispose();
+    super.dispose();
+  }
+
+  void _maybeLoadMyVote(String? uid) => _vm.loadMyVote(uid);
+
+  void _maybeLoadReporter(String? uid) => _vm.loadReporter(uid);
 
   Future<void> _vote(CommunityVote vote, AppSession session) async {
     final profile = session.currentProfile;
     final pos = _userPosition;
-    if (profile == null || pos == null || _voting) return;
-    setState(() => _voting = true);
+    if (profile == null || pos == null) return;
     try {
-      await widget._repository.vote(
-        reportId: widget.reportId,
-        voter: profile,
+      final message = await _vm.vote(
         vote: vote,
+        voter: profile,
         latitude: pos.latitude,
         longitude: pos.longitude,
       );
-      if (!mounted) return;
-      setState(() => _myVote = vote);
+      if (message == null || !mounted) return;
       unawaited(HapticFeedback.lightImpact());
-      session.publishInfo(
-        vote == CommunityVote.present
-            ? 'Grazie! Hai confermato la segnalazione (+$pointsPerVote punto).'
-            : 'Grazie per l\'aggiornamento (+$pointsPerVote punto).',
-      );
+      session.publishInfo(message);
     } catch (e) {
       if (!mounted) return;
       session.publishError(e, fallback: 'Voto non registrato.');
-    } finally {
-      if (mounted) setState(() => _voting = false);
     }
-  }
-
-  void _maybeLoadReporter(String? uid) {
-    if (uid == null || _loadedReporterForUid == uid) return;
-    _loadedReporterForUid = uid;
-    _userProfileRepository
-        .fetchProfile(uid)
-        .then((profile) {
-          if (mounted) setState(() => _reporterLabel = profile?.label);
-        })
-        .catchError((_) {});
   }
 
   void _share(TrashpotReport report) {
@@ -156,9 +144,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
+  /// Esegue un'azione del view model con l'utente corrente e mostra il
+  /// messaggio di esito.
   Future<void> _runAction(
-    Future<void> Function(AppUserProfile currentUser, AppSession session)
-    action,
+    Future<String?> Function(AppUserProfile currentUser) action,
   ) async {
     if (_busy) return;
     final session = AppSessionScope.of(context);
@@ -170,40 +159,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       );
       return;
     }
-
-    setState(() => _busy = true);
     try {
-      await action(profile, session);
+      final message = await action(profile);
+      if (message == null || !mounted) return;
       unawaited(HapticFeedback.lightImpact());
+      session.publishInfo(message);
     } catch (e) {
       if (!mounted) return;
       session.publishError(e, fallback: 'Operazione non riuscita.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _startCleaning() async {
-    await _runAction((currentUser, session) async {
-      await widget._repository.startCleaning(
-        reportId: widget.reportId,
-        actor: currentUser,
-      );
-      if (!mounted) return;
-      session.publishInfo('Pulizia presa in carico.');
-    });
-  }
+  Future<void> _startCleaning() => _runAction(_vm.startCleaning);
 
-  Future<void> _joinEvent() async {
-    await _runAction((currentUser, session) async {
-      await widget._repository.joinCleanupEvent(
-        reportId: widget.reportId,
-        participant: currentUser,
-      );
-      if (!mounted) return;
-      session.publishInfo('Partecipazione confermata.');
-    });
-  }
+  Future<void> _joinEvent() => _runAction(_vm.joinEvent);
 
   Future<void> _scheduleEvent() async {
     final now = DateTime.now();
@@ -236,15 +205,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       return;
     }
 
-    await _runAction((currentUser, session) async {
-      await widget._repository.scheduleCleanupEvent(
-        reportId: widget.reportId,
-        creator: currentUser,
-        scheduledAt: scheduledAt,
-      );
-      if (!mounted) return;
-      session.publishInfo('Evento creato.');
-    });
+    await _runAction((user) => _vm.scheduleEvent(user, scheduledAt));
   }
 
   Future<void> _completeCleaning() async {
@@ -257,34 +218,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final path = await widget._mediaPickerService.pickImagePath(source);
     if (path == null || !mounted) return;
 
-    await _runAction((currentUser, session) async {
-      final photoUrl = await widget._photoUploadService.uploadCleanupPhoto(
-        localPath: path,
-        ownerId: currentUser.uid,
-        reportId: widget.reportId,
-      );
-
-      await widget._repository.completeCleaning(
-        reportId: widget.reportId,
-        actor: currentUser,
-        cleanupPhotoUrl: photoUrl,
-      );
-
-      // La pulizia è già registrata: un errore sui punti non deve farla
-      // sembrare fallita all'utente.
-      try {
-        await widget._leaderboardRepository.incrementPoints(
-          uid: currentUser.uid,
-          username: currentUser.label,
-          amount: pointsPerCleanup,
-        );
-      } catch (e) {
-        debugPrint('incrementPoints dopo pulizia non riuscito: $e');
-      }
-
-      if (!mounted) return;
-      session.publishInfo('Report segnato come ripulito.');
-    });
+    await _runAction((user) => _vm.completeCleaning(user, path));
   }
 
   @override
