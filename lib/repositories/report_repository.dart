@@ -396,7 +396,6 @@ class FirestoreReportRepository implements ReportRepository {
   }) async {
     final reportRef = _firestore.collection('reports').doc(reportId);
     final voteRef = reportRef.collection('votes').doc(voter.uid);
-    final leaderboardRef = _firestore.collection('leaderboard').doc(voter.uid);
 
     await _firestore.runTransaction((tx) async {
       final snap = await tx.get(reportRef);
@@ -433,11 +432,8 @@ class FirestoreReportRepository implements ReportRepository {
         'longitude': longitude,
         'createdAt': FieldValue.serverTimestamp(),
       });
+      // Il punto per il voto lo assegna la Cloud Function `pointsOnVote`.
       tx.update(reportRef, update);
-      tx.set(leaderboardRef, {
-        'username': voter.label,
-        'points': FieldValue.increment(pointsPerVote),
-      }, SetOptions(merge: true));
     });
   }
 

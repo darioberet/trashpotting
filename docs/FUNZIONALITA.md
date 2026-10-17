@@ -261,6 +261,7 @@ Le regole di sicurezza garantiscono che nessuno possa prendere in carico a nome 
 - **Podio** con i primi 3 (medaglie oro, argento e bronzo), poi la lista fino al 20° posto, con punti e numero di segnalazioni.
 - **"Tu":** la riga dell'utente corrente è evidenziata.
 - **Classifiche incomplete:** con meno di 3 utenti compare un invito ("C'è ancora posto sul podio!").
+- **Chi assegna i punti:** solo il server. Le Cloud Functions `pointsOnReportCreated` (+1), `pointsOnReportCleaned` (+2 a chi ha pulito) e `pointsOnVote` (+1 per il voto della community) aggiornano la classifica; ogni assegnazione è registrata in `pointsLedger/{chiave}` (`report_…`, `cleanup_…`, `vote_…_uid`) e non si ripete. L'app può solo cambiare il proprio username in classifica, quindi i punti non si possono gonfiare scrivendo su Firestore. I punti compaiono un paio di secondi dopo l'azione.
 - **Dati:** `leaderboard/{uid}` con `username` e `points`. Lo username viene aggiornato anche quando l'utente lo cambia.
 
 ---
@@ -444,7 +445,6 @@ In `hosting/` (Firebase Hosting, `https://trashpotting-app.web.app`): `privacy`,
 
 ## 19. Limiti noti
 
-- **Punti:** le regole limitano ogni incremento a +1 o +2, ma non impediscono incrementi ripetuti fatti chiamando Firestore direttamente. Per chiuderlo servirebbe una Cloud Function.
 - **Utente bloccato:** può ancora fare login e leggere. Per disabilitare l'accesso servirebbe sospendere l'account in Firebase Auth.
 - **Ripulite recenti:** la query prende le 100 più recenti in tutto il database e filtra per distanza. Con molti utenti in città diverse andrà fatta per zona.
 - **Parità in classifica:** a parità di punti l'ordine non è definito.

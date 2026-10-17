@@ -1,5 +1,4 @@
 import '../models/report_draft.dart';
-import '../repositories/leaderboard_repository.dart';
 import '../repositories/report_repository.dart';
 import 'photo_upload_service.dart';
 
@@ -7,19 +6,17 @@ class ReportService {
   ReportService({
     ReportRepository? repository,
     PhotoUploadService? photoUploadService,
-    LeaderboardRepository? leaderboardRepository,
   }) : _repository = repository ?? FirestoreReportRepository(),
-       _photoUploadService = photoUploadService,
-       _leaderboardRepository =
-           leaderboardRepository ?? FirestoreLeaderboardRepository();
+       _photoUploadService = photoUploadService;
 
   final ReportRepository _repository;
   final PhotoUploadService? _photoUploadService;
-  final LeaderboardRepository _leaderboardRepository;
 
   Future<void> submit({
     required String note,
     String? uid,
+    // Non più usato: punti e nome in classifica li assegna la Cloud
+    // Function `pointsOnReportCreated`. Resta per compatibilità.
     String? username,
     String? photoPath,
     double? latitude,
@@ -66,12 +63,5 @@ class ReportService {
       address: address,
     );
     await _repository.submitReport(draft: draft, uid: uid);
-
-    if (uid != null) {
-      final name = (username?.trim().isNotEmpty == true)
-          ? username!.trim()
-          : 'Utente';
-      await _leaderboardRepository.incrementPoints(uid: uid, username: name);
-    }
   }
 }

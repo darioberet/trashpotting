@@ -7,6 +7,9 @@
 //   1. Segnalazione ripulita     → all'autore
 //   2. Promemoria evento          → ai partecipanti, il giorno prima
 //   3. Nuova segnalazione vicina  → a chi è entro 5 km (max 1 al giorno)
+//
+// Assegna anche i punti in classifica (vedi POINTS): l'app non può più
+// modificarli, quindi non si possono gonfiare scrivendo su Firestore.
 
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
@@ -32,6 +35,50 @@ async function usernameOf(uid) {
   const name = snap.get('username');
   return typeof name === 'string' && name.trim() ? name.trim() : null;
 }
+
+// ── Punti in classifica ────────────────────────────────────────────────────
+// Stessi valori di pointsPerReport/pointsPerCleanup/pointsPerVote nell'app,
+// che li usa solo nei testi.
+const POINTS = { report: 1, cleanup: 2, vote: 1 };
+
+/**
+ * Aggiunge [amount] punti a [uid], una sola volta per [key]: la chiave è
+ * registrata in pointsLedger nella stessa transazione, così un trigger
+ * eseguito due volte (Firestore li consegna "almeno una volta") non conta
+ * doppio e una segnalazione ripristinata non ripaga la pulizia.
+ */
+async function awardPoints(uid, key, amount) {
+  if (!uid) return;
+  const ledgerRef = db.doc(`pointsLedger/${key}`);
+  const boardRef = db.doc(`leaderboard/${uid}`);
+  const userRef = db.doc(`users/${uid}`);
+  await db.runTransaction(async (tx) => {
+    const [ledger, board, user] = await Promise.all([
+      tx.get(ledgerRef), tx.get(boardRef), tx.get(userRef),
+    ]);
+    if (ledger.exists) return;
+    const name = user.get('username');
+    const username = typeof name === 'string' && name.trim()
+      ? name.trim()
+      : (board.get('username') ?? 'Utente');
+    tx.set(ledgerRef, { uid, amount, createdAt: FieldValue.serverTimestamp() });
+    tx.set(boardRef, { username, points: FieldValue.increment(amount) }, { merge: true });
+  });
+  logger.info(`+${amount} punti a ${uid} (${key})`);
+}
+
+exports.pointsOnReportCreated = onDocumentCreated('reports/{reportId}', (event) =>
+  awardPoints(event.data.data().uid, `report_${event.params.reportId}`, POINTS.report));
+
+exports.pointsOnReportCleaned = onDocumentUpdated('reports/{reportId}', (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  if (before.status === 'ripulita' || after.status !== 'ripulita') return null;
+  return awardPoints(after.cleaningOwner?.uid, `cleanup_${event.params.reportId}`, POINTS.cleanup);
+});
+
+exports.pointsOnVote = onDocumentCreated('reports/{reportId}/votes/{uid}', (event) =>
+  awardPoints(event.params.uid, `vote_${event.params.reportId}_${event.params.uid}`, POINTS.vote));
 
 /**
  * Salva la notifica nell'app e la invia ai dispositivi di [uid].

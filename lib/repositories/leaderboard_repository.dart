@@ -3,17 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/leaderboard_entry.dart';
 
 /// Punti assegnati in classifica: una pulizia completata vale più di una
-/// segnalazione perché richiede più impegno.
+/// segnalazione perché richiede più impegno. Li assegnano le Cloud Functions
+/// (`POINTS` in functions/index.js): qui servono solo per i testi dell'app.
 const pointsPerReport = 1;
 const pointsPerCleanup = 2;
 
 abstract class LeaderboardRepository {
   Future<List<LeaderboardEntry>> fetchTop({int limit = 20});
-  Future<void> incrementPoints({
-    required String uid,
-    required String username,
-    int amount = pointsPerReport,
-  });
   Future<int> fetchUserPoints(String uid);
 
   /// Punti dell'utente aggiornati in tempo reale (pillola nell'header).
@@ -36,18 +32,6 @@ class FirestoreLeaderboardRepository implements LeaderboardRepository {
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
-
-  @override
-  Future<void> incrementPoints({
-    required String uid,
-    required String username,
-    int amount = pointsPerReport,
-  }) {
-    return _firestore.collection('leaderboard').doc(uid).set({
-      'username': username,
-      'points': FieldValue.increment(amount),
-    }, SetOptions(merge: true));
-  }
 
   @override
   Future<void> updateUsername({

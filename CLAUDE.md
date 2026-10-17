@@ -22,8 +22,9 @@ funzionalità: `docs/FUNZIONALITA.md` (lunga, leggerla solo se serve).
 - Icone: `dart run flutter_launcher_icons` · Splash:
   `dart run flutter_native_splash:create` (sorgenti in `assets/icon`,
   `assets/splash`, SVG originale `assets/icon/launcher_icon.svg`)
-- Functions: `functions/index.js` (onReportCreated, onReportCleaned,
-  eventReminders). Regole: `firestore.rules`, `storage.rules`,
+- Functions: `functions/index.js`: notifiche (onReportCreated,
+  onReportCleaned, eventReminders) e punti (pointsOn*, con `pointsLedger`).
+  I punti li assegna solo il server: l'app non scrive mai `points`. Regole: `firestore.rules`, `storage.rules`,
   `firestore.indexes.json`.
 
 ## Stack

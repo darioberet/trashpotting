@@ -273,20 +273,15 @@ service cloud.firestore {
     }
 
     // ── Classifica ─────────────────────────────────────────────────────────
-    // Ognuno scrive solo la propria riga, aumentando i punti di 1 o 2 per
-    // volta (segnalazione / pulizia). Il limite è sulla singola scrittura:
-    // impedire ripetizioni abusive richiederebbe una Cloud Function.
+    // Righe e punti li crea e aggiorna solo il server (Cloud Functions
+    // points*, che usano l'Admin SDK e ignorano queste regole). L'app può
+    // solo allineare il proprio username.
     match /leaderboard/{uid} {
       allow read: if signedIn();
 
-      allow create: if canContribute() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['username', 'points'])
-        && request.resource.data.points in [1, 2];
-
       allow update: if canContribute() && request.auth.uid == uid
-        && changed().hasOnly(['username', 'points'])
-        && request.resource.data.points - resource.data.get('points', 0)
-             in [0, 1, 2];
+        && changed().hasOnly(['username'])
+        && request.resource.data.username is string;
 
       allow delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
     }

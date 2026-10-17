@@ -48,18 +48,14 @@ class ReportDetailScreen extends StatefulWidget {
     ReportRepository? repository,
     MediaPickerService? mediaPickerService,
     PhotoUploadService? photoUploadService,
-    LeaderboardRepository? leaderboardRepository,
   }) : _repository = repository ?? FirestoreReportRepository(),
        _mediaPickerService = mediaPickerService ?? MediaPickerService(),
-       _photoUploadService = photoUploadService ?? PhotoUploadService(),
-       _leaderboardRepository =
-           leaderboardRepository ?? FirestoreLeaderboardRepository();
+       _photoUploadService = photoUploadService ?? PhotoUploadService();
 
   final String reportId;
   final ReportRepository _repository;
   final MediaPickerService _mediaPickerService;
   final PhotoUploadService _photoUploadService;
-  final LeaderboardRepository _leaderboardRepository;
 
   @override
   State<ReportDetailScreen> createState() => _ReportDetailScreenState();
@@ -70,7 +66,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   late final ReportDetailViewModel _vm = ReportDetailViewModel(
     reportId: widget.reportId,
     repository: widget._repository,
-    leaderboardRepository: widget._leaderboardRepository,
     photoUploadService: widget._photoUploadService,
   );
   final _moderation = ModerationRepository();

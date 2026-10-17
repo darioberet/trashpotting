@@ -26,13 +26,6 @@ class _FakeLeaderboardRepository implements LeaderboardRepository {
   }
 
   @override
-  Future<void> incrementPoints({
-    required String uid,
-    required String username,
-    int amount = pointsPerReport,
-  }) async {}
-
-  @override
   Future<int> fetchUserPoints(String uid) async => 0;
 
   @override

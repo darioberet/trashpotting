@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trashpotting_v3/models/app_user_profile.dart';
-import 'package:trashpotting_v3/repositories/leaderboard_repository.dart';
 import 'package:trashpotting_v3/repositories/report_repository.dart';
 import 'package:trashpotting_v3/repositories/user_profile_repository.dart';
 import 'package:trashpotting_v3/services/photo_upload_service.dart';
@@ -35,24 +34,6 @@ class _FakeReports implements ReportRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _FakeLeaderboard implements LeaderboardRepository {
-  final awarded = <int>[];
-  bool fail = false;
-
-  @override
-  Future<void> incrementPoints({
-    required String uid,
-    required String username,
-    int amount = pointsPerReport,
-  }) async {
-    if (fail) throw StateError('offline');
-    awarded.add(amount);
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 class _FakePhotos implements PhotoUploadService {
   @override
   Future<String> uploadCleanupPhoto({
@@ -73,37 +54,24 @@ class _FakeProfiles implements UserProfileRepository {
 void main() {
   const user = AppUserProfile(uid: 'u1', username: 'davide');
   late _FakeReports reports;
-  late _FakeLeaderboard leaderboard;
   late ReportDetailViewModel vm;
 
   setUp(() {
     reports = _FakeReports();
-    leaderboard = _FakeLeaderboard();
     vm = ReportDetailViewModel(
       reportId: 'r1',
       repository: reports,
-      leaderboardRepository: leaderboard,
       photoUploadService: _FakePhotos(),
       userProfileRepository: _FakeProfiles(),
     );
   });
 
-  test('completeCleaning carica la foto, chiude e assegna i punti', () async {
+  test('completeCleaning carica la foto e chiude la segnalazione', () async {
     final message = await vm.completeCleaning(user, '/tmp/foto.jpg');
 
     expect(message, 'Report segnato come ripulito.');
     expect(reports.calls, ['complete:https://foto/r1']);
-    expect(leaderboard.awarded, [pointsPerCleanup]);
     expect(vm.busy, isFalse);
-  });
-
-  test('un errore sui punti non fa fallire la pulizia', () async {
-    leaderboard.fail = true;
-
-    final message = await vm.completeCleaning(user, '/tmp/foto.jpg');
-
-    expect(message, isNotNull);
-    expect(reports.calls, hasLength(1));
   });
 
   test(

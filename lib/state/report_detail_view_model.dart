@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/app_user_profile.dart';
-import '../repositories/leaderboard_repository.dart';
 import '../repositories/report_repository.dart';
 import '../repositories/user_profile_repository.dart';
 import '../services/photo_upload_service.dart';
@@ -14,18 +13,15 @@ class ReportDetailViewModel extends ChangeNotifier {
   ReportDetailViewModel({
     required this.reportId,
     required ReportRepository repository,
-    required LeaderboardRepository leaderboardRepository,
     required PhotoUploadService photoUploadService,
     UserProfileRepository? userProfileRepository,
   }) : _repository = repository,
-       _leaderboardRepository = leaderboardRepository,
        _photoUploadService = photoUploadService,
        _userProfileRepository =
            userProfileRepository ?? UserProfileRepository();
 
   final String reportId;
   final ReportRepository _repository;
-  final LeaderboardRepository _leaderboardRepository;
   final PhotoUploadService _photoUploadService;
   final UserProfileRepository _userProfileRepository;
 
@@ -130,8 +126,8 @@ class ReportDetailViewModel extends ChangeNotifier {
         return 'Evento creato.';
       });
 
-  /// Carica la foto finale, segna la segnalazione come ripulita e assegna i
-  /// punti. Un errore sui punti non fa fallire la pulizia, già registrata.
+  /// Carica la foto finale e segna la segnalazione come ripulita. I punti li
+  /// assegna la Cloud Function `pointsOnReportCleaned`.
   Future<String?> completeCleaning(AppUserProfile actor, String photoPath) =>
       _run(() async {
         final photoUrl = await _photoUploadService.uploadCleanupPhoto(
@@ -144,15 +140,6 @@ class ReportDetailViewModel extends ChangeNotifier {
           actor: actor,
           cleanupPhotoUrl: photoUrl,
         );
-        try {
-          await _leaderboardRepository.incrementPoints(
-            uid: actor.uid,
-            username: actor.label,
-            amount: pointsPerCleanup,
-          );
-        } catch (e) {
-          debugPrint('incrementPoints dopo pulizia non riuscito: $e');
-        }
         return 'Report segnato come ripulito.';
       });
 
