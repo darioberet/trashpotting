@@ -1,6 +1,6 @@
 # Trashpotting: funzionalità e funzionamento
 
-Trashpotting è un'app Android (Flutter + Firebase) per **segnalare rifiuti abbandonati**, organizzarne la **pulizia** e premiare chi contribuisce con una **classifica**. Ogni segnalazione ha una posizione GPS, una foto facoltativa e un tipo di rifiuto, e attraversa un ciclo di vita: *segnalata → in corso → ripulita*.
+Trashpotting è un'app Android (Flutter + Firebase) per **segnalare rifiuti abbandonati**, organizzarne la **pulizia** e premiare chi contribuisce con una **classifica**. Ogni segnalazione ha una posizione GPS, una foto e un tipo di rifiuto (entrambi obbligatori), e attraversa un ciclo di vita: *segnalata → in corso → ripulita*.
 
 Questo documento descrive ogni funzionalità: cosa fa per l'utente, come funziona dietro le quinte e dove si trova nel codice.
 
@@ -448,5 +448,4 @@ In `hosting/` (Firebase Hosting, `https://trashpotting-app.web.app`): `privacy`,
 - **Utente bloccato:** può ancora fare login e leggere. Per disabilitare l'accesso servirebbe sospendere l'account in Firebase Auth.
 - **Ripulite recenti:** la query prende le 100 più recenti in tutto il database e filtra per distanza. Con molti utenti in città diverse andrà fatta per zona.
 - **Parità in classifica:** a parità di punti l'ordine non è definito.
-- **Tipo di rifiuto facoltativo:** una segnalazione può essere inviata senza tipo.
 - **Pubblicazione su Play Store:** mancano ancora l'account sviluppatore, il caricamento nel test interno e la configurazione di App Check con Play Integrity.
