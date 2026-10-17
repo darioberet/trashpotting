@@ -17,15 +17,21 @@ funzionalità: `docs/FUNZIONALITA.md` (lunga, leggerla solo se serve).
   → Play Console → App Check (ora risponde 403, è previsto) → test chiuso.
 
 ## Comandi
-- `flutter analyze` · `flutter test` (24 test, devono passare)
-- `dart format <file>` solo sui file toccati, mai su tutta `test/`
+- `flutter analyze` · `flutter test` (29 test, devono passare)
+- `dart format <file>` solo sui file toccati, mai su intere cartelle
+  (`lib/`, `test/`): riformatta file non toccati.
 - Icone: `dart run flutter_launcher_icons` · Splash:
   `dart run flutter_native_splash:create` (sorgenti in `assets/icon`,
   `assets/splash`, SVG originale `assets/icon/launcher_icon.svg`)
 - Functions: `functions/index.js`: notifiche (onReportCreated,
   onReportCleaned, eventReminders) e punti (pointsOn*, con `pointsLedger`).
-  I punti li assegna solo il server: l'app non scrive mai `points`. Regole: `firestore.rules`, `storage.rules`,
-  `firestore.indexes.json`.
+  I punti li assegna solo il server: l'app non scrive mai `points`.
+- Regole: `firestore.rules`, `storage.rules`, `firestore.indexes.json`.
+  Verifica senza pubblicare: `firebase deploy --only firestore:rules
+  --dry-run`. Emulatore non disponibile (manca Java).
+- Dettaglio segnalazione: `screens/report_detail_screen.dart` + blocchi in
+  `screens/report_detail/` (part files), logica in
+  `state/report_detail_view_model.dart`.
 
 ## Stack
 Flutter 3.41 / Dart 3.11, Material 3, go_router, Phosphor icons
