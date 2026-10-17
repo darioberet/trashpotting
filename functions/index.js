@@ -104,7 +104,7 @@ async function notify(uid, { type, title, body, reportId }) {
     data: { type, ...(reportId ? { reportId } : {}) },
     android: {
       priority: 'high',
-      notification: { channelId: 'trashpotting_default', icon: 'ic_notification', color: '#1D9E75' },
+      notification: { channelId: 'trashpotting_default', icon: 'ic_notification', color: '#0B7A5C' },
     },
   });
 
