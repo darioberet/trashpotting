@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../models/trashpot_report.dart';
+
 /// Tutte le icone dell'app, da un unico set (Phosphor, stile "regular";
 /// "fill" per gli stati selezionati/attivi). Usare sempre queste invece di
 /// `Icons.*`, così lo stile resta coerente e si cambia da un solo punto.
@@ -105,6 +107,19 @@ abstract final class AppIcons {
   static const IconData markerCleaning = PhosphorIconsFill.broom;
   static const IconData markerCleaned = PhosphorIconsBold.check;
   static const IconData markerGone = PhosphorIconsBold.eyeSlash;
+
+  /// Icona del pin (mappa e mini mappa del dettaglio): il tipo di rifiuto
+  /// finché nessuno ci lavora, poi l'avanzamento.
+  static IconData marker(TrashpotStatus status, String? wasteType) =>
+      switch (status) {
+        TrashpotStatus.segnalata ||
+        TrashpotStatus.aperta ||
+        TrashpotStatus.inLavorazione => forWasteType(wasteType),
+        TrashpotStatus.eventoCreato => markerEvent,
+        TrashpotStatus.puliziaInCorso => markerCleaning,
+        TrashpotStatus.pulita || TrashpotStatus.ripulita => markerCleaned,
+        TrashpotStatus.sparita => markerGone,
+      };
 
   // ── Classifica ───────────────────────────────────────────────────────────
   static const IconData trophy = PhosphorIconsRegular.trophy;

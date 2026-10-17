@@ -150,7 +150,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   void _share(TrashpotReport report) {
     Share.share(
-      'Segnalazione Trashpotting — ${trashpotStatusLabel(report.status)}\n'
+      'Segnalazione Trashpotting — ${report.status.label}\n'
       '${report.title}\n${report.address}\n'
       'https://www.google.com/maps/search/?api=1&query=${report.lat},${report.lng}',
     );
@@ -342,12 +342,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         final joinedEvent =
             event?.participants.any((p) => p.uid == currentUid) ?? false;
         final status = report.status;
-        final isCleaned =
-            status == TrashpotStatus.pulita ||
-            status == TrashpotStatus.ripulita;
-        final toClean =
-            status == TrashpotStatus.segnalata ||
-            status == TrashpotStatus.aperta;
+        final isCleaned = status.isCleaned;
+        final toClean = status.isToClean;
 
         final topInset = MediaQuery.of(context).padding.top;
 
@@ -2012,15 +2008,7 @@ class _MiniMap extends StatelessWidget {
   final TrashpotReport report;
   final VoidCallback onOpenMap;
 
-  IconData get _icon => switch (report.status) {
-    TrashpotStatus.segnalata ||
-    TrashpotStatus.aperta ||
-    TrashpotStatus.inLavorazione => AppIcons.forWasteType(report.typeLabel),
-    TrashpotStatus.eventoCreato => AppIcons.markerEvent,
-    TrashpotStatus.puliziaInCorso => AppIcons.markerCleaning,
-    TrashpotStatus.pulita || TrashpotStatus.ripulita => AppIcons.markerCleaned,
-    TrashpotStatus.sparita => AppIcons.markerGone,
-  };
+  IconData get _icon => AppIcons.marker(report.status, report.typeLabel);
 
   @override
   Widget build(BuildContext context) {
@@ -2152,7 +2140,7 @@ class _BottomActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = report.status;
     final event = report.event;
-    final toClean = s == TrashpotStatus.segnalata || s == TrashpotStatus.aperta;
+    final toClean = s.isToClean;
 
     final List<Widget> buttons;
     if (toClean && event == null && signedIn) {

@@ -195,18 +195,8 @@ class _MappaScreenState extends State<MappaScreen> {
 
   /// Il colore del marker dice lo stato; l'icona dice il tipo di rifiuto
   /// finché c'è da pulire, poi l'avanzamento (evento, pulizia, ripulita).
-  IconData _markerIcon(TrashpotReport r) {
-    return switch (r.status) {
-      TrashpotStatus.segnalata ||
-      TrashpotStatus.aperta ||
-      TrashpotStatus.inLavorazione => AppIcons.forWasteType(r.typeLabel),
-      TrashpotStatus.eventoCreato => AppIcons.markerEvent,
-      TrashpotStatus.puliziaInCorso => AppIcons.markerCleaning,
-      TrashpotStatus.pulita ||
-      TrashpotStatus.ripulita => AppIcons.markerCleaned,
-      TrashpotStatus.sparita => AppIcons.markerGone,
-    };
-  }
+  IconData _markerIcon(TrashpotReport r) =>
+      AppIcons.marker(r.status, r.typeLabel);
 
   void _openReportDetails(String reportId) =>
       context.push('${AppRoutes.reportDetail}/$reportId');
@@ -307,10 +297,7 @@ class _MappaScreenState extends State<MappaScreen> {
             icon: icon,
             anchor: MarkerIconFactory.pinAnchor,
             onTap: () => _openReportDetails(r.id),
-            infoWindow: InfoWindow(
-              title: r.title,
-              snippet: trashpotStatusLabel(r.status),
-            ),
+            infoWindow: InfoWindow(title: r.title, snippet: r.status.label),
           ),
         );
       }

@@ -188,6 +188,22 @@ TrashpotStatus trashpotStatusFromString(String? raw) {
   };
 }
 
+/// Fasi della segnalazione, in un solo punto: i sette stati (alcuni sono
+/// sinonimi storici) si riducono a da pulire, in corso, evento, pulita.
+extension TrashpotStatusPhase on TrashpotStatus {
+  bool get isToClean =>
+      this == TrashpotStatus.segnalata || this == TrashpotStatus.aperta;
+
+  bool get isInProgress =>
+      this == TrashpotStatus.inLavorazione ||
+      this == TrashpotStatus.puliziaInCorso;
+
+  bool get isCleaned =>
+      this == TrashpotStatus.pulita || this == TrashpotStatus.ripulita;
+
+  String get label => trashpotStatusLabel(this);
+}
+
 String trashpotStatusLabel(TrashpotStatus s) {
   return switch (s) {
     TrashpotStatus.aperta => 'Aperta',
