@@ -28,6 +28,7 @@ import 'theme/app_theme.dart';
 import 'theme/compact_text_scaler.dart';
 import 'widgets/blocked_gate.dart';
 import 'widgets/location_gate.dart';
+import 'widgets/phone_frame.dart';
 import 'theme/app_icons.dart';
 
 class TrashpottingApp extends StatefulWidget {
@@ -290,25 +291,29 @@ class _TrashpottingAppState extends State<TrashpottingApp> {
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           // Senza GPS l'app non è utilizzabile: il blocco vale solo dopo
           // login, verifica email e onboarding (che chiede già il permesso).
-          builder: (context, child) => MediaQuery(
-            // Titoli compressi e testo corrente pieno (CompactTextScaler), sopra la
-            // dimensione scelta nelle impostazioni del telefono.
-            data: MediaQuery.of(context).copyWith(
-              textScaler: CompactTextScaler(MediaQuery.textScalerOf(context)),
-            ),
-            child: ListenableBuilder(
-              listenable: _session,
-              builder: (context, _) => LocationGate(
-                enabled:
-                    _session.firebaseReady &&
-                    _session.currentUserId != null &&
-                    _session.emailVerified &&
-                    _session.onboardingComplete,
-                onSignOut: () => AuthService().signOut(),
-                child: BlockedGate(
-                  blocked: _session.currentUserId != null && _session.blocked,
+          // Su schermi larghi (web) tutto, dialog compresi, sta in una colonna
+          // larga come un telefono: vedi PhoneFrame.
+          builder: (context, child) => PhoneFrame(
+            child: MediaQuery(
+              // Titoli compressi e testo corrente pieno (CompactTextScaler), sopra la
+              // dimensione scelta nelle impostazioni del telefono.
+              data: MediaQuery.of(context).copyWith(
+                textScaler: CompactTextScaler(MediaQuery.textScalerOf(context)),
+              ),
+              child: ListenableBuilder(
+                listenable: _session,
+                builder: (context, _) => LocationGate(
+                  enabled:
+                      _session.firebaseReady &&
+                      _session.currentUserId != null &&
+                      _session.emailVerified &&
+                      _session.onboardingComplete,
                   onSignOut: () => AuthService().signOut(),
-                  child: child ?? const SizedBox.shrink(),
+                  child: BlockedGate(
+                    blocked: _session.currentUserId != null && _session.blocked,
+                    onSignOut: () => AuthService().signOut(),
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               ),
             ),
