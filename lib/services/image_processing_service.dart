@@ -1,6 +1,7 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart' show XFile;
 
 /// La foto non è un'immagine leggibile: non si carica, perché caricare il
 /// file originale ne pubblicherebbe i metadati (GPS, modello del telefono).
@@ -11,6 +12,8 @@ class ImageProcessingException implements Exception {
   String toString() => 'Foto non valida o danneggiata. Scegline un\'altra.';
 }
 
+/// Lavora sui byte, non su file temporanei: così funziona anche sul web, dove
+/// il "percorso" della foto scelta è un indirizzo `blob:` del browser.
 class ImageProcessingService {
   const ImageProcessingService({
     this.maxWidth = 1600,
@@ -33,27 +36,21 @@ class ImageProcessingService {
   /// Ridimensiona, comprime e **rimuove tutti i metadati EXIF** (coordinate
   /// GPS, modello del telefono, data): le foto sono visibili a tutti gli
   /// utenti e il GPS di una foto profilo può rivelare dove abita qualcuno.
-  /// Lancia [ImageProcessingException] se la foto non è leggibile.
-  Future<String> resizeAndCompress(String localPath) async {
+  /// Restituisce il JPEG pronto da caricare. Lancia
+  /// [ImageProcessingException] se la foto non è leggibile.
+  Future<Uint8List> resizeAndCompress(String localPath) async {
     final processed = await _prepareImage(localPath);
     if (processed == null) throw const ImageProcessingException();
-
-    final outputBytes = img.encodeJpg(processed, quality: jpegQuality);
-
-    final outputName =
-        'trashpotting_${DateTime.now().microsecondsSinceEpoch}.jpg';
-    final outputPath =
-        '${Directory.systemTemp.path}${Platform.pathSeparator}$outputName';
-    final outputFile = File(outputPath);
-    await outputFile.writeAsBytes(outputBytes, flush: true);
-    return outputFile.path;
+    return img.encodeJpg(processed, quality: jpegQuality);
   }
 
   Future<img.Image?> _prepareImage(String localPath) async {
-    final source = File(localPath);
-    if (!await source.exists()) return null;
-
-    final sourceBytes = await source.readAsBytes();
+    final Uint8List sourceBytes;
+    try {
+      sourceBytes = await XFile(localPath).readAsBytes();
+    } catch (_) {
+      return null; // file sparito o non leggibile
+    }
     img.Image? decoded;
     try {
       decoded = img.decodeImage(sourceBytes);

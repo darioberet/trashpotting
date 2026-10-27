@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:geocoding/geocoding.dart' as geo;
 
@@ -21,6 +20,7 @@ import '../services/image_processing_service.dart';
 import '../state/app_session.dart';
 import '../state/segnala_view_model.dart';
 import '../theme/app_colors.dart';
+import '../widgets/local_photo.dart';
 import '../widgets/app_button.dart';
 import '../widgets/image_source_bottom_sheet.dart';
 import '../widgets/tab_header.dart';
@@ -584,20 +584,7 @@ class _PhotoUploadArea extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                kIsWeb
-                    ? ColoredBox(
-                        color: AppColors.surfaceWarm,
-                        child: Center(
-                          child: Text(
-                            path.split(RegExp(r'[\\/]')).last,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      )
-                    : Image.file(File(path), fit: BoxFit.cover),
+                Image(image: localPhotoProvider(path), fit: BoxFit.cover),
                 Positioned(
                   right: 10,
                   bottom: 10,

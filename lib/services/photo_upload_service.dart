@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:io';
-
 import 'package:firebase_storage/firebase_storage.dart';
 
 import 'image_processing_service.dart';
@@ -49,44 +46,21 @@ class PhotoUploadService {
     );
   }
 
+  /// Comprime in memoria e carica i byte (`putData`): niente file
+  /// temporanei, così funziona uguale su Android e sul web.
   Future<String> _uploadPhoto({
     required String localPath,
     required String ownerId,
     required String folder,
   }) async {
-    var uploadPath = localPath;
-    var isTempFile = false;
+    final bytes =
+        await (_imageProcessingService ?? const ImageProcessingService())
+            .resizeAndCompress(localPath);
 
-    try {
-      final optimizedPath =
-          await (_imageProcessingService ?? const ImageProcessingService())
-              .resizeAndCompress(localPath);
-      if (optimizedPath != localPath) {
-        uploadPath = optimizedPath;
-        isTempFile = true;
-      }
-
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final path = '$folder/$ownerId/$now.jpg';
-      final file = File(uploadPath);
-
-      final task = await _storage
-          .ref(path)
-          .putFile(file, SettableMetadata(contentType: 'image/jpeg'));
-
-      return task.ref.getDownloadURL();
-    } finally {
-      if (isTempFile) {
-        unawaited(_deleteTempFile(uploadPath));
-      }
-    }
-  }
-
-  Future<void> _deleteTempFile(String path) async {
-    try {
-      await File(path).delete();
-    } catch (_) {
-      // Best-effort cleanup: ignore temp file delete failures.
-    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final task = await _storage
+        .ref('$folder/$ownerId/$now.jpg')
+        .putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+    return task.ref.getDownloadURL();
   }
 }

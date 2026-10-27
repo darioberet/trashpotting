@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -19,6 +17,7 @@ import '../services/username_service.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/local_photo.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/illustration.dart';
@@ -521,7 +520,7 @@ class _ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasPhoto = photoPath != null && !kIsWeb;
+    final hasPhoto = photoPath != null;
     final uid = AppSessionScope.of(context).currentUserId ?? 'nuovo';
 
     return LayoutBuilder(
@@ -570,7 +569,7 @@ class _ProfilePage extends StatelessWidget {
                                 ],
                                 image: hasPhoto
                                     ? DecorationImage(
-                                        image: FileImage(File(photoPath!)),
+                                        image: localPhotoProvider(photoPath!),
                                         fit: BoxFit.cover,
                                       )
                                     : null,
