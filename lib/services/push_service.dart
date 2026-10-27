@@ -36,10 +36,16 @@ class PushService {
   /// Notifica ricevuta con l'app in primo piano (Android non la mostra).
   void Function(String title, String body)? onForegroundMessage;
 
-  static bool get _supported =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+  /// Chiave VAPID per il web (Console Firebase → Impostazioni progetto →
+  /// Cloud Messaging → Certificati push web). Si passa in compilazione:
+  /// `flutter build web --dart-define=WEB_PUSH_VAPID_KEY=...`. Senza chiave
+  /// sul web le notifiche restano spente.
+  static const _webVapidKey = String.fromEnvironment('WEB_PUSH_VAPID_KEY');
+
+  static bool get _supported => kIsWeb
+      ? _webVapidKey.isNotEmpty
+      : defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS;
 
   /// Da chiamare quando l'utente è dentro l'app (dopo login e onboarding):
   /// chiede il permesso (Android 13+) e registra il dispositivo.
@@ -51,7 +57,9 @@ class PushService {
       if (settings.authorizationStatus == AuthorizationStatus.denied) {
         return;
       }
-      final token = await _fcm.getToken();
+      // Sul web il token richiede la chiave VAPID e il service worker
+      // web/firebase-messaging-sw.js (servito dalla radice del sito).
+      final token = await _fcm.getToken(vapidKey: kIsWeb ? _webVapidKey : null);
       if (token != null) await _saveToken(token);
       await _tokenSub?.cancel();
       _tokenSub = _fcm.onTokenRefresh.listen(_saveToken);
@@ -84,7 +92,7 @@ class PushService {
     }
     _token = token;
     await _deviceRef(uid, token).set({
-      'platform': defaultTargetPlatform.name,
+      'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -92,8 +100,11 @@ class PushService {
   DocumentReference<Map<String, dynamic>> _deviceRef(String uid, String t) =>
       _db.collection('users').doc(uid).collection('devices').doc(t);
 
-  DocumentReference<Map<String, dynamic>> _prefsRef(String uid) =>
-      _db.collection('users').doc(uid).collection('notifyPrefs').doc('settings');
+  DocumentReference<Map<String, dynamic>> _prefsRef(String uid) => _db
+      .collection('users')
+      .doc(uid)
+      .collection('notifyPrefs')
+      .doc('settings');
 
   /// Crea le preferenze al primo accesso: "vicino a me" attivo di default.
   Future<void> _ensurePrefs() async {
@@ -101,7 +112,10 @@ class PushService {
     if (uid == null) return;
     final ref = _prefsRef(uid);
     if (!(await ref.get()).exists) {
-      await ref.set({'nearby': true, 'updatedAt': FieldValue.serverTimestamp()});
+      await ref.set({
+        'nearby': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     }
   }
 
@@ -141,7 +155,10 @@ class PushService {
   /// Aggiorna la posizione usata per "nuova segnalazione vicino a te".
   /// Arrotondata a 2 decimali (~1 km) e scritta solo se l'utente si è
   /// spostato di almeno 1 km, per privacy e per non sprecare scritture.
-  Future<void> updateApproximateLocation(double latitude, double longitude) async {
+  Future<void> updateApproximateLocation(
+    double latitude,
+    double longitude,
+  ) async {
     final uid = _uid;
     if (uid == null) return;
     double round(double v) => (v * 100).roundToDouble() / 100;
@@ -166,11 +183,14 @@ class PushService {
   /// Usato all'eliminazione dell'account.
   Future<void> deleteUserData(String uid) async {
     for (final name in ['devices', 'notifyPrefs', 'notifications']) {
-      final docs = await _db.collection('users').doc(uid).collection(name).get();
+      final docs = await _db
+          .collection('users')
+          .doc(uid)
+          .collection(name)
+          .get();
       for (final d in docs.docs) {
         await d.reference.delete();
       }
     }
   }
 }
-

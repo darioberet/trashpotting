@@ -28,6 +28,9 @@ setGlobalOptions({ region: 'europe-west1', maxInstances: 3 });
 const NEARBY_RADIUS_KM = 5;
 const NEARBY_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const TIME_ZONE = 'Europe/Rome';
+// App web (Firebase Hosting, sottocartella /app): il tocco su una notifica
+// web apre la segnalazione. Indirizzi con # (strategia predefinita di Flutter).
+const WEB_APP_URL = 'https://trashpotting-app.web.app/app/';
 
 async function usernameOf(uid) {
   if (!uid) return null;
@@ -102,6 +105,7 @@ async function notify(uid, { type, title, body, reportId }) {
     tokens,
     notification: { title, body },
     data: { type, ...(reportId ? { reportId } : {}) },
+    ...(reportId ? { webpush: { fcmOptions: { link: `${WEB_APP_URL}#/app/report/${reportId}` } } } : {}),
     android: {
       priority: 'high',
       notification: { channelId: 'trashpotting_default', icon: 'ic_notification', color: '#0B7A5C' },

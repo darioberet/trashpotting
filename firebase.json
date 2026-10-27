@@ -31,19 +31,51 @@
     {
       "source": "functions",
       "codebase": "default",
-      "ignore": ["node_modules", ".git", "*.log"]
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.log"
+      ]
     }
   ],
   "hosting": {
     "public": "hosting",
     "cleanUrls": true,
-    "ignore": ["firebase.json", "**/.*"]
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ],
+    "rewrites": [
+      {
+        "source": "/app/**",
+        "destination": "/app/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/@(index.html|flutter_bootstrap.js|flutter_service_worker.js|version.json|firebase-messaging-sw.js)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
+    ]
   },
   "emulators": {
-    "firestore": { "port": 8080 },
-    "storage": { "port": 9199 },
-    "auth": { "port": 9099 },
-    "ui": { "enabled": false },
+    "firestore": {
+      "port": 8080
+    },
+    "storage": {
+      "port": 9199
+    },
+    "auth": {
+      "port": 9099
+    },
+    "ui": {
+      "enabled": false
+    },
     "singleProjectMode": true
   }
 }
