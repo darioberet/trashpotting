@@ -17,7 +17,7 @@ funzionalità: `docs/FUNZIONALITA.md` (lunga, leggerla solo se serve).
   → Play Console → App Check (ora risponde 403, è previsto) → test chiuso.
 
 ## Comandi
-- `flutter analyze` · `flutter test` (31 test, devono passare) · `flutter build web`
+- `flutter analyze` · `flutter test` (31 test, devono passare) · web: `node tool/build_web.js` (→ `hosting/app`)
 - `dart format <file>` solo sui file toccati, mai su intere cartelle
   (`lib/`, `test/`): riformatta file non toccati.
 - Icone: `dart run flutter_launcher_icons` · Splash:
