@@ -1,6 +1,6 @@
 # Trashpotting
 
-App Flutter (solo Android per ora, solo italiano) per segnalare cumuli di
+App Flutter (Android; versione web in preparazione, vedi `docs/WEB.md`; solo italiano) per segnalare cumuli di
 rifiuti ("trashpot") sulla mappa, organizzarne la pulizia ed eventi di
 gruppo, con punti e classifica. Backend Firebase. Descrizione completa delle
 funzionalità: `docs/FUNZIONALITA.md` (lunga, leggerla solo se serve).
@@ -17,7 +17,7 @@ funzionalità: `docs/FUNZIONALITA.md` (lunga, leggerla solo se serve).
   → Play Console → App Check (ora risponde 403, è previsto) → test chiuso.
 
 ## Comandi
-- `flutter analyze` · `flutter test` (29 test, devono passare)
+- `flutter analyze` · `flutter test` (31 test, devono passare) · `flutter build web`
 - `dart format <file>` solo sui file toccati, mai su intere cartelle
   (`lib/`, `test/`): riformatta file non toccati.
 - Icone: `dart run flutter_launcher_icons` · Splash:
