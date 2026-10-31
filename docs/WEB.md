@@ -34,7 +34,11 @@ legali (`https://trashpotting-app.web.app/app/`).
 2. `firebase deploy --only hosting`: pubblica pagine legali **e** app web.
    Se `hosting/app/` non esiste, si pubblicano solo le pagine legali.
 
-## Notifiche push sul web
+## Notifiche push sul web (rimandate)
+**Decisione:** per ora niente notifiche sul web. Si compila senza
+`WEB_PUSH_VAPID_KEY`, quindi restano spente; il codice resta pronto per quando
+si vorranno attivare.
+
 - Codice pronto: `PushService` registra il browser (piattaforma `web`) se la
   build ha la chiave VAPID; il service worker è `web/firebase-messaging-sw.js`;
   le Cloud Functions aggiungono il link che apre la segnalazione.
