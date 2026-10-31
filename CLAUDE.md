@@ -13,8 +13,10 @@ funzionalità: `docs/FUNZIONALITA.md` (lunga, leggerla solo se serve).
 - Lingua dell'utente e dei commenti nel codice: italiano.
 - Non eliminare gli account di test (`polivastro123+7..+11@gmail.com`).
 - Passi finali, in quest'ordine e solo quando l'utente lo dice: pulizia dati
-  di test → merge su main → `firebase deploy --only hosting` (pagine legali)
-  → Play Console → App Check (ora risponde 403, è previsto) → test chiuso.
+  di test → merge su main → Play Console → App Check (ora risponde 403, è previsto) → test chiuso.
+
+Hosting già online (pagine legali + app web su `/app/`): prima di ogni
+`firebase deploy --only hosting` rilanciare `node tool/build_web.js`.
 
 ## Comandi
 - `flutter analyze` · `flutter test` (31 test, devono passare) · web: `node tool/build_web.js` (→ `hosting/app`)
