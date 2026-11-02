@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/trashpot_report.dart';
@@ -7,8 +8,10 @@ import '../repositories/report_repository.dart';
 import '../repositories/user_profile_repository.dart';
 import '../routes.dart';
 import '../state/app_session.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
 import '../widgets/moderation_actions.dart';
+import '../widgets/tab_header.dart';
 import '../theme/app_icons.dart';
 
 /// Area admin: contenuti segnalati dagli utenti e utenti bloccati.
@@ -26,25 +29,32 @@ class ModerazioneScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Moderazione'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Segnalati'),
-              Tab(text: 'Sparite'),
-              Tab(text: 'Bloccati'),
-            ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: DefaultTabController(
+        length: 3,
+        child: Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const BackHeader(title: 'Moderazione'),
+                const _PillTabs(tabs: ['Segnalati', 'Sparite', 'Bloccati']),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _FlagsTab(moderation: _moderation, reports: _reports),
+                      _GoneTab(moderation: _moderation),
+                      _BlockedTab(moderation: _moderation),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        body: TabBarView(
-          children: [
-            _FlagsTab(moderation: _moderation, reports: _reports),
-            _GoneTab(moderation: _moderation),
-            _BlockedTab(moderation: _moderation),
-          ],
         ),
       ),
     );
@@ -182,12 +192,14 @@ class _FlaggedReportCard extends StatelessWidget {
                   children: [
                     if (report != null)
                       OutlinedButton.icon(
+                        style: _compactOutlined,
                         onPressed: () =>
                             context.push('${AppRoutes.reportDetail}/$reportId'),
                         icon: const Icon(AppIcons.openExternal, size: 18),
                         label: const Text('Apri'),
                       ),
                     OutlinedButton.icon(
+                      style: _compactOutlined,
                       onPressed: () => runModerationAction(
                         context,
                         () => moderation.dismissFlags(reportId),
@@ -198,9 +210,13 @@ class _FlaggedReportCard extends StatelessWidget {
                     ),
                     if (report != null)
                       FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: theme.colorScheme.error,
-                          foregroundColor: theme.colorScheme.onError,
+                        style: _compactFilled.copyWith(
+                          backgroundColor: const WidgetStatePropertyAll(
+                            AppColors.redPin,
+                          ),
+                          foregroundColor: const WidgetStatePropertyAll(
+                            Colors.white,
+                          ),
                         ),
                         onPressed: () => confirmRemoveReport(
                           context,
@@ -310,12 +326,14 @@ class _GoneTab extends StatelessWidget {
                       runSpacing: 8,
                       children: [
                         OutlinedButton.icon(
+                          style: _compactOutlined,
                           onPressed: () =>
                               context.push('${AppRoutes.reportDetail}/${r.id}'),
                           icon: const Icon(AppIcons.openExternal, size: 18),
                           label: const Text('Apri'),
                         ),
                         FilledButton.icon(
+                          style: _compactFilled,
                           onPressed: () => runModerationAction(
                             context,
                             () => moderation.restoreReport(r),
@@ -415,21 +433,89 @@ class _Message extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: palette.textDisabled),
-            const SizedBox(height: 12),
+            Container(
+              width: 88,
+              height: 88,
+              decoration: const BoxDecoration(
+                color: AppColors.greenLight,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 40, color: AppColors.greenBrand),
+            ),
+            const SizedBox(height: 14),
             Text(
               text,
               textAlign: TextAlign.center,
-              style: TextStyle(color: palette.textSecondary),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// I pulsanti del tema sono larghi quanto lo schermo: qui stanno affiancati.
+final _compactOutlined = OutlinedButton.styleFrom(
+  minimumSize: const Size(0, 40),
+  padding: const EdgeInsets.symmetric(horizontal: 14),
+  textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+);
+
+final _compactFilled = FilledButton.styleFrom(
+  minimumSize: const Size(0, 40),
+  padding: const EdgeInsets.symmetric(horizontal: 14),
+  textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+);
+
+/// Schede a pillola: la selezionata è verde piena.
+class _PillTabs extends StatelessWidget {
+  const _PillTabs({required this.tabs});
+
+  final List<String> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: const [
+            BoxShadow(color: AppColors.mintBorder, offset: Offset(0, 2)),
+          ],
+        ),
+        child: TabBar(
+          dividerColor: Colors.transparent,
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicator: BoxDecoration(
+            color: AppColors.greenBrand,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          labelColor: Colors.white,
+          unselectedLabelColor: AppColors.textSecondary,
+          labelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+          splashBorderRadius: BorderRadius.circular(999),
+          tabs: [for (final t in tabs) Tab(height: 40, text: t)],
         ),
       ),
     );
