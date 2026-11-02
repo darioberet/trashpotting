@@ -19,7 +19,7 @@ Hosting già online (pagine legali + app web su `/app/`): prima di ogni
 `firebase deploy --only hosting` rilanciare `node tool/build_web.js`.
 
 ## Comandi
-- `flutter analyze` · `flutter test` (39 test, devono passare) · web: `node tool/build_web.js` (→ `hosting/app`)
+- `flutter analyze` · `flutter test` (37 test, devono passare) · web: `node tool/build_web.js` (→ `hosting/app`)
 - `dart format <file>` solo sui file toccati, mai su intere cartelle
   (`lib/`, `test/`): riformatta file non toccati.
 - Icone: `dart run flutter_launcher_icons` · Splash:
