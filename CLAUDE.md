@@ -11,7 +11,8 @@ funzionalità: `docs/FUNZIONALITA.md` (lunga, leggerla solo se serve).
 - Mai avviare/installare/usare l'app sul telefono se non richiesto
   esplicitamente: fermarsi a analyze + test + commit.
 - Lingua dell'utente e dei commenti nel codice: italiano.
-- Non eliminare gli account di test (`polivastro123+7..+11@gmail.com`).
+- Non eliminare gli account di test (`polivastro123+7..+11@gmail.com`) né
+  l'account admin `polivastro123@gmail.com`.
 - Passi finali, in quest'ordine e solo quando l'utente lo dice: pulizia dati
   di test → merge su main → Play Console → App Check (ora risponde 403, è previsto) → test chiuso.
 
