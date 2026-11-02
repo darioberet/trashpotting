@@ -13,6 +13,7 @@ import '../widgets/app_button.dart';
 import '../widgets/illustration.dart';
 import '../widgets/report_card.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/state_message.dart';
 import '../widgets/tab_header.dart';
 
 class MieSegnalazioniScreen extends StatefulWidget {
@@ -69,7 +70,15 @@ class _MieSegnalazioniScreenState extends State<MieSegnalazioniScreen> {
                             );
                           }
                           if (snapshot.hasError) {
-                            return const _ErrorMessage();
+                            return StateMessage(
+                              icon: AppIcons.offline,
+                              title: 'Segnalazioni non disponibili',
+                              message: 'Controlla la connessione e riprova.',
+                              actionLabel: 'Riprova',
+                              actionIcon: AppIcons.refresh,
+                              // Senza uid memorizzato la query si riapre.
+                              onAction: () => setState(() => _uid = null),
+                            );
                           }
                           final reports =
                               snapshot.data ?? const <TrashpotReport>[];
@@ -132,30 +141,6 @@ class _EmptyMessage extends StatelessWidget {
           label: 'Fai la prima segnalazione',
           icon: AppIcons.addPlace,
           onPressed: () => context.push(AppRoutes.segnala),
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorMessage extends StatelessWidget {
-  const _ErrorMessage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(AppIcons.offline, size: 48, color: AppColors.textSecondary),
-            SizedBox(height: 12),
-            Text(
-              'Errore di rete. Riprova più tardi.',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ],
         ),
       ),
     );

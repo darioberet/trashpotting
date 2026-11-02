@@ -8,6 +8,7 @@ import '../state/classifica_view_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/state_message.dart';
 import '../widgets/tab_header.dart';
 import '../widgets/user_avatar.dart';
 
@@ -74,6 +75,12 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
           final entries = _viewModel.entries;
           final isLoading = _viewModel.loading && !_viewModel.loaded;
           final isEmpty = _viewModel.loaded && entries.isEmpty;
+          // Caricamento fallito e niente da mostrare: non è una classifica
+          // vuota, quindi niente "podio libero" ma un invito a riprovare.
+          final failed =
+              !_viewModel.loaded &&
+              !_viewModel.loading &&
+              _viewModel.lastError != null;
           final top = entries.take(3).toList();
           final rest = entries.skip(3).toList();
           final me = _viewModel.me;
@@ -83,7 +90,16 @@ class _ClassificaScreenState extends State<ClassificaScreen> {
           final showMe = currentUid != null && me != null && !isEmpty;
 
           Widget content;
-          if (isLoading) {
+          if (failed) {
+            content = StateMessage(
+              icon: AppIcons.offline,
+              title: 'Classifica non disponibile',
+              message: 'Controlla la connessione e riprova.',
+              actionLabel: 'Riprova',
+              actionIcon: AppIcons.refresh,
+              onAction: _reload,
+            );
+          } else if (isLoading) {
             content = const SkeletonList(
               padding: EdgeInsets.fromLTRB(16, 14, 16, 16),
               thumbSize: 40,
@@ -665,52 +681,10 @@ class _EmptyMessage extends StatelessWidget {
   final double bottomPadding;
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(32, 24, 32, bottomPadding),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 34, color: AppColors.greenBrand),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => StateMessage(
+    icon: icon,
+    title: title,
+    message: message,
+    padding: EdgeInsets.fromLTRB(32, 24, 32, bottomPadding),
+  );
 }

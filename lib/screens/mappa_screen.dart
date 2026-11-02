@@ -23,6 +23,7 @@ import '../services/push_service.dart';
 import '../widgets/location_gate.dart';
 import '../widgets/report_card.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/state_message.dart';
 import '../widgets/tab_header.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_palette.dart';
@@ -106,6 +107,9 @@ class _MappaScreenState extends State<MappaScreen> {
       // Preferenze non disponibili: restano i filtri predefiniti.
     }
   }
+
+  /// Dopo un errore di rete: riapre la query.
+  void _retryReports() => setState(() => _reportsStream = null);
 
   void _setRadius(int km) {
     if (km == _radiusKm) return;
@@ -439,26 +443,13 @@ class _MappaScreenState extends State<MappaScreen> {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      AppIcons.offline,
-                      size: 48,
-                      color: context.palette.textSecondary,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Errore di rete. Riavvia l\'app o verifica la connessione.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
+            child: StateMessage(
+              icon: AppIcons.offline,
+              title: 'Segnalazioni non disponibili',
+              message: 'Controlla la connessione e riprova.',
+              actionLabel: 'Riprova',
+              actionIcon: AppIcons.refresh,
+              onAction: _retryReports,
             ),
           );
         }
@@ -489,6 +480,29 @@ class _MappaScreenState extends State<MappaScreen> {
             : '$countLabel entro $_radiusKm km';
         final allStatuses =
             _statusGroups.length == ReportStatusGroup.values.length;
+        // Il passo più utile quando non c'è niente: allargare il raggio,
+        // poi mostrare tutti gli stati, infine segnalare.
+        final widerRadius = reportRadiusOptionsKm
+            .where((km) => km > _radiusKm)
+            .firstOrNull;
+        final ({String label, IconData icon, VoidCallback onTap}) emptyAction =
+            userPos != null && widerRadius != null
+            ? (
+                label: 'Cerca entro $widerRadius km',
+                icon: AppIcons.place,
+                onTap: () => _setRadius(widerRadius),
+              )
+            : !allStatuses
+            ? (
+                label: 'Mostra tutti gli stati',
+                icon: AppIcons.filter,
+                onTap: () => _setStatusGroups(ReportStatusGroup.values.toSet()),
+              )
+            : (
+                label: 'Segnala un rifiuto',
+                icon: AppIcons.addPlace,
+                onTap: () => context.push(AppRoutes.segnala),
+              );
         final emptyMessage = userPos == null
             ? 'Nessuna segnalazione con questi filtri.'
             : allStatuses
@@ -671,6 +685,7 @@ class _MappaScreenState extends State<MappaScreen> {
                         : 'Vicino a te',
                     subtitle: subtitle,
                     emptyMessage: emptyMessage,
+                    emptyAction: emptyAction,
                     filters: _ReportFiltersBar(
                       radiusKm: _radiusKm,
                       radiusEnabled: userPos != null,
@@ -704,6 +719,7 @@ class _ReportListPanel extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.emptyMessage,
+    required this.emptyAction,
     required this.filters,
     required this.toClean,
     required this.onReportTap,
@@ -715,6 +731,7 @@ class _ReportListPanel extends StatelessWidget {
   final String title;
   final String subtitle;
   final String emptyMessage;
+  final ({String label, IconData icon, VoidCallback onTap}) emptyAction;
   final Widget filters;
 
   /// Segnalazioni "da pulire" nella lista: se ce ne sono, in cima compare
@@ -861,7 +878,16 @@ class _ReportListPanel extends StatelessWidget {
                     padding: EdgeInsets.fromLTRB(16, 10, 16, 96),
                   )
                 : reports.isEmpty
-                ? _EmptyList(message: emptyMessage)
+                ? StateMessage(
+                    icon: AppIcons.place,
+                    title: 'Niente da queste parti',
+                    message: emptyMessage,
+                    actionLabel: emptyAction.label,
+                    actionIcon: emptyAction.icon,
+                    onAction: emptyAction.onTap,
+                    // Spazio per il pulsante "Segnala" sopra il pannello.
+                    padding: const EdgeInsets.fromLTRB(32, 12, 32, 96),
+                  )
                 : ListView.separated(
                     // Spazio in fondo per il pulsante "Segnala".
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
@@ -883,46 +909,6 @@ class _ReportListPanel extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _EmptyList extends StatelessWidget {
-  const _EmptyList({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(32, 16, 32, 96),
-      children: [
-        Center(
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              AppIcons.place,
-              size: 26,
-              color: AppColors.greenBrand,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            height: 1.4,
-            color: context.palette.textSecondary,
-          ),
-        ),
-      ],
     );
   }
 }
