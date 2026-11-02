@@ -79,7 +79,7 @@ class _NotificationsSection extends StatelessWidget {
                 return MergeSemantics(
                   child: MenuTile(
                     icon: AppIcons.nearMe,
-                    label: 'Nuove segnalazioni vicino a me',
+                    label: 'Segnalazioni vicino a me',
                     subtitle:
                         'Al massimo una al giorno, entro 5 km dall\'ultima '
                         'posizione in cui hai aperto l\'app.',

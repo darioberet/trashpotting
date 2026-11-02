@@ -502,16 +502,16 @@ class _FirstStepsCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
+          // Tessera staccata dai bordi: a filo dell'angolo, il bianco si
+          // confondeva con lo sfondo della pagina e la card sembrava aperta.
           Positioned(
-            right: -8,
-            top: -6,
+            right: 12,
+            top: 12,
             child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-              ),
+              borderRadius: BorderRadius.circular(18),
               child: Container(
-                width: 104,
-                height: 104,
+                width: 88,
+                height: 88,
                 color: const Color(0xFFFDFDFB),
                 padding: const EdgeInsets.all(4),
                 child: SvgPicture.asset(

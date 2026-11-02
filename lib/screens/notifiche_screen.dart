@@ -155,108 +155,110 @@ class _NotificationCard extends StatelessWidget {
     final n = notification;
     final style = _styleFor(n.type);
     final at = n.createdAt;
-    return Material(
-      // Le non lette spiccano: sfondo bianco e pallino; le lette si
-      // confondono con lo sfondo crema.
-      color: n.read ? AppColors.bgAlt : Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: n.read ? AppColors.mintBorder : Colors.transparent,
-            ),
-            boxShadow: n.read
-                ? null
-                : const [
-                    BoxShadow(
-                      color: AppColors.mintBorder,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-          ),
-          padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: style.bg,
-                  shape: BoxShape.circle,
+    // Sfondo e ombra stanno nella decorazione esterna: l'ombra "a bordo
+    // pieno" disegnata sopra il Material ne copriva il bianco.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        // Le non lette spiccano: sfondo bianco e pallino; le lette si
+        // confondono con lo sfondo crema.
+        color: n.read ? AppColors.bgAlt : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: n.read ? AppColors.mintBorder : Colors.transparent,
+        ),
+        boxShadow: n.read
+            ? null
+            : const [
+                BoxShadow(color: AppColors.mintBorder, offset: Offset(0, 2)),
+              ],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: style.bg,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(style.icon, size: 22, color: style.fg),
                 ),
-                child: Icon(style.icon, size: 22, color: style.fg),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            n.title,
-                            style: TextStyle(
-                              fontSize: 15,
-                              height: 20 / 15,
-                              fontWeight: n.read
-                                  ? FontWeight.w600
-                                  : FontWeight.w800,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        if (at != null) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            relativeTimeLabel(at),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              height: 20 / 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                        if (!n.read) ...[
-                          const SizedBox(width: 6),
-                          Semantics(
-                            label: 'Non letta',
-                            child: Container(
-                              margin: const EdgeInsets.only(top: 6),
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: AppColors.greenBrand,
-                                shape: BoxShape.circle,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              withoutLeadingEmoji(n.title),
+                              style: TextStyle(
+                                fontSize: 15,
+                                height: 20 / 15,
+                                fontWeight: n.read
+                                    ? FontWeight.w600
+                                    : FontWeight.w800,
+                                color: AppColors.textPrimary,
                               ),
                             ),
                           ),
+                          if (at != null) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              relativeTimeLabel(at),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                height: 20 / 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                          if (!n.read) ...[
+                            const SizedBox(width: 6),
+                            Semantics(
+                              label: 'Non letta',
+                              child: Container(
+                                margin: const EdgeInsets.only(top: 6),
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.greenBrand,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                    if (n.body.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        n.body,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 20 / 14,
-                          color: AppColors.textSecondary,
-                        ),
                       ),
+                      if (n.body.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          n.body,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 20 / 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -316,3 +318,9 @@ class _Message extends StatelessWidget {
     );
   }
 }
+
+/// Le Cloud Functions aprono il titolo con un'emoji (📅, 🎉, 📍), utile nella
+/// notifica di sistema; qui c'è già l'icona, quindi la si toglie.
+@visibleForTesting
+String withoutLeadingEmoji(String title) =>
+    title.replaceFirst(RegExp(r'^[^\p{L}\p{N}]+', unicode: true), '');

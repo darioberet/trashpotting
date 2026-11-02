@@ -106,7 +106,7 @@ class AiutoFeedbackScreen extends StatelessWidget {
                         MenuTile(
                           icon: AppIcons.email,
                           label: 'Scrivici',
-                          subtitle: 'Dubbi, problemi o idee: rispondiamo noi.',
+                          subtitle: 'Dubbi, problemi o idee',
                           bg: AppColors.purpleLight,
                           fg: AppColors.purpleDark,
                           onTap: () => _writeToUs(context),
