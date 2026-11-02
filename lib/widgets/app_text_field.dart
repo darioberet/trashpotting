@@ -69,6 +69,8 @@ class _AppTextFieldState extends State<AppTextField> {
 
   void _onFocus() => setState(() {});
 
+  bool get _isEmail => widget.keyboardType == TextInputType.emailAddress;
+
   @override
   void dispose() {
     _focus.removeListener(_onFocus);
@@ -118,6 +120,12 @@ class _AppTextFieldState extends State<AppTextField> {
             textCapitalization: widget.textCapitalization,
             maxLength: widget.maxLength,
             autofocus: widget.autofocus,
+            // Email: niente correzione né suggerimenti. Un indirizzo non ha
+            // spazi, quindi la tastiera lo tratta come una sola parola "in
+            // composizione" e il tocco la seleziona invece di spostare il
+            // cursore tra due caratteri.
+            autocorrect: !_isEmail,
+            enableSuggestions: !_isEmail,
             style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: widget.hintText,
