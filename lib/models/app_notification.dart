@@ -8,6 +8,7 @@ class AppNotification {
     required this.createdAt,
     required this.read,
     this.type,
+    this.reportId,
   });
 
   final String id;
@@ -15,7 +16,12 @@ class AppNotification {
   final String body;
   final DateTime? createdAt;
   final bool read;
+
+  /// `report_cleaned`, `event_reminder`, `nearby_report` (functions/index.js).
   final String? type;
+
+  /// Segnalazione da aprire al tocco, se la notifica ne riguarda una.
+  final String? reportId;
 
   factory AppNotification.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
@@ -31,6 +37,7 @@ class AppNotification {
       createdAt: at,
       read: d['read'] as bool? ?? false,
       type: d['type'] as String?,
+      reportId: d['reportId'] as String?,
     );
   }
 }

@@ -139,6 +139,7 @@ abstract final class AppIcons {
   // ── Impostazioni e aiuto ─────────────────────────────────────────────────
   static const IconData settings = PhosphorIconsRegular.gear;
   static const IconData help = PhosphorIconsRegular.question;
+  static const IconData document = PhosphorIconsRegular.fileText;
   static const IconData info = PhosphorIconsRegular.info;
   static const IconData themeLight = PhosphorIconsRegular.sun;
   static const IconData themeDark = PhosphorIconsRegular.moon;

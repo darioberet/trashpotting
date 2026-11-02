@@ -6,6 +6,7 @@ import 'package:trashpotting_v3/models/app_notification.dart';
 import 'package:trashpotting_v3/repositories/notification_repository.dart';
 import 'package:trashpotting_v3/repositories/user_profile_repository.dart';
 import 'package:trashpotting_v3/screens/notifiche_screen.dart';
+import 'package:trashpotting_v3/widgets/skeleton.dart';
 import 'package:trashpotting_v3/state/app_session.dart';
 
 class _FakeNotificationRepository implements NotificationRepository {
@@ -65,7 +66,7 @@ void main() {
       ),
     );
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(SkeletonList), findsOneWidget);
   });
 
   testWidgets('Notifiche shows empty state when stream emits empty list', (tester) async {

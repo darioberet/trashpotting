@@ -17,6 +17,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
 import '../widgets/app_button.dart';
 import '../widgets/image_source_bottom_sheet.dart';
+import '../widgets/menu_card.dart';
 import '../widgets/tab_header.dart';
 import '../widgets/user_avatar.dart';
 
@@ -315,10 +316,10 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                       },
                     ),
                   const SizedBox(height: 16),
-                  _MenuCard(
+                  MenuCard(
                     children: [
                       if (firebaseReady && userId != null)
-                        _MenuTile(
+                        MenuTile(
                           icon: AppIcons.myReports,
                           label: 'Le mie segnalazioni',
                           bg: AppColors.greenLight,
@@ -326,14 +327,14 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                           onTap: () => context.push(AppRoutes.mieSegnalazioni),
                         ),
                       if (firebaseReady && userId != null && session.isAdmin)
-                        _MenuTile(
+                        MenuTile(
                           icon: AppIcons.shield,
                           label: 'Moderazione',
                           bg: AppColors.blueLight,
                           fg: AppColors.blueText,
                           onTap: () => context.push(AppRoutes.moderazione),
                         ),
-                      _MenuTile(
+                      MenuTile(
                         icon: AppIcons.help,
                         label: 'Aiuto e feedback',
                         bg: AppColors.purpleLight,
@@ -341,7 +342,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                         onTap: () => context.push(AppRoutes.aiutoFeedback),
                       ),
                       if (firebaseReady && userId != null)
-                        _MenuTile(
+                        MenuTile(
                           icon: AppIcons.logout,
                           label: 'Logout',
                           bg: AppColors.yellowLight,
@@ -354,9 +355,9 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                     const SizedBox(height: 12),
                     // Obbligatoria per Google Play: un'app che permette di
                     // creare un account deve permettere di eliminarlo.
-                    _MenuCard(
+                    MenuCard(
                       children: [
-                        _MenuTile(
+                        MenuTile(
                           icon: AppIcons.delete,
                           label: 'Elimina account',
                           bg: AppColors.redLight,
@@ -799,93 +800,6 @@ class _StatsError extends StatelessWidget {
         ),
         TextButton(onPressed: onRetry, child: const Text('Riprova')),
       ],
-    );
-  }
-}
-
-class _MenuCard extends StatelessWidget {
-  const _MenuCard({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(color: AppColors.mintBorder, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: Column(children: children),
-      ),
-    );
-  }
-}
-
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({
-    required this.icon,
-    required this.label,
-    required this.bg,
-    required this.fg,
-    required this.onTap,
-    this.labelColor,
-    this.trailing,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color bg;
-  final Color fg;
-  final Color? labelColor;
-  final VoidCallback? onTap;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 60),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, size: 20, color: fg),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: labelColor ?? AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              trailing ??
-                  const Icon(
-                    AppIcons.chevronRight,
-                    size: 18,
-                    color: AppColors.textDisabled,
-                  ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/legal.dart';
 import '../state/app_session.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
 import '../theme/app_icons.dart';
+import '../widgets/menu_card.dart';
+import '../widgets/tab_header.dart';
 
 class AiutoFeedbackScreen extends StatelessWidget {
   const AiutoFeedbackScreen({super.key});
@@ -15,8 +17,9 @@ class AiutoFeedbackScreen extends StatelessWidget {
     (
       question: 'Come funziona la verifica di una segnalazione?',
       answer:
-          'Ogni nuova segnalazione viene mostrata sulla mappa come "Aperta" dopo un controllo automatico. '
-          'La community può confermare che il rifiuto è ancora presente o segnalarne la rimozione.',
+          'Ogni nuova segnalazione compare subito sulla mappa come "Segnalata". '
+          'Chi passa vicino può confermare che il rifiuto è ancora lì (diventa '
+          '"Aperta") o indicare che non c\'è più.',
     ),
     (
       question: 'Cosa significano gli stati di una segnalazione?',
@@ -71,77 +74,144 @@ class AiutoFeedbackScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Aiuto e feedback')),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Wrap(
-              alignment: WrapAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: () => LegalLinks.open(LegalLinks.privacy),
-                  child: const Text('Informativa privacy'),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const BackHeader(title: 'Aiuto e feedback'),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    24 + MediaQuery.of(context).padding.bottom,
+                  ),
+                  children: [
+                    const SectionLabel('Domande frequenti'),
+                    for (final faq in _faqs) ...[
+                      _FaqCard(question: faq.question, answer: faq.answer),
+                      const SizedBox(height: 10),
+                    ],
+                    const SizedBox(height: 14),
+                    const SectionLabel('Contatti e documenti'),
+                    MenuCard(
+                      children: [
+                        MenuTile(
+                          icon: AppIcons.email,
+                          label: 'Scrivici',
+                          subtitle: 'Dubbi, problemi o idee: rispondiamo noi.',
+                          bg: AppColors.purpleLight,
+                          fg: AppColors.purpleDark,
+                          onTap: () => _writeToUs(context),
+                        ),
+                        MenuTile(
+                          icon: AppIcons.shield,
+                          label: 'Informativa privacy',
+                          bg: AppColors.greenLight,
+                          fg: AppColors.greenDark,
+                          onTap: () => LegalLinks.open(LegalLinks.privacy),
+                        ),
+                        MenuTile(
+                          icon: AppIcons.document,
+                          label: 'Termini d\'uso',
+                          bg: AppColors.greenLight,
+                          fg: AppColors.greenDark,
+                          onTap: () => LegalLinks.open(LegalLinks.terms),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const _AppVersion(),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () => LegalLinks.open(LegalLinks.terms),
-                  child: const Text('Termini d\'uso'),
-                ),
-              ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Domanda frequente: card bianca che si apre al tocco.
+class _FaqCard extends StatelessWidget {
+  const _FaqCard({required this.question, required this.answer});
+
+  final String question;
+  final String answer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(color: AppColors.mintBorder, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Theme(
+        // Niente linee sopra e sotto quando la domanda è aperta.
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          iconColor: AppColors.greenBrand,
+          collapsedIconColor: AppColors.textSecondary,
+          title: Text(
+            question,
+            style: const TextStyle(
+              fontSize: 15,
+              height: 20 / 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
             ),
-            const SizedBox(height: 4),
-            FilledButton.icon(
-              onPressed: () => _writeToUs(context),
-              icon: const Icon(AppIcons.email),
-              label: const Text('Scrivici'),
+          ),
+          children: [
+            Text(
+              answer,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 21 / 14,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: _faqs.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
-        itemBuilder: (context, i) {
-          final faq = _faqs[i];
-          return Container(
-            decoration: BoxDecoration(
-              color: context.palette.surfaceWarm,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              title: Text(
-                faq.question,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: context.palette.textPrimary,
-                ),
-              ),
-              iconColor: AppColors.greenBrand,
-              collapsedIconColor: context.palette.textSecondary,
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    faq.answer,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: context.palette.textSecondary,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+    );
+  }
+}
+
+/// Versione dell'app, utile quando qualcuno ci scrive per un problema.
+class _AppVersion extends StatelessWidget {
+  const _AppVersion();
+
+  // Una sola lettura: ricrearla a ogni build rifarebbe la richiesta.
+  static final _info = PackageInfo.fromPlatform();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: _info,
+      builder: (context, snap) {
+        final info = snap.data;
+        if (info == null) return const SizedBox.shrink();
+        return Text(
+          'Trashpotting ${info.version} (${info.buildNumber})',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12, color: AppColors.textDisabled),
+        );
+      },
     );
   }
 }

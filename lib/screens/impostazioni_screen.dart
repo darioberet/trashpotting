@@ -1,107 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/push_service.dart';
 import '../state/app_session.dart';
 import '../state/theme_controller.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_palette.dart';
-import '../theme/app_theme.dart';
 import '../theme/app_icons.dart';
+import '../theme/app_theme.dart';
+import '../widgets/menu_card.dart';
+import '../widgets/tab_header.dart';
 
 class ImpostazioniScreen extends StatelessWidget {
   const ImpostazioniScreen({super.key});
 
-  static const _options = [
-    (mode: ThemeMode.light, label: 'Chiaro', icon: AppIcons.themeLight),
-    (mode: ThemeMode.dark, label: 'Scuro', icon: AppIcons.themeDark),
-    (
-      mode: ThemeMode.system,
-      label: 'Automatico (di sistema)',
-      icon: AppIcons.themeAuto,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final themeController = ThemeControllerScope.watch(context);
-    final currentMode = themeController.mode;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Impostazioni')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          if (kDarkThemeEnabled) ...[
-            Text(
-              'Aspetto',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: context.palette.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: context.palette.divider, width: 0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final (i, option) in _options.indexed) ...[
-                    if (i > 0)
-                      Divider(height: 1, color: context.palette.divider),
-                    InkWell(
-                      onTap: () => themeController.setMode(option.mode),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              option.icon,
-                              size: 18,
-                              color: context.palette.textSecondary,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                option.label,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: currentMode == option.mode
-                                      ? context.palette.textPrimary
-                                      : context.palette.textSecondary,
-                                  fontWeight: currentMode == option.mode
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              currentMode == option.mode
-                                  ? AppIcons.radioOn
-                                  : AppIcons.radioOff,
-                              size: 18,
-                              color: currentMode == option.mode
-                                  ? AppColors.greenBrand
-                                  : context.palette.textDisabled,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const BackHeader(title: 'Impostazioni'),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    24 + MediaQuery.of(context).padding.bottom,
+                  ),
+                  children: const [
+                    _NotificationsSection(),
+                    // Il tema scuro va rifatto per il redesign: finché è
+                    // bloccato la scelta non compare.
+                    if (kDarkThemeEnabled) ...[
+                      SizedBox(height: 24),
+                      _ThemeSection(),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
-          const _NotificationsSection(),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -117,50 +63,98 @@ class _NotificationsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final uid = AppSessionScope.watch(context).currentUserId;
     if (uid == null) return const SizedBox.shrink();
-    final palette = context.palette;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Notifiche',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: palette.textSecondary,
-          ),
+        const SectionLabel('Notifiche'),
+        MenuCard(
+          children: [
+            StreamBuilder<bool>(
+              stream: PushService.instance.watchNearbyEnabled(uid),
+              builder: (context, snap) {
+                final enabled = snap.data ?? true;
+                void toggle() =>
+                    PushService.instance.setNearbyEnabled(uid, !enabled);
+                return MergeSemantics(
+                  child: MenuTile(
+                    icon: AppIcons.nearMe,
+                    label: 'Nuove segnalazioni vicino a me',
+                    subtitle:
+                        'Al massimo una al giorno, entro 5 km dall\'ultima '
+                        'posizione in cui hai aperto l\'app.',
+                    bg: AppColors.greenLight,
+                    fg: AppColors.greenDark,
+                    onTap: snap.hasData ? toggle : null,
+                    trailing: Switch(
+                      value: enabled,
+                      onChanged: snap.hasData ? (_) => toggle() : null,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: palette.divider, width: 0.5),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: StreamBuilder<bool>(
-            stream: PushService.instance.watchNearbyEnabled(uid),
-            builder: (context, snap) => SwitchListTile(
-              value: snap.data ?? true,
-              onChanged: snap.hasData
-                  ? (v) => PushService.instance.setNearbyEnabled(uid, v)
-                  : null,
-              secondary: const Icon(AppIcons.nearMe, size: 20),
-              title: Text(
-                'Nuove segnalazioni vicino a me',
-                style: TextStyle(fontSize: 13, color: palette.textPrimary),
-              ),
-              subtitle: Text(
-                'Al massimo una al giorno, entro 5 km dall\'ultima posizione '
-                'in cui hai aperto l\'app.',
-                style: TextStyle(fontSize: 12, color: palette.textSecondary),
-              ),
+        const SizedBox(height: 10),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            'Ricevi sempre le notifiche quando una tua segnalazione viene '
+            'ripulita e il giorno prima degli eventi a cui partecipi. Puoi '
+            'disattivare tutte le notifiche dalle impostazioni di Android.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 19 / 13,
+              color: AppColors.textSecondary,
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'Ricevi sempre le notifiche quando una tua segnalazione viene '
-          'ripulita e il giorno prima degli eventi a cui partecipi. Puoi '
-          'disattivare tutte le notifiche dalle impostazioni di Android.',
-          style: TextStyle(fontSize: 12, color: palette.textSecondary),
+      ],
+    );
+  }
+}
+
+class _ThemeSection extends StatelessWidget {
+  const _ThemeSection();
+
+  static const _options = [
+    (mode: ThemeMode.light, label: 'Chiaro', icon: AppIcons.themeLight),
+    (mode: ThemeMode.dark, label: 'Scuro', icon: AppIcons.themeDark),
+    (
+      mode: ThemeMode.system,
+      label: 'Automatico (di sistema)',
+      icon: AppIcons.themeAuto,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ThemeControllerScope.watch(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionLabel('Aspetto'),
+        MenuCard(
+          children: [
+            for (final option in _options)
+              MenuTile(
+                icon: option.icon,
+                label: option.label,
+                bg: AppColors.yellowLight,
+                fg: AppColors.yellowText,
+                onTap: () => controller.setMode(option.mode),
+                trailing: Icon(
+                  controller.mode == option.mode
+                      ? AppIcons.radioOn
+                      : AppIcons.radioOff,
+                  size: 20,
+                  color: controller.mode == option.mode
+                      ? AppColors.greenBrand
+                      : AppColors.textDisabled,
+                ),
+              ),
+          ],
         ),
       ],
     );
