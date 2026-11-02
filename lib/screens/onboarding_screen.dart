@@ -375,8 +375,8 @@ class _IllustratedPage extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 28,
                       height: 34 / 28,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -1,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
                       color: AppColors.textPrimary,
                     ),
                   ),
@@ -479,7 +479,7 @@ class _PointsTiles extends StatelessWidget {
             style: TextStyle(
               fontSize: 24,
               height: 1.15,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: strong ? AppColors.onYellow : AppColors.yellowText,
             ),
           ),
@@ -650,8 +650,8 @@ class _ProfilePage extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 28,
                     height: 34 / 28,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -1,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
                     color: AppColors.textPrimary,
                   ),
                 ),
@@ -731,7 +731,7 @@ class _ProfilePage extends StatelessWidget {
                                 text: '0',
                                 style: TextStyle(
                                   fontSize: 20,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w800,
                                   color: AppColors.greenBrand,
                                 ),
                               ),

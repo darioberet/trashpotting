@@ -409,8 +409,8 @@ class _PodiumSlot extends StatelessWidget {
                           style: TextStyle(
                             fontSize: first ? 30 : 24,
                             height: 32 / 30,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -1,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
                             color: fg,
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
@@ -429,7 +429,7 @@ class _PodiumSlot extends StatelessWidget {
                           '${entry.rank}°',
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w800,
                             color: fg.withAlpha(140),
                           ),
                         ),
@@ -547,8 +547,8 @@ class _Points extends StatelessWidget {
             text: '$points',
             style: TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.25,
               color: color,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
@@ -612,7 +612,7 @@ class _MyRow extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.onYellow,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),

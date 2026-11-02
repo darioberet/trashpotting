@@ -251,8 +251,8 @@ class IllustratedMessage extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 26,
                               height: 32 / 26,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.45,
                               color: AppColors.textPrimary,
                             ),
                           ),

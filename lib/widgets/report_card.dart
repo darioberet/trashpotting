@@ -223,7 +223,7 @@ class ReportCard extends StatelessWidget {
                               fontSize: 22,
                               height: 24 / 22,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: -0.6,
+                              letterSpacing: -0.3,
                               color: AppColors.yellowText,
                               fontFeatures: [FontFeature.tabularFigures()],
                             ),

@@ -285,7 +285,7 @@ class _StatTile extends StatelessWidget {
                       fontSize: 22,
                       height: 26 / 22,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
+                      letterSpacing: -0.3,
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),

@@ -837,7 +837,7 @@ class _ReportListPanel extends StatelessWidget {
                           title,
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontSize: 22,
-                            letterSpacing: -0.5,
+                            letterSpacing: -0.25,
                           ),
                         ),
                       ),
@@ -977,8 +977,8 @@ class _CleanupNudge extends StatelessWidget {
               '+${count * pointsPerCleanup}',
               style: const TextStyle(
                 fontSize: 26,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
                 color: AppColors.yellow,
               ),
             ),

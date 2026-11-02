@@ -418,8 +418,8 @@ class _AuthHero extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 34,
                         height: 40 / 34,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1.2,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
                         color: Colors.white,
                       ),
                     ),

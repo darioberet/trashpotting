@@ -327,7 +327,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                         fontSize: 22,
                                         height: 28 / 22,
                                         fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.4,
+                                        letterSpacing: -0.2,
                                         color: AppColors.textPrimary,
                                       ),
                                     ),

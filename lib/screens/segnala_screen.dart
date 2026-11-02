@@ -366,7 +366,7 @@ class _SegnalaScreenState extends State<SegnalaScreen> {
                                         fontSize: 26,
                                         height: 32 / 26,
                                         fontWeight: FontWeight.w800,
-                                        letterSpacing: -0.8,
+                                        letterSpacing: -0.4,
                                         color: AppColors.textPrimary,
                                       ),
                                     ),
