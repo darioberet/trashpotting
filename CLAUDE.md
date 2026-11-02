@@ -19,7 +19,7 @@ Hosting già online (pagine legali + app web su `/app/`): prima di ogni
 `firebase deploy --only hosting` rilanciare `node tool/build_web.js`.
 
 ## Comandi
-- `flutter analyze` · `flutter test` (31 test, devono passare) · web: `node tool/build_web.js` (→ `hosting/app`)
+- `flutter analyze` · `flutter test` (39 test, devono passare) · web: `node tool/build_web.js` (→ `hosting/app`)
 - `dart format <file>` solo sui file toccati, mai su intere cartelle
   (`lib/`, `test/`): riformatta file non toccati.
 - Icone: `dart run flutter_launcher_icons` · Splash:
@@ -70,6 +70,7 @@ c'è Node.
   per lo più scritte nei singoli widget (`fontSize`).
 - Componenti: `AppButton` (a rilievo), `AppTextField`, `TabHeader`,
   `BackHeader`, `ReportCard`, `UserAvatar`, `IllustratedMessage`,
-  `Skeleton`. Riutilizzarli invece di crearne di nuovi.
+  `Skeleton`, `MenuCard`/`MenuTile`/`SectionLabel` (liste di voci),
+  `StateMessage` (vuoto/errore con "Riprova"). Pesi max `w800`. Riutilizzarli invece di crearne di nuovi.
 - Il telefono dell'utente ha testo al 130%: evitare altezze fisse sul testo
   (usare `minHeight`), rischio overflow.
