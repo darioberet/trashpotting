@@ -57,3 +57,4 @@ ui-debug.log
 # App web generata da tool/build_web.js
 /hosting/app/
 /hosting/firebase-messaging-sw.js
+/.firebase/
