@@ -13,8 +13,10 @@ funzionalità: `docs/FUNZIONALITA.md` (lunga, leggerla solo se serve).
 - Lingua dell'utente e dei commenti nel codice: italiano.
 - Non eliminare gli account di test (`polivastro123+7..+11@gmail.com`) né
   l'account admin `polivastro123@gmail.com`.
-- Passi finali, in quest'ordine e solo quando l'utente lo dice: pulizia dati
-  di test → merge su main → Play Console → App Check (ora risponde 403, è previsto) → test chiuso.
+- Passi finali, in quest'ordine e solo quando l'utente lo dice (pulizia dati
+  di test fatta il 2026-11-02, funzioni e regole pubblicate): merge su main →
+  Play Console → App Check (ora risponde 403, è previsto) → test chiuso →
+  ambiente `trashpotting-dev` durante il test chiuso.
 
 Hosting già online (pagine legali + app web su `/app/`): prima di ogni
 `firebase deploy --only hosting` rilanciare `node tool/build_web.js`.
